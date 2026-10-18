@@ -1,0 +1,76 @@
+{
+ "pdf": "../plans/progress-set.pdf",
+ "pt_per_unit": 9.0,
+ "origin": [
+  300.0,
+  300.0
+ ],
+ "new_fill": 0.754,
+ "existing_width": [
+  1.15,
+  1.5
+ ],
+ "pair_gap": [
+  2.0,
+  8.5
+ ],
+ "post_min": 2.0,
+ "swing_width": 0.24,
+ "leaf_width": 0.48,
+ "leaf_gap": [
+  0.9,
+  1.7
+ ],
+ "leaf_len": [
+  8.0,
+  29.0
+ ],
+ "min_piece": [
+  4.0,
+  7.2
+ ],
+ "exclude_x_min": null,
+ "anchor_y": null,
+ "leaf_exclude": [
+  [
+   400.0,
+   100.0,
+   440.0,
+   160.0
+  ]
+ ],
+ "sheets": [
+  {
+   "page": 0,
+   "region": [
+    100,
+    50,
+    700,
+    320
+   ],
+   "property_y": [
+    60.0,
+    300.0
+   ],
+   "out": "level1_walls.json"
+  },
+  {
+   "page": 1,
+   "region": [
+    100,
+    50,
+    700,
+    320
+   ],
+   "shift": [
+    40.0,
+    -12.0
+   ],
+   "property_y": [
+    60.0,
+    300.0
+   ],
+   "out": "level2_walls.json"
+  }
+ ]
+}
