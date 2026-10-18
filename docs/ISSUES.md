@@ -4,12 +4,16 @@ State of the blender-architectural-renders skill: open bugs, planned work, next 
 
 ## Bugs
 
+- [ ] No test checks the font `compose.py` loads. With `font()` returning `None`, Pillow falls back to its default font and the suite still passes 37 of 37 (import check, 2026-10-17). Cosmetic.
+
 ## Planned
 
-- [ ] Receive the design contract (`dev/features/`) and review inputs (`dev/inputs/`) from the development session.
+- [x] Receive the design contract (`dev/features/`) and review inputs (`dev/inputs/`) from the development session (resolved 2026-10-17): moved in unedited; three stale paths fixed.
 - [ ] Release and install v1.0.0 (skill-developer migration step 5).
 
 ## Next steps
+
+- Import check (2026-10-17): suite 37 of 37 in this repo. With `set_units("ft")` broken to 0.3 in a copy of `scripts/`, 8 of 37 steps fail (`bl_helpers`, `bl_mannequin`, `bl_rev2`, `bl_rev3`).
 
 ## Open questions
 
