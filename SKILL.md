@@ -14,7 +14,7 @@ One Python script builds the whole scene, and Blender renders it headless. Optio
 - Keep `--python-exit-code 1`. Without it, a script exception still exits 0 and looks like success.
 - Render one view per Blender run. A view changes visibility, scale, and lighting for the rest of the process.
 - Do not use the `/usr/local/bin/blender` symlink. Blender cannot find its bundled Python through it and crashes.
-- The scripts target Blender 5.2 LTS with Cycles on Metal. Inside Blender, only `bpy`, `bmesh`, and `mathutils` exist (no numpy).
+- The scripts target Blender 5.2 LTS with Cycles on Metal. Inside Blender, `bpy`, `bmesh`, `mathutils`, and `numpy` exist. Other packages come only with an extension.
 - Run plain-Python scripts through uvx, with no installs: `uvx --with pillow python -I script.py`.
 - Add `--with pymupdf` for `extract_plan.py`.
 - uvx needs uv installed, and network on first use. Without them, run `python3 -I script.py` with a system Pillow.
@@ -125,9 +125,24 @@ Run these; do not read them into context. Look up signatures in [reference/api.m
 | `extract_plan.py` | uvx pymupdf | Walls, door swings, and leaves from a plan PDF's vector linework |
 | `sheets.py` | uvx pillow | Construction sheets, dimension lines, tile packing, rounding check |
 
+## Extensions
+
+Read [reference/extensions.md](reference/extensions.md) before you install or use an extension.
+
+| Extension | Use it for |
+|---|---|
+| Bonsai (includes IfcOpenShell) | Walls, doors, and windows as IFC objects; plans and sections from the model; IFC files for architects |
+| Sun Position | The sun from the site's latitude, longitude, date, and time |
+| Point Cloud I/O | LiDAR scans (LAS, LAZ, E57, PLY) in the scene, to check the model against the site |
+| CAD2Cube, Export AutoCAD DXF | DXF from or to an architect's CAD files (install only when needed) |
+
+- Install an extension once per machine. Do not enable it in the user's preferences.
+- Enable the extension inside each run that needs it.
+
 ## Reference
 
 - Plan input from a PDF or from measurements: [reference/plan-input.md](reference/plan-input.md)
 - Perspective views, plan cuts, overlays, labels: [reference/views.md](reference/views.md)
 - Option studies, study pages, the figure, textures: [reference/studies.md](reference/studies.md)
 - Construction sheets and tile cutting plans: [reference/construction-sheets.md](reference/construction-sheets.md)
+- Extensions (Bonsai and IfcOpenShell, Sun Position, Point Cloud I/O, DXF): [reference/extensions.md](reference/extensions.md)

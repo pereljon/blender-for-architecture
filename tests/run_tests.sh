@@ -77,6 +77,7 @@ blender_test bl_render
 blender_test bl_rev2
 blender_test bl_rev3
 blender_test bl_rev4
+blender_test bl_extensions
 expect_line bl_render:DONE-persp "$OUT/bl_render.log" "^DONE $OUT/render_persp.png\$"
 expect_line bl_render:DONE-plan "$OUT/bl_render.log" "^DONE $OUT/render_plan.png\$"
 
@@ -118,6 +119,8 @@ step test_extract 300 uvx --with pillow --with pymupdf python -I "$HERE/test_ext
 expect_line test_extract:finished "$OUT/test_extract.log" "^TESTPASS test_extract\$"
 step test_api_doc 60 python3 -I "$HERE/test_api_doc.py"
 expect_line test_api_doc:finished "$OUT/test_api_doc.log" "^TESTPASS test_api_doc\$"
+step test_extensions_doc 60 python3 -I "$HERE/test_extensions_doc.py"
+expect_line test_extensions_doc:finished "$OUT/test_extensions_doc.log" "^TESTPASS test_extensions_doc\$"
 
 echo
 echo "${#PASSED[@]} passed, ${#FAILED[@]} failed"

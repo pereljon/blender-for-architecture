@@ -198,3 +198,12 @@ Tests (test author):
 - T15 Keep-in-step: every `bpy.ops` name and `sun_pos_properties` field in `reference/extensions.md` appears in T13's check list (plain Python, like `test_api_doc.py`).
 
 Evals: one fresh subagent, skill not named: "Write an IFC of a two-room plan from these dimensions for the architect, and a plan drawing from it."
+
+### Revision 5 results (2026-10-19)
+
+- D1-D4 applied by a sonnet subagent; T13-T15 written by a separate sonnet subagent (`tests/extensions_names.py`, `tests/bl_extensions.py`, `tests/test_extensions_doc.py`). `bl_extensions` skips with `SKIP` when an extension is missing (`EXT_FORCE_MISSING` forces it).
+- Sun Position: in a background run, setting `time` turns the sun object at once (2.885 rad between 09:00 and 15:00).
+- Mutation check: with one importer removed from `reference/extensions.md`, `test_extensions_doc` fails.
+- Suite: 41 passed, 0 failed.
+- Eval 1 (fresh sonnet subagent, skill read by path, no Skill call): IFC of a two-room plan exact to 0.0 ft; it skipped Bonsai because the prompt barred installs and the doc gave no way to see what is installed. Fixed: `-c extension list`, numpy for IfcOpenShell scripts, metres back to feet, corner rule.
+- Eval 2 (same setup, installed extensions allowed per run): IFC within 0.001 ft; Bonsai plan SVG generated headless, wall outline 24 by 14 ft at 1:100, checked by eye. Fixed: drawing file name, plan off-centre on the sheet (crop before review), centreline placement.

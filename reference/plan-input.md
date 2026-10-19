@@ -19,6 +19,7 @@ At 1/8" = 1'-0", `pt_per_unit` is 9.0 points per foot. Every office draws walls 
 ### What extraction misses
 
 - Angled walls and some outside walls. Add them in `EXTRA_WALLS`, or as `seg()` calls for angled walls.
+- Short wall pieces where one wall meets another. Check each junction, and add a missing piece in the correction block.
 - Stray pieces in doorways and jamb fragments. The config's `min_piece` drops most of them; `cut_openings` trims the rest.
 
 ### The correction layer
@@ -40,6 +41,8 @@ walls = fix_walls(walls, WALL_FIXES, WALL_REPLACE) + extra_walls(EXTRA_WALLS)
 walls = cut_openings(walls, OPENINGS)
 walls_from_plan(walls, 0.0, CEIL, wall_mat)
 ```
+
+When you shift walls to match site measurements, shift the door swings and leaves in the same region. Otherwise the leaves are trimmed away as if inside a wall.
 
 `extra_walls` turns the `EXTRA_WALLS` tuples into the same wall records that `load_plan` returns.
 
