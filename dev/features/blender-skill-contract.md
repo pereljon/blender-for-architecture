@@ -181,3 +181,20 @@ Docs (development session): views.md (clip renders cut objects as dark sections,
 ### Revision 4 results (2026-10-17)
 
 - R21 implemented; `Object.visible_camera` verified on Blender 5.2.0 LTS. T11 and T12 in `tests/bl_rev4.py`; `bl_helpers.py:302` updated from the old perspective-hide assertion to the R21 behavior. Mutation check: reverting R21 fails T11. Docs applied. Suite: 37 passed, 0 failed.
+
+## Revision 5 (2026-10-19, extensions; proposed by render project B, taken on by the user's decision)
+
+Source: `../inputs/2026-10-19-extensions-proposal.md`. Verified in skill-developer on 2026-10-19: Blender 5.2.0 LTS ships numpy 2.3.4; bonsai, sun_position, and point_cloud_io are installed; with each enabled per run (`default_set=True`), IfcOpenShell 0.9.0.post1 imports, and every operator and property the draft names exists.
+
+Docs:
+- D1 SKILL.md Environment: Blender ships numpy; other packages come only with an extension. The helpers stay numpy-free.
+- D2 SKILL.md: an Extensions section after Scripts (the draft's table and two rules), and a Reference line for `reference/extensions.md`.
+- D3 `reference/extensions.md` from the draft, with three changes: state the Sun Position background update as T14 finds it; drop the unverified DWG converter and say "No extension reads DWG; ask for a DXF. When no CAD file is shared, use the PDF extraction in `plan-input.md`"; write the per-run command with `$BLENDER`, defined once.
+- D4 `reference/plan-input.md`: the extraction can miss short wall pieces where walls meet; when walls shift to match site measurements, shift the door swings and leaves in that region too.
+
+Tests (test author):
+- T13 `tests/bl_extensions.py`, an optional step. When bonsai, sun_position, or point_cloud_io is not installed, print `SKIP` and pass. Otherwise enable each with `default_set=True`, import ifcopenshell, check every operator and property named in `reference/extensions.md`, write a two-wall IFC (one east-west, one north-south) from feet by the recipe, and check each wall's world bounding box against the source within 0.01 ft. Then load the IFC in Bonsai, generate a plan drawing headless, and check an SVG appears in `drawings/`.
+- T14 Sun Position in a background run: set latitude, longitude, date, and a `sun_object`; the sun's rotation differs between 09:00 and 15:00.
+- T15 Keep-in-step: every `bpy.ops` name and `sun_pos_properties` field in `reference/extensions.md` appears in T13's check list (plain Python, like `test_api_doc.py`).
+
+Evals: one fresh subagent, skill not named: "Write an IFC of a two-room plan from these dimensions for the architect, and a plan drawing from it."
