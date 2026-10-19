@@ -1,5 +1,4 @@
 """Blender test: extensions (T13, T14) from the scripts contract. Skips when an extension is not installed."""
-import glob
 import os
 import sys
 import time
@@ -17,21 +16,23 @@ FT = 0.3048
 
 
 def enable_all():
-    """Enable each extension for this run; return the ids that could not be enabled."""
+    """Enable each installed extension for this run; return the ids that are not installed.
+    addon_utils.enable returns None for both a missing module and a failed import, so install is decided separately."""
     import addon_utils
     forced = [x for x in os.environ.get("EXT_FORCE_MISSING", "").split(",") if x]
+    installed = {m.__name__ for m in addon_utils.modules()}
     missing = []
     for ext in EXTENSIONS:
-        if ext in forced:
+        mod = f"bl_ext.blender_org.{ext}"
+        if ext in forced or mod not in installed:
             missing.append(ext)
             continue
         try:
-            ok = addon_utils.enable(f"bl_ext.blender_org.{ext}", default_set=True)
+            ok = addon_utils.enable(mod, default_set=True)
         except Exception as e:
             print(f"  enable {ext} raised {e!r}")
             ok = None
-        if ok is None:
-            missing.append(ext)
+        check(ok is not None, f"extension {ext} is installed and enables")
     return missing
 
 
@@ -112,6 +113,7 @@ def t13b(ifc):
     write_ifc(ifc)
     check(os.path.isfile(ifc), "T13b IFC file written")
     f = ifcopenshell.open(ifc)
+    check(len(f.by_type("IfcWall")) == 2, f"T13b IFC has exactly 2 IfcWall (found {len(f.by_type('IfcWall'))})")
     for w in f.by_type("IfcWall"):
         src = EW_BOX if w.Name == "ew" else NS_BOX
         lo, hi = world_box_ft(f, w)
@@ -136,12 +138,10 @@ def t13c(ifc, started):
     bpy.ops.bim.activate_drawing(drawing=dwgs[0].id())
     bpy.ops.bim.create_drawing()
     bpy.ops.bim.save_project(filepath=ifc)
-    svgs = [p for p in glob.glob(os.path.join(os.path.dirname(ifc), "**", "*.svg"), recursive=True)
-            if os.path.getmtime(p) >= started]
-    check(len(svgs) >= 1, "T13c an SVG newer than the run start exists beside the IFC")
-    for p in svgs:
-        print("  svg", os.path.relpath(p, tcommon.OUT))
-        check(os.path.getsize(p) > 0, f"T13c {os.path.basename(p)} is not empty")
+    svg = os.path.join(os.path.dirname(ifc), "drawings", "LEVEL 1 PLAN.svg")
+    if check(os.path.isfile(svg), "T13c drawings/LEVEL 1 PLAN.svg exists beside the IFC"):
+        check(os.path.getmtime(svg) >= started, "T13c LEVEL 1 PLAN.svg is newer than the run start")
+        check(os.path.getsize(svg) > 0, "T13c LEVEL 1 PLAN.svg is not empty")
 
 
 # ---------------------------------------------------------------- T14: Sun Position
@@ -168,7 +168,13 @@ def t14():
 def main():
     missing = enable_all()
     if missing:
-        print(f"SKIP extensions not installed: {', '.join(missing)}")
+        if os.environ.get("EXT_REQUIRED") == "1":
+            check(False, f"extensions not installed (EXT_REQUIRED=1): {', '.join(missing)}")
+        else:
+            print(f"SKIP extensions not installed: {', '.join(missing)}")
+        finish(NAME)
+        return
+    if tcommon.FAILURES:
         finish(NAME)
         return
     started = time.time() - 1

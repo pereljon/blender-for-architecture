@@ -10,6 +10,7 @@ State of the blender-architectural-renders skill: open bugs, planned work, next 
 
 - [x] Receive the design contract (`dev/features/`) and review inputs (`dev/inputs/`) from the development session (resolved 2026-10-17): moved in unedited; three stale paths fixed.
 - [ ] Release and install v1.0.0 (skill-developer migration step 5).
+- [ ] Revision 5, before release: DWG route (tool to be chosen by the user); write the IFC from the scene script's wall records; Sun Position mapped to `bhelpers.sun()` with a solar-noon test; description covers IFC, scan, and sun tasks, with a discovery eval and a negative case; drawing geometry check; keep-in-step for extension ids and `ifcopenshell.api` names; re-run the evals. Details: contract, "Revision 5 review findings".
 
 ## Next steps
 

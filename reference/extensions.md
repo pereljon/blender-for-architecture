@@ -7,19 +7,22 @@ In the commands below, `$BLENDER` is the full Blender path from SKILL.md Environ
 ## Install and enable
 
 - To see what is installed, run `"$BLENDER" -c extension list`. An installed extension shows `[installed]`.
-- If it is not installed, install it from the command line: `"$BLENDER" -c extension install bonsai,sun_position,point_cloud_io`.
+- Before you install or sync anything, ask the user. Name each extension and its download size; Bonsai is about 140 MB.
+- After the user agrees, install from the command line: `"$BLENDER" -c extension install bonsai,sun_position,point_cloud_io`.
 - If the install cannot find a package, run `"$BLENDER" -c extension sync` first.
 - Install without `-e`. An enabled extension loads in every Blender session, including the user's own.
 - Enable the extension per run, before the scene script:
 
 ```
 "$BLENDER" --factory-startup -b --python-exit-code 1 \
-  --python-expr "import addon_utils; addon_utils.enable('bl_ext.blender_org.bonsai', default_set=True)" \
+  --python-expr "import addon_utils; assert addon_utils.enable('bl_ext.blender_org.bonsai', default_set=True)" \
   -P script.py -- args
 ```
 
 - The module name is `bl_ext.blender_org.<id>`.
 - Pass `default_set=True`. Without it, Bonsai fails with a KeyError when it reads its own preferences.
+- Keep the `assert`. A failed enable only prints an error, and the scene script would run without the extension.
+- A per-run enable does not change the saved preferences. Bonsai still adds each IFC it opens to its recent-projects list.
 
 ## Bonsai and IfcOpenShell
 
@@ -52,10 +55,9 @@ Use `ifcopenshell.api.run`, in this order:
 - Convert feet to metres (multiply by 0.3048) before you pass a length.
 - Pass `is_si=True` to `geometry.edit_object_placement`.
 - `add_wall_representation` draws the profile along local +x, with the thickness along local +y.
-- For a wall that runs north-south, rotate the placement 90 degrees, and place it at the wall's east face.
+- For a wall that runs north-south, rotate the placement 90 degrees counter-clockwise, and place it at the wall's east face. The thickness then runs west from the placement.
 - When a wall is given by its centreline, offset the placement by half its thickness.
 - At a corner, run the east-west walls the full outer length. Run the north-south walls between their inside faces, so no two walls overlap.
-- The thickness then runs west from the placement.
 - Use `add_wall_representation` for posts and beams too, as a box.
 - After you write the file, compare each element's world bounding box with the source.
 - Use `ifcopenshell.geom.create_shape` with the `use-world-coords` setting.
@@ -102,6 +104,7 @@ Not yet verified headless: doors and windows in openings, dimensions and labels,
 - The other importers are `bpy.ops.import_scene.point_cloud_e57`, `bpy.ops.import_scene.point_cloud_ply`, `bpy.ops.import_scene.point_cloud_pcd`, `bpy.ops.import_scene.point_cloud_pts`, and `bpy.ops.import_scene.point_cloud_xyz`.
 - The LAS importer takes `import_colors`, `import_intensity`, `import_classification`, `center_on_origin`, `scale_factor`, and `point_radius`.
 - Phone scans (Scaniverse) come in metres, in UTM coordinates, each with its own heading and height datum.
+- The LAS importer centers each scan on the origin by default (`center_on_origin`). Record each scan's offset, or turn it off, before you align scans with each other.
 - Rotate and offset each scan onto the model before you compare.
 - For flat slices and measured profiles, use laspy outside Blender: `uvx --with laspy --with numpy`.
 
@@ -115,4 +118,4 @@ DXF extensions are not installed by default. Install one only when a project exc
 - To export Blender geometry as DXF R12, install `export_autocad_dxf_format_dxf`.
 - To send drawings as DXF, prefer writing them with ezdxf from Python: `uvx --with ezdxf`.
 - ezdxf writes layers, text, and dimensions.
-- No extension reads DWG. Ask the architect for a DXF. When no CAD file is shared, use the PDF extraction in [plan-input.md](plan-input.md).
+- An architect may send DWG, DXF, or only a PDF. When only a PDF comes, use the PDF extraction in [plan-input.md](plan-input.md).

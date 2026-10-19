@@ -78,6 +78,12 @@ blender_test bl_rev2
 blender_test bl_rev3
 blender_test bl_rev4
 blender_test bl_extensions
+SKIPS=""
+SKIP_LINE="$(grep -m1 '^SKIP' "$OUT/bl_extensions.log")"
+if [ -n "$SKIP_LINE" ]; then
+    echo "$SKIP_LINE"
+    SKIPS=" (1 skipped: bl_extensions: ${SKIP_LINE#SKIP })"
+fi
 expect_line bl_render:DONE-persp "$OUT/bl_render.log" "^DONE $OUT/render_persp.png\$"
 expect_line bl_render:DONE-plan "$OUT/bl_render.log" "^DONE $OUT/render_plan.png\$"
 
@@ -123,7 +129,7 @@ step test_extensions_doc 60 python3 -I "$HERE/test_extensions_doc.py"
 expect_line test_extensions_doc:finished "$OUT/test_extensions_doc.log" "^TESTPASS test_extensions_doc\$"
 
 echo
-echo "${#PASSED[@]} passed, ${#FAILED[@]} failed"
+echo "${#PASSED[@]} passed, ${#FAILED[@]} failed$SKIPS"
 if [ "${#FAILED[@]}" -gt 0 ]; then
     printf 'FAILED: %s\n' "${FAILED[@]}"
     exit 1
