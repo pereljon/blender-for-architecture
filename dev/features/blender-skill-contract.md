@@ -450,6 +450,25 @@ Verified with a prototype of the revised functions (uvx, outside the repo) on th
 
 C2 first, if approved. Then T21 to T27 and T29 by the test author, on branch `rev5b` (they fail as stated). Then R33. Then D13 to D20, with D18 written from T29's output. Then the suite, the mutation checks, and E3 to E7. Then the pre-merge review, merge, and the v1.0.0 release with the discovery eval after install. Each finished item is ticked in skill `docs/ISSUES.md` under the Revision 5 line; a fresh session reads that line, this section, and `git log` on the branch.
 
+### Revision 5b pre-merge review (2026-10-21, opus, at `2009477`)
+
+Suite 54 of 54 with all three extensions. All nine mutants killed (the missing-unit mutant only by T21's unit check, not the read-back). SVG parsing refused a billion-laughs file and an external entity (expat 2.7.4 and 2.7.5). DXF fully removed from shipped files. Verdict: merge after I1; M1 to M3 worth fixing before v1.0.0. Resolutions wait for the user.
+
+- I1 Important. `extensions.md:57` says to pass the scene's `walls` list, and `:60` says to add posts and beams as records in it; `walls_from_plan` ignores `z0`, `z1`, and `ifc_class` (`bhelpers.py:753-755`), so a beam renders as a full-height wall, and a record placed before the walls shifts every `wall_k` name. Proposed: append post and beam records after the wall records, in a list passed only to `write_walls_ifc`, and build them in the scene with `box()`.
+- M1. The GlobalId pattern also matches 22-character class names (`IfcBuildingElementPart`, probe). Proposed: `[0-3][0-9A-Za-z_$]{21}`.
+- M2. `check_drawing` raises `TypeError` for an element with no name (probe). Proposed: `el.Name or el.GlobalId`.
+- M3. A rotated drawing camera gives `ZeroDivisionError` in `drawing_walls` (probe). Proposed: `ValueError` unless the matrix has no rotation.
+- M4. Zero-thickness records write silently; zero length or height raise `RuntimeError`; `kind="New"` gets no Status. Proposed: `ValueError` naming the record for any extent of 0 or less.
+- M5. `check_drawing` expects every `IfcElement` with a body to be cut, so added openings would read as missing. Proposed: a doc line that the check covers what `write_walls_ifc` writes.
+- M6. `extensions.md:125` names the easting for the 0.125 m error; it comes from the northing (float32 spacing 0.25 m there).
+- M7. `extensions.md:124`: adding `las_origin_offset` back holds only at `scale_factor` 1.
+- M8. `extensions.md:3` versions line omits Sun Position 4.4.0 and Point Cloud I/O 0.6.0.
+- M9. `SKILL.md:165` says not to read scripts into context; `extensions.md:62` says to read `ifc_walls.py` as the recipe.
+- M10. If one extension is declined at install, the "all three" assert fails every extension run; the doc gives no way out. Needs a decision.
+- M11. `CHANGELOG.md:11` still describes the old two-wall test; a blank line at `:19` splits the Added list.
+- M12. The Revision 5 items in `docs/ISSUES.md` are not ticked; `README.md:48` omits `ifc_walls.py` from the uvx scripts.
+- Unverified, for information: the storey has no placement or elevation (no Revit or ArchiCAD import tested); drawing scales other than 1:100 are checked only by hand-written SVG.
+
 ## Revision 6 (2026-10-20, phantom geometry defects; requested by render project B, approved by the user)
 
 Source: `../inputs/2026-10-20-phantom-defects.md`. Decision: skill `docs/ISSUES.md`, Decisions, 2026-10-20. Investigated against this repo at `6cf8009` and Blender 5.2.0 LTS, and against render project B's build script and README (read-only, the two files the user named).
