@@ -9,10 +9,28 @@ import os
 
 FONTS = ("/System/Library/Fonts/Supplemental/Arial.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
          "/System/Library/Fonts/Helvetica.ttc")
-PAGE = (3300, 2340)                 # A3 landscape at about 200 dpi
-S = PAGE[0] / 420                   # px per mm at 1:1 on A3; a drawing at 1:n uses S / n
+DPI = 200
+PAPERS = {"letter": (279.4, 215.9), "tabloid": (431.8, 279.4), "arch-c": (609.6, 457.2),
+          "arch-d": (914.4, 609.6), "a4": (297, 210), "a3": (420, 297)}   # landscape mm
+PAGE = (3400, 2200)                 # set by set_paper: sheet size in px
+S = PAGE[0] / 431.8                 # set by set_paper: px per mm at 1:1; a drawing at 1:n uses S / n
 INK, DIM = (25, 25, 25), (60, 60, 60)
 _fonts = {}
+
+
+def set_paper(name):
+    """Set the sheet size by name from PAPERS (case-insensitive); returns PAGE. Call before creating a Sheet."""
+    global PAGE, S
+    key = str(name).lower()
+    if key not in PAPERS:
+        raise ValueError(f"unknown paper {name!r}; choose one of {', '.join(PAPERS)}")
+    w, h = PAPERS[key]
+    PAGE = (round(w * DPI / 25.4), round(h * DPI / 25.4))
+    S = PAGE[0] / w
+    return PAGE
+
+
+set_paper("tabloid")
 
 
 def font(size, bold=False):
@@ -47,7 +65,7 @@ def check_rounding(values, step):
 
 
 class Sheet:
-    """A3 sheet with title, subtitle, page number and footer. Labels are parameters so any language works.
+    """Sheet of the current paper size (PAGE) with title, subtitle, page number and footer. Labels are parameters so any language works.
 
     Save each sheet as PNG, look at it for overlapping labels, then join the PNGs with save_pdf.
     """

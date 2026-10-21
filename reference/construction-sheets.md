@@ -18,7 +18,7 @@ Pieces are written in project units. `items_from_pieces(path, unit=U)` reads the
 
 ## Drawing a sheet
 
-`sheets.py` holds the drawing kit. A sheet is A3 landscape at about 200 dpi.
+`sheets.py` holds the drawing kit. A sheet is US Tabloid (11 x 17 in) landscape at 200 dpi. Call `set_paper(name)` before the first `Sheet` to pick another size. Use `set_paper("a3")` for metric projects. The names are in `PAPERS`.
 
 ```python
 from sheets import Sheet, Draw, save_pdf

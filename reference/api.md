@@ -140,12 +140,15 @@ Plain Python (no Blender). Rects are `(x0, x1, y0, y1)`, `(x0, x1, y0, y1, z0, z
 ## sheets.py
 
 - `FONTS` = `('/System/Library/Fonts/Supplemental/Arial.ttf', '/System/Li`
-- `PAGE` = `(3300, 2340)`
-- `S` = `PAGE[0] / 420`
+- `DPI` = `200`
+- `PAPERS` = landscape sizes in mm: letter, tabloid, arch-c, arch-d, a4, a3
+- `PAGE` = `(3400, 2200)` (Tabloid; `set_paper` changes it)
+- `S` = `PAGE[0] / 431.8` (px per mm; `set_paper` changes it)
+- `set_paper(name)`: Set the sheet size by name from PAPERS (case-insensitive); returns PAGE. Call before creating a Sheet.
 - `font(size, bold=False)`: Cached font: Arial (Arial Bold when bold), then Helvetica, then the Pillow default; never raises.
 - `fmt(v, decimal=',')`: Number to a string with one decimal and no trailing zero decimal; decimal is the separator.
 - `check_rounding(values, step)`: Values that are not multiples of step (relative tolerance 1e-9). Sheet generators assert this is empty.
-- `Sheet(title, subtitle, page_no, total, footer, page_label='Sheet {} of {}')`; methods: text, paragraph, save: A3 sheet with title, subtitle, page number and footer. Labels are parameters so any language works.
+- `Sheet(title, subtitle, page_no, total, footer, page_label='Sheet {} of {}')`; methods: text, paragraph, save: Sheet of the current paper size (PAGE) with title, subtitle, page number and footer. Labels are parameters so any language works.
 - `Draw(sh, ox, oy, scale)`; methods: P, rect, line, text, hdim, vdim: A scaled drawing on a Sheet: origin at sheet pixel (ox, oy), coordinates in mm, y up. scale 20 = 1:20.
 - `save_pdf(images, path, resolution=200)`: Join page images, PIL images or PNG file paths, into one multi-page PDF.
 - `items_from_pieces(path, unit=1.0)`: Pieces from an export_pieces JSON as pack() items dict(id, w, h) in metres; unit is metres per project unit.
