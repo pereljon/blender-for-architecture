@@ -324,7 +324,8 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
     (more than tol, with nothing under the centre), negative is sunk (more than tol); None is sunk more than hang.
     An object at hang or higher is hung (lights, upper cabinets) and passes, and so does one that rests on another
     object under its centre. An object that hangs from the underside of a floor above it is measured against the
-    floor below, and one that pierces that floor is sunk. Objects named with walls prefixes are reported only when floating. Sorted by name.
+    floor below, and one that pierces that floor is sunk. Objects named with walls prefixes are reported only when
+    floating. Sorted by name.
     """
     dg = _depsgraph()
     wpre = _prefixes(walls)
