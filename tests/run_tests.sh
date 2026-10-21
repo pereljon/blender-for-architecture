@@ -183,6 +183,7 @@ step fixture:render 420 "$BLENDER" --factory-startup -b --python-exit-code 1 -P 
 expect_line fixture:render:DONE "$OUT/fixture:render.log" "^DONE $OUT/fixture/living.png\$"
 step fixture:sheet 120 uvx --with pillow python "$FIX/renders/make_sheet.py" "$OUT/fixture/sheet.png"
 step_fails fixture:sheet-isolated 120 uvx --with pillow python -I "$FIX/renders/make_sheet.py" "$OUT/fixture/sheet_isolated.png"
+expect_line fixture:sheet-isolated:ModuleNotFoundError "$OUT/fixture:sheet-isolated.log" "ModuleNotFoundError"
 rm -rf "$FIX/renders/__pycache__"
 
 # 3. Plain Python tests (after the renders, which feed compose and annotate)

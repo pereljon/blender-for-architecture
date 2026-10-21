@@ -3,6 +3,7 @@ import ast
 import contextlib
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -239,6 +240,162 @@ def diff_keys(a, b):
     return sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
 
 
+TOL = 3e-6
+
+
+def has_num(x, nums, tol=TOL):
+    return any(abs(x - n) <= tol for n in nums)
+
+
+def has_all(xs, nums, tol=TOL):
+    return all(has_num(x, nums, tol) for x in xs)
+
+
+def flat_strings(v):
+    if isinstance(v, str):
+        return [v.lower()]
+    if isinstance(v, (list, tuple)):
+        return [x for e in v for x in flat_strings(e)]
+    if isinstance(v, dict):
+        return [x for e in v.values() for x in flat_strings(e)]
+    return []
+
+
+def leaves(v, path=()):
+    """Yield (path, leaf) for every scalar in a JSON value."""
+    if isinstance(v, dict):
+        for k, e in v.items():
+            yield from leaves(e, path + (k,))
+    elif isinstance(v, list):
+        for i, e in enumerate(v):
+            yield from leaves(e, path + (i,))
+    else:
+        yield path, v
+
+
+def leaf_diffs(a, b):
+    """List (path, old, new) for every scalar that differs between two dumps."""
+    la, lb = dict(leaves(a)), dict(leaves(b))
+    return [(k, la.get(k), lb.get(k)) for k in sorted(set(la) | set(lb), key=str) if la.get(k) != lb.get(k)]
+
+
+def at(tree, path):
+    for k in path:
+        tree = tree[k]
+    return tree
+
+
+def belongs_to(dump, path, name, object_names):
+    """True when some dict on the path to a leaf is the entry of the named material, light or camera.
+
+    An entry is a dict stored under the key name, or a dict that holds the name as a string value.
+    A top-level key that names an object does not count as a material entry."""
+    for i in range(1, len(path)):
+        node = at(dump, path[:i])
+        if not isinstance(node, dict):
+            continue
+        if path[i - 1] == name and not (i == 1 and name in object_names):
+            return True
+        if name.lower() in [v.lower() for v in node.values() if isinstance(v, str)]:
+            return True
+    return False
+
+
+def entry_dicts(dump, name, object_names):
+    """Every dict in the dump that is the entry for a material of this name (see belongs_to)."""
+    found = []
+
+    def walk(node, depth):
+        if isinstance(node, dict):
+            if name.lower() in [v.lower() for v in node.values() if isinstance(v, str)]:
+                found.append(node)
+            for k, v in node.items():
+                if k == name and isinstance(v, dict) and not (depth == 0 and name in object_names):
+                    found.append(v)
+                walk(v, depth + 1)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v, depth + 1)
+
+    walk(dump, 0)
+    return found
+
+
+def principled_inputs(mat):
+    """(base color rgb or None, roughness or None, metallic or None); None for a linked or missing input."""
+    if not mat or not mat.use_nodes:
+        return None
+    node = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if node is None:
+        return None
+    def val(name):
+        s = node.inputs[name]
+        return None if s.is_linked else s.default_value
+    col = val("Base Color")
+    return (list(col)[:3] if col is not None else None, val("Roughness"), val("Metallic"))
+
+
+def rotation_forms(ob):
+    m = ob.matrix_world.to_3x3().normalized()
+    e, q = m.to_euler(), m.to_quaternion()
+    return {
+        "euler radians": list(e),
+        "euler degrees": [math.degrees(a) for a in e],
+        "quaternion": list(q),
+        "negated quaternion": [-x for x in q],
+        "rotation matrix": [m[r][c] for r in range(3) for c in range(3)],
+    }
+
+
+def check_rotation(label, ob, nums):
+    forms = rotation_forms(ob)
+    ok = any(has_all(v, nums) for v in forms.values())
+    check(ok, f"T39 {label}: entry holds the world rotation as euler radians, euler degrees, a quaternion, or a matrix; "
+              f"wanted one of {({k: [round(x, 6) for x in v] for k, v in forms.items()})}")
+
+
+def check_material_entries(dump, label):
+    """Every material that a scene object uses has its Principled BSDF base color, roughness and metallic in the dump."""
+    names = {o.name for o in bpy.data.objects}
+    used = {s.material for o in bpy.data.objects for s in o.material_slots if s.material}
+    for mat in sorted(used, key=lambda m: m.name):
+        vals = principled_inputs(mat)
+        if vals is None:
+            continue
+        cands = entry_dicts(dump, mat.name, names)
+        if not check(cands, f"T39 {label}: the dump has an entry for material {mat.name} (a dict under that key or holding that name)"):
+            continue
+        col, rough, metal = vals
+        want = [("base color", col), ("roughness", None if rough is None else [rough]), ("metallic", None if metal is None else [metal])]
+        for what, xs in want:
+            if xs is None:
+                continue
+            check(any(has_all(xs, flat_numbers(list(c.values()))) for c in cands),
+                  f"T39 {label}: material {mat.name} entry holds {what} {[round(x, 6) for x in xs]}")
+
+
+def check_light_entry(label, dump, ob):
+    ent = dump.get(ob.name)
+    if not check(isinstance(ent, dict), f"T39 {label}: entry for light {ob.name}"):
+        return
+    nums = flat_numbers(list(ent.values()))
+    check(ob.data.type.lower() in flat_strings(ent), f"T39 {label}: light {ob.name} entry holds its light type {ob.data.type}")
+    check(has_num(ob.data.energy, nums), f"T39 {label}: light {ob.name} entry holds energy {ob.data.energy}")
+    check(has_all(list(ob.data.color), nums), f"T39 {label}: light {ob.name} entry holds color {[round(x, 6) for x in ob.data.color]}")
+    check_rotation(f"{label}: light {ob.name}", ob, nums)
+
+
+def check_camera_entry(label, dump, ob):
+    ent = dump.get(ob.name)
+    if not check(isinstance(ent, dict), f"T39 {label}: entry for camera {ob.name}"):
+        return
+    nums = flat_numbers(list(ent.values()))
+    loc = list(ob.matrix_world.translation)
+    check(has_all(loc, nums), f"T39 {label}: camera {ob.name} entry holds world location {[round(x, 6) for x in loc]}")
+    check(has_num(ob.data.lens, nums), f"T39 {label}: camera {ob.name} entry holds lens {ob.data.lens}")
+    check_rotation(f"{label}: camera {ob.name}", ob, nums)
+
+
 def only_counter_differs(label, d0, d1):
     keys = diff_keys(d0, d1)
     ok = check(keys == ["counter"], f"T39 {label}: exactly the counter entry differs, got {keys}")
@@ -278,7 +435,7 @@ def t39():
             return
         check(d0 == d1, "T39 two dumps of the same scene are equal")
         names = {o.name for o in bpy.data.objects}
-        check(set(d0) == names, f"T39 the dump is keyed by object name: only in dump {sorted(set(d0) - names)}, missing {sorted(names - set(d0))}")
+        check(names <= set(d0), f"T39 the dump has an entry keyed by name for every object, missing {sorted(names - set(d0))}")
         for name in ("counter", "floor", "wall_south"):
             if name in d0:
                 entry_matches_scene(name, d0[name], "base")
@@ -345,6 +502,70 @@ def t39():
             changed = [k for k in dbool["counter"] if dbool["counter"][k] != before["counter"].get(k)]
             check(any(isinstance(dbool["counter"][k], int) and not isinstance(dbool["counter"][k], bool) for k in changed),
                   f"T39 the boolean cut changes the counter's vertex count field, changed fields {changed}")
+
+        # materials, lights and cameras: the dump runs after the camera is placed
+        counter.modifiers.remove(mod)
+        cam = bh.add_camera(st.VIEWS["persp"], 160)
+        lights = [o for o in bpy.data.objects if o.type == "LIGHT"]
+        if not check(lights and cam is not None, "T39 the scene has a light and a camera"):
+            return
+        light = lights[0]
+        light.rotation_euler = (0.3, 0.2, 0.1)
+        bpy.context.view_layer.update()
+        all_names = {o.name for o in bpy.data.objects}
+        dl = dump("lcm")
+        if dl is None:
+            return
+        check(all_names <= set(dl), f"T39 the dump has an entry for every object including the camera, missing {sorted(all_names - set(dl))}")
+        check_material_entries(dl, "base")
+        check_light_entry("base", dl, light)
+        check_camera_entry("base", dl, cam)
+
+        # roughness 0.8 to 0.5 on the wall material changes only that material's entry
+        wall_mat = bpy.data.materials["wall"]
+        node = next(n for n in wall_mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        check(abs(node.inputs["Roughness"].default_value - 0.8) < 1e-6, "T39 the wall material starts at roughness 0.8")
+        node.inputs["Roughness"].default_value = 0.5
+        bpy.context.view_layer.update()
+        dr = dump("rough")
+        if dr is not None:
+            diffs = leaf_diffs(dl, dr)
+            check(diffs, "T39 a roughness change 0.8 to 0.5 changes the dump")
+            for path, old, new in diffs:
+                num = isinstance(old, (int, float)) and isinstance(new, (int, float))
+                check(num and abs(old - 0.8) <= TOL and abs(new - 0.5) <= TOL,
+                      f"T39 roughness change: only the roughness value differs, but {path} went from {old} to {new}")
+                check(path in dict(leaves(dr)) and belongs_to(dr, path, "wall", all_names),
+                      f"T39 roughness change: the changed value {path} sits in the entry of material wall")
+            others = [p for p, _, _ in diffs if any(belongs_to(dr, p, m.name, all_names) for m in bpy.data.materials if m.name != "wall" and m.users)]
+            check(not others, f"T39 roughness change: no other material's entry changes, but {others} do")
+        node.inputs["Roughness"].default_value = 0.8
+
+        # a light energy change is detected, in the light's entry only
+        bpy.context.view_layer.update()
+        dl2 = dump("lcm2")
+        old_e = light.data.energy
+        light.data.energy = old_e * 1.5
+        bpy.context.view_layer.update()
+        de = dump("energy")
+        if de is not None and dl2 is not None:
+            check(diff_keys(dl2, de) == [light.name], f"T39 a light energy change changes exactly the light's entry, got {diff_keys(dl2, de)}")
+            diffs = leaf_diffs(dl2, de)
+            check(len(diffs) == 1 and all(isinstance(o, (int, float)) and abs(o - old_e) <= TOL * 10 and abs(n - old_e * 1.5) <= TOL * 10
+                                           for _, o, n in diffs),
+                  f"T39 a light energy change changes only the energy value, from {old_e} to {old_e * 1.5}; diffs {diffs}")
+            check_light_entry("after energy change", de, light)
+        light.data.energy = old_e
+
+        # a camera rotation change is detected, in the camera's entry only
+        bpy.context.view_layer.update()
+        dc0 = dump("cam0")
+        cam.rotation_euler.z += 0.05
+        bpy.context.view_layer.update()
+        dc1 = dump("cam1")
+        if dc0 is not None and dc1 is not None:
+            check(diff_keys(dc0, dc1) == [cam.name], f"T39 a camera rotation change changes exactly the camera's entry, got {diff_keys(dc0, dc1)}")
+            check_camera_entry("after rotation", dc1, cam)
     finally:
         sys.modules.pop("scene_template", None)
         shutil.rmtree(tmp, ignore_errors=True)
