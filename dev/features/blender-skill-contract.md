@@ -496,6 +496,15 @@ Suite at review: 48 passed, 2 failed (the expected `test_api_doc` steps). Scratc
 - m9. The top-level `wall_gaps` import breaks a project that copies only `checks.py`, outside the gate. Fix: import inside `wall_gap_check`, so a missing module prints `FAIL wall_gaps: error ModuleNotFoundError`.
 - Implementer deviations, all accepted: floor winding by raw world signed volume (R26's "or both" remark is wrong; fix the text); openings skipped at or above top minus tol; `SKIP camera: panoramic camera` (add to D5); `_off_axis` as the sine off the nearest axis.
 
+### Re-review findings (2026-10-20, opus, at `aaaa951`)
+
+the user approved the fixes below on 2026-10-21 (Q1). The 2.0 m rule now gates only the `no-header` probe, so `no-floor` still runs at half walls; this amends m3.
+
+- N1 Important. The m3 gate compares the wall top's absolute z with 2.0 m, not the wall height (`checks.py:296`, `top < 2.0`). Fix: gate on `top - max(bottoms) < 2.0`. Tests: walls on a storey at z 3.0 and at z -2.7.
+- N2 Important. The I1 probe start fails for a zero-thickness object on the floor top: the probe starts inside the floor and reports sunk more than 0.300 m (`checks.py:348`; verified at 0 and 5e-5 m). Fix: start at `min(lo.z + hang, max(hi.z - 1e-4, lo.z + 1e-4))`.
+- N3 Minor. The mutation that removes the height gate survives. Test: `wall_a` 0 to 3.0 m and `wall_b` 1.4 to 3.0 m under a ceiling give `[]`. The reviewer's 0 to 2.6 m and 1.6 to 2.6 m case does not catch the mutation, because the `z >= top - tol` skip also covers it.
+- N4 Minor. `exempt={"openings": ("wall_a", "wall_b")}`, one pair not wrapped in a list, is read as two names. It fails safe: the hit stays and the run exits 1 (verified). Fix: a test that pins the fail-safe result, and the list form shown in D5.
+
 ### Open questions
 
 None open. the user answered A1 to A7 and B1 on 2026-10-20, accepting each recommendation (skill `docs/ISSUES.md`, Decisions): `exempt` takes exact names only (A1); fix `lathe` normals (A2); add the dark-sill QA item (A3); fold in the coplanar mirrored fix (A4); keep the 0.30 m hung limit (A5); approve the revised T16 to T20 (A6); send the wiring to the render project after v1.0.0 (A7); keep the floor-fit support test (B1).

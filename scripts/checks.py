@@ -291,7 +291,8 @@ def wall_gap_check(prefixes=("wall_",), floors=(), gap=0.3, opening=2.5, touch=0
     trees = None
     for i, j, w, (x0, x1, y0, y1) in wall_openings(rects, 1.0, gap, opening, touch):
         pair = sorted((names[i], names[j]))
-        z = max(rects[i][4], rects[j][4]) + 1.0
+        base = max(rects[i][4], rects[j][4])
+        z = base + 1.0
         top, bottom = min(rects[i][5], rects[j][5]), min(rects[i][4], rects[j][4])
         if frozenset(pair) in pairs or z >= top - tol:
             continue
@@ -302,7 +303,7 @@ def wall_gap_check(prefixes=("wall_",), floors=(), gap=0.3, opening=2.5, touch=0
             trees = (None if plan else _bvh([m for m in meshes if m])[0], _bvh(fl)[0] if fl else None)
         scene_tree, floor_tree = trees
         at = Vector(((x0 + x1) / 2, (y0 + y1) / 2, z))
-        if scene_tree is not None and top - z + 1.0 >= 2.0:
+        if scene_tree is not None and top - base >= 2.0:
             up = scene_tree.ray_cast(at, Vector((0, 0, 1)))[0]
             if up is None or up.z >= top - tol:
                 hits.append((*pair, "no-header", w))
