@@ -45,7 +45,7 @@ Install the skill (see Developer details), then open Claude Code in a project. A
 
 Prerequisites:
 - Blender 5.2 LTS at `/Applications/Blender.app/Contents/MacOS/Blender`. The `/usr/local/bin/blender` symlink crashes Blender, so the scripts use the full path.
-- uv, for the plain-Python scripts (`compose.py`, `annotate_plan.py`, `extract_plan.py`, `sheets.py`). They run through `uvx` with Pillow or PyMuPDF, and `uvx` needs the network on first use.
+- uv, for the plain-Python scripts (`compose.py`, `annotate_plan.py`, `extract_plan.py`, `sheets.py`, and `ifc_walls.py`). They run through `uvx` with Pillow, PyMuPDF, or IfcOpenShell and numpy, and `uvx` needs the network on first use.
 - For IFC, sun, and scan work only: the Bonsai, Sun Position, and Point Cloud I/O extensions. Claude asks before it installs any of them. Bonsai is about 140 MB.
 
 ## What it does not do

@@ -1,6 +1,6 @@
 # Blender extensions
 
-Tested on Blender 5.2 LTS on macOS. Extension versions: Bonsai 0.9.0, IfcOpenShell 0.9.0.
+Tested on Blender 5.2 LTS on macOS. Extension versions: Bonsai 0.9.0, IfcOpenShell 0.9.0, Sun Position 4.4.0, Point Cloud I/O 0.6.0.
 
 In the commands below, `$BLENDER` is the full Blender path from SKILL.md Environment.
 
@@ -54,12 +54,13 @@ ids = write_walls_ifc(walls, "out/walls.ifc", 0.0, CEIL, unit=bh.U)
 ```
 
 - Run it in a Blender run that enables the extensions, or through `uvx --with ifcopenshell --with numpy python -I`.
-- Pass the same `walls` list that `walls_from_plan` gets. The IFC names match the scene's box names.
+- Pass the same `walls` list that `walls_from_plan` gets, so the IFC names match the scene's box names.
 - Pass `z0` and `z1` in the records' units. `unit` converts them to metres with the other lengths.
 - Give each record a `kind` of `new` or `existing`. The IFC then carries it as the element's status.
-- For a post or a beam, add a record with its own `z0`, `z1`, and `ifc_class`, such as `IfcColumn`.
+- For a post or a beam, build it in the scene with `box()`. `walls_from_plan` ignores `z0`, `z1`, and `ifc_class`.
+- Append a record for each post or beam after the wall records, with its own `z0`, `z1`, and `ifc_class` such as `IfcColumn`. Pass that longer list only to `write_walls_ifc`; the scene's wall boxes keep their names.
 - `write_walls_ifc` reads the file back and raises an error when an element differs from its record by over 3 mm.
-- For other elements, read `scripts/ifc_walls.py` as the recipe.
+- For signatures and the record format, see [reference/api.md](api.md). Do not read the script.
 
 ### Generate a drawing headless
 
@@ -85,6 +86,7 @@ bpy.ops.bim.save_project(filepath=ifc)
 - The model origin sits at the sheet centre, so the plan fills only part of the sheet. Crop the raster to the drawn area before you review it.
 - After you create the drawing, run `check_drawing(svg, ifc)` from `ifc_walls`. It must return `[]`.
 - Run `check_drawing` the same way as `write_walls_ifc`.
+- `check_drawing` covers the elements that `write_walls_ifc` writes. An opening or other element that you add to the IFC afterwards reads as `missing`.
 - A `missing` item names an element that the drawing does not show. Check the cut height and the storey.
 - An `extra` item names an outline with no element in the IFC. Generate the drawing again from the current IFC.
 - An `off` item names the walls of one outline whose extent is more than 3 mm off.
@@ -121,8 +123,9 @@ sun(math.degrees(p.sun_elevation), math.degrees(p.sun_azimuth), plan_north_deg=P
 - Phone scans (Scaniverse) come in metres, in UTM coordinates, each with its own heading and height datum.
 - Leave `center_on_origin` on for scans in UTM coordinates. The importer then moves the points to the origin, and the object's `location` stays (0, 0, 0).
 - The importer keeps the offset in the object's custom property `las_origin_offset`, three floats. It is the bounding-box minimum of the points, not the LAS header offset.
-- To get a point's scan coordinates, add `las_origin_offset` to its position. In the test scan, the worst error after adding it back was 1.2e-7 m.
-- With `center_on_origin` off, the points keep their UTM coordinates and Blender stores them as 32-bit floats. They lose millimetre precision. In the test scan, at easting 551234, the worst error was 0.125 m.
+- To get a point's scan coordinates, add `las_origin_offset` to its position. This holds only at `scale_factor` 1, because the importer scales after it subtracts the offset. Keep `scale_factor` at 1.
+- In the test scan, the worst error after adding it back was 1.2e-7 m.
+- With `center_on_origin` off, the points keep their UTM coordinates and Blender stores them as 32-bit floats. They lose millimetre precision. In the test scan, the worst error was 0.125 m. It comes from the northing: at 4181234 the 32-bit spacing is 0.25 m, while at easting 551234 it is 0.0625 m.
 - The scan is a `POINTCLOUD` object. Read its positions from `obj.data.attributes["position"]`.
 - Record each scan's `las_origin_offset` before you align scans with each other.
 - Rotate and offset each scan onto the model before you compare.
