@@ -15,6 +15,7 @@ All notable changes to this skill. Format: [Keep a Changelog](https://keepachang
 - `coplanar_check` takes `skip` and reads mirrored objects with their real facing; it works on render-visible objects only.
 - `EYE_HEIGHT` in `bhelpers.py` (5'-2 1/2", the eye of a 5'-7" viewer) and an optional `interior` key in perspective VIEWS entries.
 - SKILL.md: Checks section rewritten for `run_checks`, with the output lines, limits, and exemption rules; six rules for every scene; loop steps 2 and 3; two QA items; Scripts table rows. `reference/api.md` lists the new functions; `reference/plan-input.md` runs `wall_gaps` on the corrected wall list.
+- SKILL.md rules for stair steps (one box from riser to the next riser) and for `interior` in a script without a VIEWS table; `reference/plan-input.md` adds a header box over each door and stable wall names before an opening exemption (Revision 6).
 
 ### Fixed
 

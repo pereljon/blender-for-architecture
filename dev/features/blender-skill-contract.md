@@ -469,15 +469,25 @@ Fresh subagents read `SKILL.md` by absolute path, not through the Skill tool; sy
 Verdict: merge after fixes. Suite 50 of 50. Every test added since `aaaa951` fails on the mutation it targets (verified by mutating copies of `scripts/`). No shell, file writes, or eval in the new code; no project names or absolute paths in shipped files. Resolutions wait for the user.
 
 - P1 Important. `camera_check` reports a backface where a ray grazes a silhouette edge (`checks.py:410-414`). E1's stair with the 1 mm nudge removed gives `backface stair_3: 1 rays` at a front vertical edge; jittered rays hit the front face and the wall, so no face is missing. This, not a crack, caused E1 gap (a). Proposed: on a backface hit, cast two rays offset by a quarter cell, and count it only if one also hits a backface on the same object. Test: a box edge under a cell-centre ray.
+  Resolution: fix in progress.
 - P2 Important. `floor_fit` reports an object that runs up into a named upper slab as sunk more than 0.300 m (`checks.py:349-352`): a beam at z 2.8 to 3.1 and a downlight at 2.95 to 3.05 under a slab at 3.0 to 3.2. Present since `352a14b`. Proposed: when the first hit faces down above `lo.z + tol`, cast again from just below it. Test: both give `[]`; `deep_sunk` keeps `None`.
+  Resolution: fix in progress.
 - P3 Important, docs. A plan-input scene fails `no-header` on every door, and an exemption would name index-built walls, which D6 forbids. Proposed for `reference/plan-input.md`: add a header box over each door opening; rename the two walls to stable names before you exempt an opening.
+  Resolution: added both sentences to `reference/plan-input.md`, after the `walls_from_plan` snippet.
 - p1. A fully buried thin object reports "sunk more than 0.300 m". Proposed: document it, or print "inside a floor".
+  Resolution: documented in SKILL.md (checks notes); the printed text is unchanged.
 - p2. SKILL.md's SKIP list omits `none of the floors exists` and `scene camera is not a camera object`.
+  Resolution: SKILL.md's SKIP row lists all six reasons, copied from `run_checks`.
 - p3. SKILL.md says `run_checks` leaves the figure out of "most checks"; it is coplanar, floor_fit, and clearance.
+  Resolution: SKILL.md names coplanar, floor_fit, and clearance.
 - p4. `reference/plan-input.md`: the `wall_gaps` call belongs in the snippet before `walls_from_plan`.
+  Resolution: the `wall_gaps` call sits in the snippet before `walls_from_plan`; the separate sentence is gone.
 - p5. `docs/ISSUES.md` still says "Next: evals"; the eval gaps are not logged.
+  Resolution: `docs/ISSUES.md` Next line updated; eval gap (b) logged under Planned.
 - p6, writing rules: "each tread's box" for "walking box" (SKILL.md:124); "is not probed" for "checked" (SKILL.md:130); three descriptions of 28 to 31 words in `reference/api.md` (118, 119, 123).
+  Resolution: SKILL.md uses "walking box" and "gets no opening check"; the three `reference/api.md` descriptions are split.
 - Eval gaps: (a) needs P1 and the rule "Build each stair step as one box from its riser to the next riser, butted to its neighbours"; (b) log for later; (c) optional rule "In a script without a VIEWS table, leave out `interior` unless the view looks out through an opening without glass"; (d) no change.
+  Resolution: (a) stair rule added to SKILL.md, the code fix waits on P1; (b) logged in `docs/ISSUES.md`; (c) interior rule added to SKILL.md; (d) no change.
 
 ### Review findings (2026-10-20)
 

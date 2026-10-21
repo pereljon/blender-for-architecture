@@ -46,6 +46,7 @@ The project owns its copy of the scripts. To upgrade, copy a newer script delibe
 - Before you read `matrix_world` or any world position, call `bpy.context.view_layer.update()`. Until then, positions are stale.
 - In `exempt`, and in any list of objects that a script moves or skips, use exact object names. A prefix there also catches unrelated objects.
 - Exempt only objects with stable names. A name built from a list index, such as `wall_27`, can point at another object after the plan changes.
+- Build each stair step as one box from its riser to the next riser, butted to its neighbours.
 - Set an emissive strip into its recess, so that only its front face shows.
 - After a floor or wall level changes, look at every threshold and wall base in a preview.
 - Place an eye-level camera at the floor height plus `EYE_HEIGHT / U`. That is a 5'-7" viewer's eye, 5'-2 1/2".
@@ -108,7 +109,7 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 | `NOTE camera: exterior view, escapes not checked` | No object is above the camera, so sky is not reported. Set `interior=True` to check it. |
 | `WARN exempt <check>: no object named X` | An exemption names no object, so it does nothing. Correct the name. |
 | `WARN floors: no rendered mesh named X` or `no object named X` | The floor is hidden from render, is not a mesh, or does not exist. `floor_fit` leaves it out. |
-| `SKIP <check>: ...` | The check did not run. Reasons: no floors, no paths, no camera, or an orthographic or panoramic camera. |
+| `SKIP <check>: ...` | The check did not run. Reasons: `no floors given`, `none of the floors exists`, `no paths given`, `no scene camera`, `scene camera is not a camera object`, or an orthographic or panoramic camera. |
 | `FAIL <check>: error ...` | The check raised an exception. Treat it as a failure. |
 
 - Run the checks before every render, previews included.
@@ -121,16 +122,18 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 - Name every floor, slab, deck, and paving object in `floors`. Without floors, `floor_fit` does not run, and openings are not checked for a floor.
 - Name every wall with the `wall_` prefix, or pass your wall prefixes in `walls`.
 - Add a walking box to `paths` for each stair tread and landing: `(x0, x1, y0, y1, z)`, with z at the tread top.
-- Draw each tread's box between the handrails, from its nosing to the next nosing.
+- Draw each walking box between the handrails, from its nosing to the next nosing.
 - If a view looks out through an opening without glass, set `interior=False` in its entry.
+- In a script without a VIEWS table, leave out `interior` unless the view looks out through an opening without glass. The default detects an interior view from an object above the camera.
+- An object buried entirely inside a floor reports as sunk more than the hang limit, whatever its depth.
 - A camera hit gives a pixel box in the view's image at the run's `--res`. A failing run writes no image.
 - To see a camera hit, exempt its object for one preview run at the same `--res`. Then look inside the pixel box.
 - A plan (orthographic) view checks openings for a floor only, not for a header.
 - The header check runs only where the opening's walls stand at least 2.0 m above the higher wall bottom. Half walls get no header check.
-- A wall pair that stands about 1 m or less above the higher wall bottom is not probed at all.
+- A wall pair that stands about 1 m or less above the higher wall bottom gets no opening check.
 - The checks do not see instances (collection, geometry-nodes, or particle instances). Check those in the preview.
 - The checks see viewport geometry, not render geometry. A modifier shown in render but hidden in the viewport, such as a boolean with `show_viewport` off, is not seen.
-- Run `clash_check` for the figure. `run_checks` leaves the figure out of most checks.
+- Run `clash_check` for the figure. `run_checks` leaves the figure out of the coplanar, floor_fit, and clearance checks.
 - `clash_check` counts surfaces that touch as a hit. Keep furniture 1 mm off the wall behind it, or leave walls out of the second prefix list.
 - In a project script that builds its own scene, copy `scripts/*.py` into its `lib/`.
 - Then call `run_checks` right before the render call, with `unit` set to metres per project unit.
