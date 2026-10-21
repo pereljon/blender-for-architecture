@@ -479,11 +479,24 @@ def t39():
         bpy.context.view_layer.update()
         dmat = dump("mat")
         if dmat is not None and base is not None:
-            f = only_counter_differs("material change", base, dmat)
-            if f is not None:
-                check(len(f) == 1, f"T39 material change: exactly one field differs, got {sorted(f)}")
-                for old, new in f.values():
+            objs = {o.name for o in bpy.data.objects}
+            keys = diff_keys(base, dmat)
+            sections = [k for k in keys if k not in objs]
+            check(sorted(k for k in keys if k in objs) == ["counter"] and len(sections) == 1,
+                  f"T39 material change: only the counter entry and the materials section differ, got {keys}")
+            if "counter" in base and "counter" in dmat:
+                fields = {k: (base["counter"].get(k), dmat["counter"].get(k)) for k in set(base["counter"]) | set(dmat["counter"])
+                          if base["counter"].get(k) != dmat["counter"].get(k)}
+                check(len(fields) == 1, f"T39 material change: exactly one field of the counter entry differs, got {sorted(fields)}")
+                for old, new in fields.values():
                     check(isinstance(new, list) and "other_mat" in new, f"T39 material change: the field lists the new material, got {new}")
+            for k in sections:
+                b0, b1 = base.get(k), dmat.get(k)
+                if not check(isinstance(b0, dict) and isinstance(b1, dict), f"T39 material change: section {k} exists in both dumps as an object"):
+                    continue
+                check(set(b0) <= set(b1) and all(b0[m] == b1[m] for m in b0) and set(b1) - set(b0) == {"other_mat"},
+                      f"T39 material change: section {k} only gains an other_mat entry, added {sorted(set(b1) - set(b0))}, "
+                      f"changed {sorted(m for m in b0 if m in b1 and b0[m] != b1[m])}, removed {sorted(set(b0) - set(b1))}")
         # a boolean cut changes the evaluated vertex count, not the mesh data
         counter.material_slots[0].material = orig_mat
         cutter = bh.box("cutter", 2.0, 2.2, 0.2, 0.4, 0.8, 1.0)
