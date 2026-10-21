@@ -469,6 +469,13 @@ Suite 54 of 54 with all three extensions. All nine mutants killed (the missing-u
 - M12. The Revision 5 items in `docs/ISSUES.md` are not ticked; `README.md:48` omits `ifc_walls.py` from the uvx scripts.
 - Unverified, for information: the storey has no placement or elevation (no Revit or ArchiCAD import tested); drawing scales other than 1:100 are checked only by hand-written SVG.
 
+### Revision 5b eval results (2026-10-21, fresh sonnet subagents, SKILL.md read by path, synthetic data, nothing installed)
+
+- E7 pass: 4 of 4 positives chose this skill; 0 of 3 negatives (forest scan, sunrise app, IDS validation) chose any skill.
+- E4 pass: Sun Position per run, `UTC_zone` -8 with daylight saving on, `sun(..., plan_north_deg=20)`. Elevation 57.21, azimuth 254.12; the light direction is within 0.01 degrees of an independent NOAA-formula reference (57.20, 254.12). A view through an unglazed window failed `camera` until `interior=False`, as the doc says.
+- E3 pass: `write_walls_ifc` got the scene's corrected list (`build()` changed to return it; no coordinate typed), `unit=bh.U`, the three-extension assert, `check_drawing` returned `[]`, and all 10 IFC walls matched the scene boxes. Gap: the doc does not say how a scene script exposes its wall list, or whether an IFC-only run calls `run_checks`.
+- E5 pass: `point_cloud_las` with `center_on_origin` on and `scale_factor` 1, offset read from `las_origin_offset`; walls fitted as planes; the room is 50 mm wider in the scan, and every other surface is within 1 mm. The agent reported that the scan alone cannot say whether the east or the west wall carries the error. Gaps: no method or helper for aligning a scan to the model or choosing an anchor; the bounding-box offset carries the scan noise (about 8 mm here).
+
 ## Revision 6 (2026-10-20, phantom geometry defects; requested by render project B, approved by the user)
 
 Source: `../inputs/2026-10-20-phantom-defects.md`. Decision: skill `docs/ISSUES.md`, Decisions, 2026-10-20. Investigated against this repo at `6cf8009` and Blender 5.2.0 LTS, and against render project B's build script and README (read-only, the two files the user named).
