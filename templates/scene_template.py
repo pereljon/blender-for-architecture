@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib
 
 import bhelpers as bh
 from bhelpers import box, cyl, srgb, principled
-from checks import clash_check, coplanar_check, fail_on
+from checks import clash_check, fail_on, run_checks
 
 bh.set_units("m")
 
@@ -23,7 +23,7 @@ ROOM = (0.0, 3.0, 0.0, 4.0)          # x0, x1, y0, y1 of the room interior
 WALL_T, WALL_H = 0.10, 2.60
 DOOR = (0.9, 1.8, 2.1)               # x0, x1, height of the door opening in the south wall
 VIEWS = {
-    "persp": dict(loc=(2.7, 3.7, 1.5), target=(1.0, 0.6, 1.0), lens=20),
+    "persp": dict(loc=(2.7, 3.7, bh.EYE_HEIGHT / bh.U), target=(1.0, 0.6, 1.0), lens=20),
     "plan": dict(plan=True, center=(1.5, 2.0), width=6.0, cut=1.2, drop=("opt_",)),
 }
 
@@ -67,9 +67,9 @@ def main():
         print(f"DONE {path}")
         return
     fail_on(clash_check(("counter", "opt_"), ("wall_",)), "clash")
-    fail_on(coplanar_check(("floor", "counter", "opt_")), "coplanar")      # walls butt at the corners by design
     bh.setup_cycles(args.samples, gpu=args.gpu)
     bh.add_camera(VIEWS[args.view], args.res)
+    run_checks(floors=("floor",), interior=VIEWS[args.view].get("interior"))
     bh.render(args.out or f"out/{args.view}.png")
 
 

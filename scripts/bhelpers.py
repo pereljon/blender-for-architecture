@@ -19,6 +19,7 @@ import bmesh
 from mathutils import Matrix, Vector
 
 U = 1.0
+EYE_HEIGHT = 1.5875   # metres: the eye of a 5'-7" viewer, 5'-2 1/2"
 _OV = 0.03       # plan overlay mark height, metres
 
 
@@ -223,6 +224,7 @@ def lathe(name, profile, mat=None, n=64, plan=None):
             j = (i + 1) % n
             bm.faces.new([rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]])
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     ob = new_obj(name, _to_mesh(name, bm), mat)
     ob.data.shade_smooth()
     return ob
