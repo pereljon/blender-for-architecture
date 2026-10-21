@@ -292,12 +292,23 @@ Keep out: the implementer does not edit `tests/`; the test author does not edit 
   - `write_walls_ifc(walls, path, z0, z1, unit=1.0, prefix="wall_", storey="Level 1", tol=0.003)`:
     - `walls` items are the wall records of `load_plan`, `fix_walls`, `extra_walls`, and `cut_openings`: dicts with `x0`, `x1`, `y0`, `y1`, and optional `kind`, `z0`, `z1`, `ifc_class` (default `"IfcWall"`); or tuples `(x0, x1, y0, y1)`. Normalise so lows come first. A record's own `z0`, `z1` override the arguments.
     - `unit` is metres per record unit and applies to every length. Pass `bh.U` from a scene script.
-    - Write IFC4 through `ifcopenshell.api.run`: project, metre units, Model and Body contexts, `IfcSite`, `IfcBuilding`, and one `IfcBuildingStorey` named `storey`.
+    - Write IFC4 through `ifcopenshell.api.run`: project; metre units by `run("unit.assign_unit", f, units=[run("unit.add_si_unit", f, unit_type="LENGTHUNIT")])` (with no `units`, `assign_unit` writes millimetres); Model and Body contexts, `IfcSite`, `IfcBuilding`, and one `IfcBuildingStorey` named `storey`.
     - Per record k: one element of its `ifc_class`, named `f"{prefix}{k}"` (the name `walls_from_plan` gives the box). The record runs along x when its x length is at least its y length. Along x: placement at (x0, y0, z0), length x1 - x0, thickness y1 - y0. Along y: placement at (x1, y0, z0), rotated 90 degrees counter-clockwise, length y1 - y0, thickness x1 - x0. Height z1 - z0.
     - When `kind` is `"new"` or `"existing"`, add `Pset_<class without Ifc>Common` with `Status` `NEW` or `EXISTING`. Other kinds get no pset.
     - Write the file, open it again, and take each element's world box with `use-world-coords`. Raise `ValueError` naming up to five elements when any box differs from its record by more than `tol` metres. Return `{name: GlobalId}` in record order.
-  - `drawing_walls(svg)`: read the Bonsai drawing SVG. Raise `ValueError` unless exactly one `<g>` has `ifc:matrix3`. For each `<g>` whose class list has `cut` and a word starting with `Ifc`, the GlobalId is the class word that is neither of those nor `material-*`. Read every path's points; raise `ValueError` on any command other than `M`, `L`, or `Z`. Map with x = (x_svg - tx) / sx and y = (ty - y_svg) / sy from `matrix3`. Return `{GlobalId: (x0, x1, y0, y1)}` in metres.
-  - `check_drawing(svg, ifc_path, tol=0.003)`: the cut height is the z of the `ifc:plane` matrix (row 3, column 4). For each `IfcElement` in the IFC whose world z range contains the cut height, compare its world plan box with its outline from `drawing_walls`. Return `[(name, off_m)]` for each outline off by more than `tol`, and `[(name, None)]` for each missing outline, sorted by name. `[]` means the drawing matches the model.
+  - `drawing_walls(svg)` (amended after the tests, see "Revision after the tests"): read the Bonsai drawing SVG.
+    - Raise `ValueError` unless exactly one `<g>` has `ifc:matrix3`. Its `ifc:plane` gives the cut height: row 3, column 4.
+    - A cut group is a `<g>` inside that group whose class list has the word `cut`. Its GlobalIds are every class word of 22 characters from `0-9A-Za-z_$`, plus its `ifc:guid` attribute when present. Bonsai puts the GlobalIds of merged walls in the class and gives an element it does not merge (a column) an `ifc:guid` attribute.
+    - Read every point of every path in the group, outer rings and holes alike. Raise `ValueError` on any letter other than `M`, `L`, `Z`, or an exponent `e` or `E`; lowercase (relative) commands are refused too.
+    - Map with x = (x_svg - tx) / sx and y = (ty - y_svg) / sy from `matrix3`.
+    - Return `(cut_z, groups)`: cut_z in metres, and `groups` a list of `(ids, (x0, x1, y0, y1))`, where ids is the sorted tuple of the group's GlobalIds and the box bounds every point of the group, in metres. The list is sorted by ids. A group with no GlobalId or no point is left out.
+  - `check_drawing(svg, ifc_path, tol=0.003)`: compare the drawing with the IFC, cut group by cut group.
+    - The elements to find are the `IfcElement`s with a body whose world z range contains the cut height. Each one's footprint is its world plan box.
+    - Report `("missing", name, None)` for each such element whose GlobalId is in no cut group.
+    - Report `("extra", GlobalId, None)` for each GlobalId in a cut group that is not such an element: an element no longer in the IFC, or a stale drawing.
+    - For each cut group, take the box that bounds the footprints of its known elements. Report `("off", names, d)` when any side of the group's box differs from it by d > `tol` metres. `names` joins the elements' names, sorted, with `+`.
+    - Return the items sorted by kind, then name. `[]` means every cut element is drawn, nothing else is, and every outline's extent matches.
+    - Not caught: a piece moved inside the box of its merged outline. The read-back in `write_walls_ifc` covers each element's own geometry, and each write gives new GlobalIds, so a drawing older than the IFC reports every element as missing and extra.
 - No change to `bhelpers.py` or the template. The Sun Position mapping is documentation (D15), verified by T23.
 
 ### Docs (development session)
@@ -321,7 +332,10 @@ Draft text follows the instruction-writing rules; adjust wording only.
 - D14 `reference/extensions.md`, "Generate a drawing headless", added after the snippet's bullets:
   ```
   - After you create the drawing, run `check_drawing(svg, ifc)` from `ifc_walls`. It must return `[]`.
-  - Each item names an element whose outline is missing from the drawing or off by more than 3 mm.
+  - A `missing` item names an element that the drawing does not show. Check the cut height and the storey.
+  - An `extra` item names an outline with no element in the IFC. Generate the drawing again from the current IFC.
+  - An `off` item names the walls of one outline whose extent is more than 3 mm off.
+  - Bonsai joins touching walls of one class, material, and status into one outline. The check compares each joined outline as a whole.
   - Review the image only for appearance. The check covers the geometry.
   ```
 - D15 `reference/extensions.md`, "Sun Position", replacing its bullets:
@@ -368,11 +382,14 @@ All under the suite's timeouts; no sleeps. Each test below fails before the chan
   - Five `IfcWall` and one `IfcColumn`; each element's world box equals its normalised record times 0.3048 within 1e-6 m; all in storey `Level 1`.
   - `Status` is `EXISTING`, `NEW`, `EXISTING`, `NEW`, none, `NEW`; the column's is in `Pset_ColumnCommon`.
   - `tol=-1.0` raises `ValueError` (the read-back path runs).
-- T22 Drawing check, in `bl_extensions.py` T13c (fails before: no `check_drawing`). Generate the plan drawing from T21's IFC as T13c does now.
+- T22 Drawing check, in `bl_extensions.py` T13c (fails before: no `check_drawing`; revised after the tests). Generate the plan drawing from T21's IFC as T13c does now.
   - `check_drawing(svg, ifc)` returns `[]`.
-  - Copy the IFC, move `wall_1` 0.1 m east by its placement, and save: `check_drawing(svg, copy)` returns `[("wall_1", d)]` with d within 1e-3 of 0.1.
-  - Copy the SVG with `wall_4`'s cut group removed: the result is `[("wall_4", None)]`.
-  - A record with `z0=2.0`, `z1=2.6` above the 1.6 m cut is left out of the result.
+  - Grouping, pinned from Bonsai 0.9.0 (it joins by class, material, and status): `drawing_walls(svg)` has one group holding `wall_0` and `wall_2`, one holding `wall_1` and `wall_3`, one holding `wall_4` alone, and one holding `wall_5` (the column) alone. A failure here means Bonsai changed how it joins outlines; read the new SVG before changing the check.
+  - Closed room: `write_walls_ifc` into `out/room/room.ifc` (its own folder, so its drawing does not replace T21's) with five records in feet, all `kind="existing"`, `z0=0`, `z1=9`: south `(0, 12, 0, 0.5)`, north `(0, 12, 9.5, 10)`, west `(0, 0.5, 0.5, 9.5)`, east `(11.5, 12, 0.5, 9.5)`, and a partition `(6, 6.5, 0.5, 5)`. Generate its plan drawing. `drawing_walls` has exactly one group, holding all five GlobalIds, with box (0, 12, 0, 10) ft within 1e-4 m; `check_drawing` returns `[]`.
+  - Moved: copy T21's IFC, move `wall_1` 0.1 m east by its placement, and save. `check_drawing(svg, copy)` returns exactly `[("off", "wall_1+wall_3", d)]` with d within 1e-3 of 0.1.
+  - Missing: copy T21's SVG without `wall_4`'s cut group: the result is `[("missing", "wall_4", None)]`. Copy the room's SVG without its one cut group: the result is five `missing` items, `wall_0` to `wall_4`. The test removes a group whose class or `ifc:guid` holds the GlobalId.
+  - Stale: `check_drawing(room_svg, t21_ifc)` returns six `missing` items and five `extra` items.
+  - Above the cut: T21's IFC with an added wall at z 2.0 to 2.6 m returns `[]`.
 - T23 Sun Position mapping, in `bl_extensions.py` T14. It passes before the doc change, because it tests Blender's behaviour behind D15; flipping the sign of `north_offset` in the test must fail it.
   - At 37.77, -122.42, `UTC_zone` -8, 2026-06-21, for plan north 0, 30, and -75 degrees and times 9.0, 12.0, and 15.5: the light direction of `bh.sun(degrees(sun_elevation), degrees(sun_azimuth), plan_north_deg=N)` is within 0.01 degrees of the Sun Position object's with `north_offset = -radians(N)`.
   - Solar noon: with `north_offset` 0, search 11:00 to 13:30 in one-minute steps for the highest elevation. It falls between 12:09 and 12:15, at 75.67 plus or minus 0.1 degrees, with azimuth 180 plus or minus 1 degree.
@@ -381,11 +398,19 @@ All under the suite's timeouts; no sleeps. Each test below fails before the chan
   - Extension ids: the ids in the doc's `extension install` line, and the ids in its `addon_utils.enable` command, each equal `EXTENSIONS` as sets. Fails before: the current enable command names only `bonsai`.
   - The doc names no extension id outside `EXTENSIONS` (a `-c extension install` id or a backticked `bl_ext.blender_org.<id>`).
   - API names: `tests/extensions_names.py` gains `API_NAMES`, read with `ast` from the `run("...")` strings in `scripts/ifc_walls.py`. `bl_extensions.py` T13a imports `ifcopenshell.api.<module>` for each and checks the function exists. Fails before: no `ifc_walls.py`.
-- T25 `tests/test_ifc_walls.py` (plain Python, `python3 -I`). `drawing_walls` on two hand-written SVG strings in the observed format: one with `matrix3` `[[10,0,250],[0,10,250],[0,0,1]]` and the T13b paths gives `ew` and `ns` boxes exact to 1e-6 m; one with scale 20 and offset (100, 300) gives the same boxes. A path with an `A` command raises `ValueError`; two drawing groups raise `ValueError`. The module imports with no `ifcopenshell` installed.
+- T25 `tests/test_ifc_walls.py` (plain Python, `python3 -I`; revised after the tests). `drawing_walls` on hand-written SVG strings in the observed format, with `matrix3` `[[10,0,250],[0,10,250],[0,0,1]]` and `ifc:plane` z 1.6 unless stated. Boxes compare within 1e-6 m.
+  - Two separate wall groups (`class="IfcWall <id> cut material-null"`, the T13b paths): cut_z 1.6, and two groups with one id each and the `ew` and `ns` boxes.
+  - The same with scale 20 and offset (100, 300) in `matrix3`: the same boxes.
+  - A merged group, `class="IfcWall <id_a> material-null <id_b> cut"`, holding the L-shaped path `M251.524,207.328 L250.0,207.328 L250.0,250.0 L323.152,250.0 L323.152,248.476 L251.524,248.476 Z`: one group with ids `(id_a, id_b)` sorted, box (0, 7.3152, 0, 4.2672).
+  - A column group, `<g ifc:guid="<id_c>" ifc:name="wall_5" class="IfcColumn material-null cut">`: one group with ids `(id_c,)`.
+  - A closed room as one group whose path has an outer ring and a hole (`M... Z M... Z`): the box is the outer ring's.
+  - A `projection` group (class without `cut`) is left out.
+  - A path with an `A` command raises `ValueError`; a path with a lowercase `l` raises `ValueError`; two drawing groups raise `ValueError`.
+  - The module imports with no `ifcopenshell` installed.
 - T26 `test_api_doc.py` also checks `ifc_walls`; `run_tests.sh` adds `ifc_walls.py` to the required files and `test_ifc_walls.py` to the suite.
 - T27 `tests/test_description.py` (plain Python): SKILL.md's frontmatter has `name:` and a one-line `description:`; the description has no `: `, is at most 1024 characters, and names `IFC`, `LiDAR`, and `sun`. Fails before: no `IFC`.
 - T29 Point cloud, in `bl_extensions.py`: write a synthetic LAS with laspy (a 4 by 3 m room at easting 551234, northing 4181234, height 12 m). Import it with `center_on_origin` on and then off. Print and assert the point count; record where the offset is kept and the worst position error against the source. The pass line is set after the first run and goes into D18.
-- Mutation checks (report each): place y-running walls at x0 instead of x1; drop the y flip in `drawing_walls`; read the cut height from the wrong matrix cell; put every pset on `Pset_WallCommon`; skip the read-back in `write_walls_ifc`. Each must fail at least one of T21, T22, or T25.
+- Mutation checks (report each): place y-running walls at x0 instead of x1; drop the y flip in `drawing_walls`; read the cut height from the wrong matrix cell; read GlobalIds from the class only (column) or only the first id of a class (merged group); compare each element's own box instead of the group's; leave out the `unit.add_si_unit` length unit; put every pset on `Pset_WallCommon`; skip the read-back in `write_walls_ifc`. Each must fail at least one of T21, T22, or T25.
 
 ### Evals
 
@@ -409,6 +434,17 @@ Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill t
 - B1: yes, `kind` becomes the wall's NEW or EXISTING status. B2: yes, `scripts/ifc_walls.py`.
 - C1: yes, D16. C2: yes; the `bl_extensions` step ran at 01:34 and restored the shared package folder (`ifcopenshell`, `ezdxf`, `laspy` present).
 - D1: yes, with "DXF," removed under A1 (534 characters).
+
+### Revision after the tests (2026-10-21)
+
+The test author ran Bonsai 0.9.0 on T21's six records (tests at `7af0c10`) and found three errors in R33. The architect confirmed each against the run's files and Bonsai's source, and revised R33, D14, T22, T25, and the mutation list above.
+- Bonsai joins cut outlines. `bonsai/bim/module/drawing/operator.py`, `merge_linework_and_add_metadata`, unions the cut polygons of `IfcWall` and `IfcSlab` elements that share class, material name, and `Pset_*Common.Status`, whenever the union is one polygon. The joined `<g>` lists every GlobalId in its class. In T21's drawing, `wall_0`+`wall_2` (EXISTING) and `wall_1`+`wall_3` (NEW) each became one L-shaped outline; `wall_4` (no status) stayed alone, though it touches `wall_0`. A closed room of one status is one outline with a hole. The per-element box comparison of the first R33 therefore reported correct drawings as wrong.
+- Elements outside the join classes keep an `ifc:guid` attribute and carry no GlobalId in the class (the column).
+- `unit.assign_unit` with no `units` writes millimetres (unit scale 0.001), not metres; verified again through uvx. `reference/extensions.md` line 50 ("The default units are metres") is wrong for the same reason; D13 already removes that recipe.
+
+Simplify, on the revised check: the comparison is per cut group, by extent. Rejected: comparing each outline's polygon with the union of its walls' footprints (symmetric difference by coordinate compression, about 50 lines). It catches only a piece moved inside its own outline's box, which needs a hand edit of the IFC after the drawing: `write_walls_ifc` checks each element on write, and every write gives new GlobalIds, so a stale drawing already shows as `missing` and `extra`. Kept: `missing`, `extra`, and the per-group extent, which catch a wrong cut height or storey, a stale drawing, and a scale, origin, or flip error.
+
+Verified with a prototype of the revised functions (uvx, outside the repo) on the test run's files: T21's IFC and drawing give `[]`; the IFC with `wall_1` moved 0.1 m gives `[("off", "wall_1+wall_3", 0.09999950)]`; the drawing without `wall_4`'s group gives `[("missing", "wall_4", None)]`; the IFC with an element above the cut gives `[]`; T21's drawing against T13b's two-wall IFC gives two `missing` and six `extra` items. The closed room case has not been run; T22 runs it.
 
 ### Order of work, and how to continue if interrupted
 
