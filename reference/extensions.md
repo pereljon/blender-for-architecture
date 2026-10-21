@@ -68,6 +68,7 @@ ids = write_walls_ifc(walls, "out/walls.ifc", 0.0, CEIL, unit=bh.U)
 ### Generate a drawing headless
 
 ```python
+import os
 bpy.ops.bim.load_project(filepath=ifc)
 import bonsai.tool as tool
 f = tool.Ifc.get()
@@ -80,9 +81,12 @@ dwg = [a for a in f.by_type("IfcAnnotation") if a.ObjectType == "DRAWING"][0]
 bpy.ops.bim.activate_drawing(drawing=dwg.id())
 bpy.ops.bim.create_drawing()
 bpy.ops.bim.save_project(filepath=ifc)
+svg = os.path.join(os.path.dirname(ifc), "drawings", "LEVEL 1 PLAN.svg")
 ```
 
-- The SVG is written to `drawings/` beside the IFC, named after the storey and view (for example `LEVEL 1 PLAN.svg`).
+- Put the drawing step in its own script, beside the scene script.
+- The SVG is written to `drawings/` beside the IFC, named after the storey and view. The snippet names the file for level 1.
+- Pass `check_drawing` the SVG's path. `drawings/` also holds `cache/` and `assets/`. A glob that reaches them, such as `drawings/**/*.svg`, makes `check_drawing` raise. To glob, match only the top level: `drawings/*.svg`.
 - In Bonsai 0.9, `bpy.ops.bim.add_drawing` takes no arguments. Set the view and the storey on `DocProperties` first.
 - To review an SVG, rasterise it with PyMuPDF (`pymupdf.open(svg)`).
 - PyMuPDF ignores the SVG's CSS, so line weights and fills do not show.
