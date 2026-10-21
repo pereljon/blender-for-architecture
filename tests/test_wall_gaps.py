@@ -1,7 +1,9 @@
 """Plain Python test: scripts/wall_gaps.py, wall_gaps() and wall_openings() (T16, Revision 6 R22)."""
 import math
 import os
+import random
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tcommon
@@ -106,6 +108,21 @@ def main():
     openings("second wall on the level above", [(0, 2, 0, 0.1, 0, 2.6), (2.9, 4, 0, 0.1, 3, 5.6)], [])
     openings("feet", [(0, 6, 0, 0.33), (9, 12, 0, 0.33)],
              [(0, 1, 3 * 0.3048, (6 * 0.3048, 9 * 0.3048, 0.0, 0.33 * 0.3048))], unit=0.3048)
+
+    # 800 rects on a 4 m grid, many of them touching, finish in seconds
+    rnd = random.Random(1)
+    big = []
+    for k in range(800):
+        x, y, ln = rnd.randrange(0, 60, 4), rnd.randrange(0, 60, 4), rnd.choice((2, 4, 6))
+        big.append((x, x + ln, y, y + 0.1, 0, 2.6) if k % 2 else (x, x + 0.1, y, y + ln, 0, 2.6))
+    t0 = time.perf_counter()
+    wg.wall_gaps(big)
+    dt = time.perf_counter() - t0
+    check(dt < 2.0, f"wall_gaps on 800 rects takes under 2 s, took {dt:.1f} s")
+    t0 = time.perf_counter()
+    wg.wall_openings(big)
+    dt = time.perf_counter() - t0
+    check(dt < 2.0, f"wall_openings on 800 rects takes under 2 s, took {dt:.1f} s")
 
     finish("test_wall_gaps")
 

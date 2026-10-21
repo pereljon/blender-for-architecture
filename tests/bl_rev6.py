@@ -613,6 +613,208 @@ def t_misc():
     check(getattr(bh, "EYE_HEIGHT", None) == 1.5875, f"EYE_HEIGHT is 1.5875: {getattr(bh, 'EYE_HEIGHT', None)}")
 
 
+# ---------------------------------------------------------------- code review fixes (T17 additions)
+def open_plane(name, down=False, mirror=False, z=0.0, half=5.0):
+    """One-quad open mesh at height z, wound so that its local normal faces down or up, optionally mirrored in x."""
+    bm = bmesh.new()
+    pts = [(-half, -half, z), (half, -half, z), (half, half, z), (-half, half, z)]
+    bm.faces.new([bm.verts.new(v) for v in (pts[::-1] if down else pts)])
+    ob = bh.new_obj(name, bh._to_mesh(name, bm))
+    if mirror:
+        ob.scale = (-1, 1, 1)
+    return ob
+
+
+def plane_floor_scene(down, mirror):
+    reset()
+    open_plane("floor", down, mirror)
+    bh.box("on_floor", 0, 1, 0, 1, 0, 1)
+    bh.box("float_011", 2, 3, 2, 3, 0.11, 1)
+    upd()
+
+
+def t_plan_view_openings():
+    nh = "  wall_a wall_b no-header 0.900 m"
+    nf = "  wall_a wall_b no-floor 0.900 m"
+    plan = dict(plan=True, center=(1, 0), width=8, cut=1.2)
+    opening_scene(header="head_1")
+    bh.add_camera(plan, 160)
+    upd()
+    lines, code = run(floors=("floor",))
+    blk = block(lines, "wall_gaps")
+    check(blk and blk[0].startswith("OK wall_gaps"), f"plan view of an opening with a header and ceiling: {blk}")
+    opening_scene()
+    bh.add_camera(plan, 160)
+    upd()
+    lines, code = run(floors=("floor",))
+    check(nh not in lines, f"a plan view checks floors only, no no-header line: {block(lines, 'wall_gaps')}")
+    opening_scene(header="head_1", floors="split")
+    bh.add_camera(plan, 160)
+    upd()
+    lines, code = run(floors=("floor", "floor_r"))
+    check(nf in lines, f"a plan view still reports no-floor: {block(lines, 'wall_gaps')}")
+    opening_scene()
+    bh.perspective_camera((1, -4, 1.5), (2, 0, 1.2), lens=20)
+    upd()
+    lines, code = run(floors=("floor",))
+    check(nh in lines, f"a perspective view still reports a missing header: {block(lines, 'wall_gaps')}")
+
+
+def t_floor_fit_upper_slab():
+    reset()
+    bh.box("floor", -3, 3, -3, 3, -0.2, 0)
+    bh.box("upper", -3, 3, -3, 3, 2.62, 2.85)
+    bh.box("ceiling", -3, 3, -3, 3, 2.6, 2.62)
+    bh.box("beam", -1, 1, 0, 0.2, 2.4, 2.6)
+    bh.box("pendant", 0.5, 0.7, 1, 1.2, 2.35, 2.6)
+    bh.box("float_011", 1.5, 2.0, -2, -1.5, 0.11, 0.6)
+    upd()
+    expect("objects under an upper slab named in floors", ck.floor_fit_check(("floor", "upper")),
+           [("float_011", 0.11)])
+
+
+def t_floor_open_planes():
+    for down, mirror, label in ((True, False, "open plane, normal down"),
+                                (True, True, "open plane, normal down, mirrored"),
+                                (False, True, "open plane, normal up, mirrored"),
+                                (False, False, "open plane, normal up")):
+        plane_floor_scene(down, mirror)
+        expect(label, ck.floor_fit_check(("floor",)), [("float_011", 0.11)])
+    reset()
+    f = bh.box("floor", -5, 5, -5, 5, -0.5, 0)
+    f.data.flip_normals()
+    f.scale = (-1, 1, 1)
+    bh.box("on_floor", 0, 1, 0, 1, 0, 1)
+    bh.box("float_011", 2, 3, 2, 3, 0.11, 1)
+    upd()
+    expect("closed floor, mirrored and inside-out", ck.floor_fit_check(("floor",)), [("float_011", 0.11)])
+
+
+def t_support_variants():
+    reset()
+    bh.box("floor", -5, 5, -5, 5, -0.5, 0)
+    open_plane("rug", down=True, z=0.03, half=2.0)
+    bh.box("chair", 0.5, 1, 0.5, 1, 0.03, 0.9)
+    upd()
+    expect("object resting on an open plane with a downward normal",
+           ck.floor_fit_check(("floor",), skip=("rug",)), [])
+    reset()
+    bh.box("floor", -5, 5, -5, 5, -0.5, 0)
+    open_plane("rug", down=False, mirror=True, z=0.03, half=2.0)
+    bh.box("chair", 0.5, 1, 0.5, 1, 0.03, 0.9)
+    upd()
+    expect("object resting on a mirrored open plane", ck.floor_fit_check(("floor",), skip=("rug",)), [])
+    reset()
+    bh.box("floor", -5, 5, -5, 5, -0.5, 0)
+    bh.box("plate", 0, 1, 0, 1, 0.11, 0.115)
+    bh.box("cand", 0, 1, 0, 1, 0.115, 0.6)
+    upd()
+    expect("a down face within 2 tol of the bottom is not a support",
+           ck.floor_fit_check(("floor",), skip=("cand",)), [("plate", 0.11)])
+
+
+def t_wall_heights():
+    def pair(ha, hb, ceiling=True):
+        reset()
+        bh.box("floor", -3, 5, -3, 3, -0.1, 0)
+        bh.box("wall_a", 0, 2, 0, 0.1, 0, ha)
+        bh.box("wall_b", 2.9, 4, 0, 0.1, 0, hb)
+        if ceiling:
+            bh.box("ceiling", -3, 5, -3, 3, 2.6, 2.7)
+        upd()
+        return ck.wall_gap_check(floors=("floor",))
+
+    expect("walls 0.9 m tall under a ceiling", pair(0.9, 0.9), [])
+    expect("walls 1.1 m tall under a ceiling", pair(1.1, 1.1), [])
+    expect("lower wall 1.9 m, higher 2.4 m", pair(1.9, 2.4), [])
+    expect("lower wall 2.1 m, no ceiling", pair(2.1, 2.4, ceiling=False), [("wall_a", "wall_b", "no-header", 0.9)])
+    expect("both walls 2.1 m under a ceiling", pair(2.1, 2.1), [("wall_a", "wall_b", "no-header", 0.9)])
+
+
+def t_run_names_as_strings():
+    clean_room()
+    bh.box("float_011", 0.3, 0.6, 1.5, 1.8, 0.11, 0.5)
+    upd()
+    lines, code = run(floors="floor")
+    check(code == 1 and "  float_011 floating 0.110 m" in lines, f"floors as a bare string is one name (code {code}): {lines}")
+    check(not any(ln.startswith("WARN floors") for ln in lines), f"no WARN for single letters: {lines}")
+    lines, code = run(floors=("floor",), exempt={"floor_fit": "float_011"})
+    check(code is None and lines[-1] == "OK run_checks", f"exempt as a bare string is one name (code {code}): {lines}")
+    check(not any(ln.startswith("WARN") for ln in lines), f"no WARN for single letters: {lines}")
+    lines, code = run(floors=("floor",), exempt={"floor_fit": "float_011", "wall_gaps": "wall_south"})
+    check(not any(ln.startswith("WARN") for ln in lines), f"two exempt strings: {lines}")
+
+
+def t_run_unrendered_floors():
+    clean_room()
+    bpy.data.objects["floor"].hide_render = True
+    bh.box("float_011", 0.3, 0.6, 1.5, 1.8, 0.11, 0.5)
+    upd()
+    lines, code = run(floors=("floor",))
+    check("SKIP floor_fit: none of the floors exists" in lines, f"a floor hidden from render does not exist: {lines}")
+    check(not any(ln.startswith("OK floor_fit") for ln in lines), f"no OK floor_fit: {lines}")
+    clean_room()
+    bpy.context.scene.collection.objects.link(bpy.data.objects.new("slab_empty", None))
+    bh.box("float_011", 0.3, 0.6, 1.5, 1.8, 0.11, 0.5)
+    upd()
+    lines, code = run(floors=("slab_empty",))
+    check("SKIP floor_fit: none of the floors exists" in lines, f"a floor that is not a mesh does not exist: {lines}")
+    check(not any(ln.startswith("OK floor_fit") for ln in lines), f"no OK floor_fit: {lines}")
+
+
+def t_run_camera_not_a_camera():
+    clean_room()
+    bpy.context.scene.camera = bpy.data.objects.new("cam_empty", None)
+    bpy.context.scene.collection.objects.link(bpy.context.scene.camera)
+    upd()
+    try:
+        lines, code = run(floors=("floor",))
+    except Exception as e:
+        check(False, f"a non-camera scene.camera raised {type(e).__name__}: {e}")
+        return
+    check(not any(ln.startswith("OK camera") for ln in lines), f"camera check does not pass: {lines}")
+    check(any(re.match(r"^(SKIP|FAIL) camera", ln) for ln in lines), f"a SKIP or FAIL camera line: {lines}")
+    check(any(ln.startswith("OK coplanar") for ln in lines), f"the other checks still run: {lines}")
+    if any(ln.startswith("FAIL") for ln in lines):
+        check(code == 1, f"a FAIL line means exit 1, got {code}")
+
+
+def t_checks_alone():
+    import importlib.util
+    import shutil
+    import tempfile
+    clean_room()
+    held = sys.modules.get("wall_gaps", False)
+    sys.modules["wall_gaps"] = None
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            shutil.copy(os.path.join(tcommon.SCRIPTS, "checks.py"), d)
+            spec = importlib.util.spec_from_file_location("checks_alone", os.path.join(d, "checks.py"))
+            mod = importlib.util.module_from_spec(spec)
+            try:
+                spec.loader.exec_module(mod)
+            except ImportError as e:
+                check(False, f"checks.py alone imports without wall_gaps.py: {type(e).__name__}: {e}")
+                return
+            buf = io.StringIO()
+            code = None
+            with contextlib.redirect_stdout(buf):
+                try:
+                    mod.run_checks(floors=("floor",))
+                except SystemExit as e:
+                    code = e.code
+            lines = buf.getvalue().splitlines()
+    finally:
+        if held is False:
+            sys.modules.pop("wall_gaps", None)
+        else:
+            sys.modules["wall_gaps"] = held
+    check(any(ln.startswith("FAIL wall_gaps: error ModuleNotFoundError") for ln in lines),
+          f"missing wall_gaps module is a FAIL line: {lines}")
+    check(any(ln.startswith("OK coplanar") for ln in lines), f"the other checks still run: {lines}")
+    check(code == 1 and lines[-1] == "FAIL run_checks: wall_gaps", f"exit 1 (code {code}): {lines[-2:]}")
+
+
 # ---------------------------------------------------------------- T18 timing
 def t_timing():
     rnd = random.Random(1)
@@ -665,7 +867,9 @@ def t_timing():
 
 CASES = (t_wall_gaps, t_openings, t_flipped, t_floor_fit, t_floor_orientation, t_support, t_camera_backface,
          t_camera_escape, t_clearance, t_coplanar, t_coplanar_mirrored, t_run_clean, t_run_float, t_run_formats, t_run_walls,
-         t_run_errors, t_run_openings, t_misc, t_timing)
+         t_run_errors, t_run_openings, t_misc, t_plan_view_openings, t_floor_fit_upper_slab,
+         t_floor_open_planes, t_support_variants, t_wall_heights, t_run_names_as_strings, t_run_unrendered_floors,
+         t_run_camera_not_a_camera, t_checks_alone, t_timing)
 
 
 def main():
