@@ -264,8 +264,8 @@ def wall_gap_check(prefixes=("wall_",), floors=(), gap=0.3, opening=2.5, touch=0
     kind "gap" or "corner": see wall_gaps.wall_gaps. "no-header": the ray up from the middle of an opening
     between in-line walls hits nothing, or first hits at the wall top (a ceiling on the walls). "no-floor": with
     floors given, the ray down hits nothing in floors, or hits more than tol below the wall bottom.
-    Openings are probed only where the lower wall is at least 2.0 m tall, and "no-header" is not probed when the
-    scene camera is orthographic (a plan view hides what is above its cut).
+    "no-header" is probed only where the opening's walls stand at least 2.0 m above the higher wall bottom, and not
+    when the scene camera is orthographic (a plan view hides what is above its cut).
     full_height holds pairs of wall names whose opening is meant to run to the ceiling. Angled walls are not
     checked and are named in a NOTE line. Sorted. Lengths are world metres.
     """
@@ -293,7 +293,7 @@ def wall_gap_check(prefixes=("wall_",), floors=(), gap=0.3, opening=2.5, touch=0
         pair = sorted((names[i], names[j]))
         z = max(rects[i][4], rects[j][4]) + 1.0
         top, bottom = min(rects[i][5], rects[j][5]), min(rects[i][4], rects[j][4])
-        if frozenset(pair) in pairs or top < 2.0 or z >= top - tol:
+        if frozenset(pair) in pairs or z >= top - tol:
             continue
         if trees is None:
             meshes = (_mesh(o, dg) for o in _objects(("MESH", "CURVE")))
@@ -302,7 +302,7 @@ def wall_gap_check(prefixes=("wall_",), floors=(), gap=0.3, opening=2.5, touch=0
             trees = (None if plan else _bvh([m for m in meshes if m])[0], _bvh(fl)[0] if fl else None)
         scene_tree, floor_tree = trees
         at = Vector(((x0 + x1) / 2, (y0 + y1) / 2, z))
-        if scene_tree is not None:
+        if scene_tree is not None and top - z + 1.0 >= 2.0:
             up = scene_tree.ray_cast(at, Vector((0, 0, 1)))[0]
             if up is None or up.z >= top - tol:
                 hits.append((*pair, "no-header", w))
@@ -345,7 +345,7 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
         if n in floors or n in skip:
             continue
         cx, cy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
-        loc, normal = tree.ray_cast(Vector((cx, cy, min(lo.z + hang, hi.z - 1e-4))), down)[:2]
+        loc, normal = tree.ray_cast(Vector((cx, cy, min(lo.z + hang, max(hi.z - 1e-4, lo.z + 1e-4)))), down)[:2]
         if loc is None:
             continue
         d = None if normal.z < 0 else lo.z - loc.z
