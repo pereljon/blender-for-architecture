@@ -2,6 +2,16 @@
 
 All notable changes to this skill. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- `reference/api.md`: `load_plan` returns the tuple `(walls, doors, leaves)`; `EXAMPLE_POSE` and `FONTS` no longer show cut-off values; `Sheet` and `Draw` list each method's signature; `floor_fit_check` defines the hang limit (0.3 m); `cut_openings` says its `min_piece` is an argument, separate from the config list.
+- `reference/studies.md`: `sun` shows its real parameter names; the study-page example path is neutral.
+- `reference/views.md`: the usual plan cut is stated as 1.2 m or 5 ft, not as equal values.
+- `reference/plan-input.md`: each `sheets` entry needs `page`, `region`, and `out`; the config `min_piece` list is distinguished from the `cut_openings` argument.
+- `SKILL.md`: the Point Cloud I/O format list matches `reference/extensions.md` (no LAZ); "hit", "walking box", and "hang limit" are defined where they first appear; the `paths` instruction is split into two sentences.
+
 ## [1.0.0] - 2026-10-21
 
 ### Changed

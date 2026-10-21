@@ -7,7 +7,7 @@ Two routes bring the plan into the scene script. Choose one per drawing set.
 
 ## Route A: extract from a PDF
 
-1. Copy `plan_config.example.json` next to the script. Set `pdf`, `pt_per_unit`, and `origin`, and give each entry in `sheets` its `region` and `out`.
+1. Copy `plan_config.example.json` next to the script. Set `pdf`, `pt_per_unit`, and `origin`, and give each entry in `sheets` its `page`, `region`, and `out`. An entry may also set `shift`.
 2. List `page.get_drawings()` for a small area that holds known walls, doors, and posts.
 3. Read their fill, stroke color, and stroke width. Set `new_fill`, `existing_width`, `swing_width`, and `leaf_width` from them.
 4. Run `uvx --with pymupdf python -I lib/extract_plan.py plan_config.json`.
@@ -20,7 +20,7 @@ At 1/8" = 1'-0", `pt_per_unit` is 9.0 points per foot. Every office draws walls 
 
 - Angled walls and some outside walls. Add them in `EXTRA_WALLS`, or as `seg()` calls for angled walls.
 - Short wall pieces where one wall meets another. Check each junction, and add a missing piece in the correction block.
-- Stray pieces in doorways and jamb fragments. The config's `min_piece` drops most of them; `cut_openings` trims the rest.
+- Stray pieces in doorways and jamb fragments. The config's `min_piece` list, `[new, existing]` in PDF points, drops most of them. `cut_openings` trims the rest; its `min_piece` argument is in project units.
 
 ### The correction layer
 

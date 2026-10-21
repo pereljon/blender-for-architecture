@@ -17,7 +17,7 @@ VIEWS = {"vanity": dict(loc=(1.2, 3.4, 1.55), target=(1.2, 0.5, 1.2), lens=24, a
 
 ## Plan views
 
-A plan view is an orthographic camera looking down, cut at a fixed height (5'-0" or 1.25 m is usual).
+A plan view is an orthographic camera looking down, cut at a fixed height. The usual cut is 1.2 m in a metric project and 5 ft (`cut=5.0`) in a project in feet.
 
 Every plan entry does these steps:
 1. The camera's `clip_start` sits at the cut height, which gives a true cut.

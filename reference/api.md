@@ -78,10 +78,10 @@ Keys of a `mannequin` pose, in project units. `EXAMPLE_POSE` is in metres.
 - `subtract(r, h)`: Rectangle r minus hole h, both (a0, a1, b0, b1): up to four rectangles (niches, windows, cut-outs).
 - `tile_wall(tag, face, u0, u1, start, sign, rows, mat, rnd, holes=(), tile=None, joint=None)`: Stacked tiles on a Face between u0 and u1, laid from start (a full tile at the most visible corner).
 - `export_pieces(path)`: Write PIECES as JSON {"pieces": [...]}, polygons in project units.
-- `load_plan(path)`: Walls JSON written by extract_plan.py: {"walls": [{kind, x0, x1, y0, y1}], "doors": [...], "leaves": [...]}.
+- `load_plan(path)`: Read the walls JSON written by extract_plan.py. Returns the tuple `(walls, doors, leaves)`: walls is a list of `{kind, x0, x1, y0, y1}` dicts, and doors and leaves are lists.
 - `fix_walls(walls, wall_fixes=(), wall_replace=(), tol=None)`: Apply WALL_REPLACE, then WALL_FIXES, to the extracted walls. Pieces match within tol (default 0.06 m).
 - `extra_walls(rows)`: Wall dicts, as load_plan returns them, from EXTRA_WALLS tuples (kind, x0, x1, y0, y1).
-- `cut_openings(walls, holes, min_piece=None)`: Trim wall rectangles where they run into an opening (jamb fragments left by the extraction).
+- `cut_openings(walls, holes, min_piece=None)`: Trim wall rectangles where they run into an opening (jamb fragments left by the extraction). The `min_piece` argument is the shortest piece to keep, in project units; the default is 0.05 m. It is separate from the `min_piece` config list of extract_plan.py.
 - `walls_from_plan(walls, z0, z1, mat=None, prefix='wall_')`: One box per wall dict from load_plan, named prefix + index. Returns the objects.
 - `door_swings(doors, mat, z=None, width=None, skip=None)`: Door swing arcs from the extracted plan, drawn flat on the floor for plan views.
 - `room_fill_lights(rooms, ceil, w_per_m2=24.0, color=(1.0, 0.93, 0.84))`: One hidden area light per room under the ceiling; energy is w_per_m2 times the room area in square metres.
@@ -105,7 +105,7 @@ Keys of a `mannequin` pose, in project units. `EXAMPLE_POSE` is in metres.
 ## mannequin.py
 
 - `ik(a, t, l1, l2, pole)`: Two-bone IK: joint (elbow/knee) and end point for root a reaching t; the joint bends toward pole.
-- `EXAMPLE_POSE` = `dict(root=(1.0, 0.75), face=(1, 0), pz=None, bend=18, head=2`
+- `EXAMPLE_POSE` = a dict in `mannequin.py`, in metres: `root=(1.0, 0.75)`, `face=(1, 0)`, `pz=None`, `bend=18`, `head=28`, plus `ankles`, `rw`, `lw`, `rpole`, and `lpole`.
 - `mannequin(pose, height=None, mat=None, prefix='man_')`: Neutral clay figure of the given height in pose (see EXAMPLE_POSE); object names start with prefix.
 
 ## checks.py
@@ -116,7 +116,7 @@ Lengths in the checks are world metres, except `paths` in `run_checks` and `clea
 - `coplanar_check(prefixes=None, tol=0.0005, min_area=1e-06, skip=())`: Pairs (name1, name2) of mesh objects with faces on one plane (within tol metres) whose in-plane extents overlap; skip holds exact object names to leave out.
 - `flipped_check(skip=())`: Pairs (name, "inside-out" or "mixed") of closed mesh objects whose faces turn the wrong way. Sorted by name.
 - `wall_gap_check(prefixes=('wall_',), floors=(), gap=0.3, opening=2.5, touch=0.001, tol=0.025, skip=(), full_height=())`: Hits (name_i, name_j, kind, length_m). Kind "gap" or "corner" marks walls that almost meet. Kind "no-header" or "no-floor" marks a door-sized opening between two walls. full_height holds wall-name pairs whose opening runs to the ceiling.
-- `floor_fit_check(floors, walls=('wall_',), tol=0.025, hang=0.3, skip=())`: Pairs (name, d) of mesh objects that float above (d > 0) or sink into (d < 0) the floor under their centre. d is None for more than hang. floors holds exact object names.
+- `floor_fit_check(floors, walls=('wall_',), tol=0.025, hang=0.3, skip=())`: Pairs (name, d) of mesh objects that float above (d > 0) or sink into (d < 0) the floor under their centre. d is None for more than hang. floors holds exact object names. The hang limit is the `hang` argument, 0.3 m by default: an object whose base is at or above that height above the floor counts as hung (lights, upper cabinets) and passes.
 - `camera_check(interior=None, rays=160, skip=())`: Items (kind, name, count, (x0, y0, x1, y1)) for faces the perspective scene camera sees from behind ("backface") and for sky in an interior view ("escape"). The box is in pixels.
 - `clearance_check(paths, headroom=2.032, unit=None, tol=0.005, skip=())`: Items (path, name, headroom_m) for objects inside the walking box over each path. paths maps a name to (x0, x1, y0, y1, z) in project units.
 - `fail_on(hits, label)`: Print OK <label>, or FAIL <label>: <hits> and exit with status 1 when hits is not empty.
@@ -139,7 +139,7 @@ Plain Python (no Blender). Rects are `(x0, x1, y0, y1)`, `(x0, x1, y0, y1, z0, z
 
 ## sheets.py
 
-- `FONTS` = `('/System/Library/Fonts/Supplemental/Arial.ttf', '/System/Li`
+- `FONTS` = the font file search list that `font` reads; the first entry is Arial on macOS.
 - `DPI` = `200`
 - `PAPERS` = landscape sizes in mm: letter, tabloid, arch-c, arch-d, a4, a3
 - `PAGE` = `(3400, 2200)` (Tabloid; `set_paper` changes it)
@@ -148,8 +148,8 @@ Plain Python (no Blender). Rects are `(x0, x1, y0, y1)`, `(x0, x1, y0, y1, z0, z
 - `font(size, bold=False)`: Cached font: Arial (Arial Bold when bold), then Helvetica, then the Pillow default; never raises.
 - `fmt(v, decimal=',')`: Number to a string with one decimal and no trailing zero decimal; decimal is the separator.
 - `check_rounding(values, step)`: Values that are not multiples of step (relative tolerance 1e-9). Sheet generators assert this is empty.
-- `Sheet(title, subtitle, page_no, total, footer, page_label='Sheet {} of {}')`; methods: text, paragraph, save: Sheet of the current paper size (PAGE) with title, subtitle, page number and footer. Labels are parameters so any language works.
-- `Draw(sh, ox, oy, scale)`; methods: P, rect, line, text, hdim, vdim: A scaled drawing on a Sheet: origin at sheet pixel (ox, oy), coordinates in mm, y up. scale 20 = 1:20.
+- `Sheet(title, subtitle, page_no, total, footer, page_label='Sheet {} of {}')`; methods `text(xy, s, size=30, bold=False, fill='black', anchor='la')`, `paragraph(x, y, lines, size=34, width=None, gap=12)`, `save(path)`: Sheet of the current paper size (PAGE) with title, subtitle, page number and footer. Labels are parameters so any language works.
+- `Draw(sh, ox, oy, scale)`; methods `P(x, y)`, `rect(x0, y0, x1, y1, fill=None, outline=INK, width=3)`, `line(pts, fill=INK, width=2, dash=False)`, `text(x, y, s, size=24, bold=False, fill=INK, anchor='mm')`, `hdim(x0, x1, y, txt=None, off=0, size=24)`, `vdim(x, y0, y1, txt=None, off=0, size=24, side='l')`: A scaled drawing on a Sheet: origin at sheet pixel (ox, oy), coordinates in mm, y up. scale 20 = 1:20.
 - `save_pdf(images, path, resolution=200)`: Join page images, PIL images or PNG file paths, into one multi-page PDF.
 - `items_from_pieces(path, unit=1.0)`: Pieces from an export_pieces JSON as pack() items dict(id, w, h) in metres; unit is metres per project unit.
 - `pack(items, tw=1.2, th=0.6, kerf=0.003)`: Pack pieces dict(id, w, h) (finished size, metres) onto tw x th stock with a kerf saw cut between pieces.

@@ -14,7 +14,7 @@ To study one element at several sites, model it around the origin in a function.
 ## Study pages
 
 ```
-uvx --with pillow python -I lib/compose.py deliverables/2026-05-10_estudios/vanity.jpg \
+uvx --with pillow python -I lib/compose.py deliverables/<date>_studies/kitchen.jpg \
   --title="Vanity options" --width=2400 \
   "#Front view" "A=scratch/v_a.png" "B=scratch/v_b.png" "|" \
   "#Plan" "A=scratch/p_a.png" "B=scratch/p_b.png" "C=-"
@@ -46,7 +46,7 @@ mannequin(dict(EXAMPLE_POSE, root=(1.0, 0.75)), height=1.52)
 
 - Add scale props, and draw running water as a curve with `tube`.
 - Use realistic light wattages, and test exposure with a grey-material pass.
-- Use one fixed sun time for all renders. `sun(elevation, azimuth, plan_north)` takes the solar position; record it in the dimensions file.
+- Use one fixed sun time for all renders. `sun(elevation_deg, azimuth_deg, plan_north_deg=0.0)` takes the solar position; record it in the dimensions file.
 - Use `room_fill_lights` for even interior fill. The panels stay out of the camera and out of reflections.
 - Glass blocks the sun. Use `opening_light` for daylight through skylights and glazed openings.
 - For an enclosed room or a night view, pass a near-black world to `setup_cycles`, such as `sky=(0.02, 0.018, 0.015)`. The default sky lights the room as if it were outdoors.

@@ -61,7 +61,7 @@ Copy this checklist into the response and track it:
 ```
 - [ ] 1. Check dimensions.md and decisions.md; edit constants or geometry in the script
 - [ ] 2. Preview at --res 800 --samples 48 --gpu into scratch/; the checks run first
-- [ ] 3. Fix every check hit, then read the preview image
+- [ ] 3. Fix every check hit (a check result that reports a defect), then read the preview image
 - [ ] 4. Check the preview against the QA list below
 - [ ] 5. Studies: render each option, compose one labeled page per question
 - [ ] 6. Final: --res 1600..2400 --samples 128..256, in the background, into out/
@@ -102,7 +102,7 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 | wall_gaps | Walls that almost meet or meet only at a corner; door-sized openings with no header, or with no floor through them |
 | floor_fit | Objects that float above or sink into the floor under them |
 | camera | Faces seen from behind (a missing face, or a camera inside an object), and sky seen from an interior view |
-| clearance | Anything inside the walking box over a stair tread or path, with the headroom |
+| clearance | Anything inside the walking box over a stair tread or path, with the headroom. The walking box is the space from the tread top up to 2.032 m (6'-8"). |
 
 Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 
@@ -124,11 +124,12 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 - Give the reason for each exemption in a comment.
 - Name every floor, slab, deck, and paving object in `floors`. Without floors, `floor_fit` does not run, and openings are not checked for a floor.
 - Name every wall with the `wall_` prefix, or pass your wall prefixes in `walls`.
-- Add a walking box to `paths` for each stair tread and landing: `(x0, x1, y0, y1, z)`, with z at the tread top.
+- Add a walking box to `paths` for each stair tread and landing.
+- Write each walking box as `(x0, x1, y0, y1, z)`, with z at the tread top.
 - Draw each walking box between the handrails, from its nosing to the next nosing.
 - If a view looks out through an opening without glass, set `interior=False` in its entry.
 - In a script without a VIEWS table, leave out `interior` unless the view looks out through an opening without glass. The default detects an interior view from an object above the camera.
-- An object buried entirely inside a floor reports as sunk more than the hang limit, whatever its depth.
+- An object buried entirely inside a floor reports as sunk more than the hang limit (0.3 m), whatever its depth.
 - A camera hit gives a pixel box in the view's image at the run's `--res`. A failing run writes no image.
 - To see a camera hit, exempt its object for one preview run at the same `--res`. Then look inside the pixel box.
 - A plan (orthographic) view checks openings for a floor only, not for a header.
@@ -187,7 +188,7 @@ Read [reference/extensions.md](reference/extensions.md) before you install or us
 |---|---|
 | Bonsai (includes IfcOpenShell) | Walls as IFC objects, plan drawings from the model, and IFC files for architects |
 | Sun Position | The sun from the site's latitude, longitude, date, and time |
-| Point Cloud I/O | LiDAR scans (LAS, LAZ, E57, PLY) in the scene, to check the model against the site |
+| Point Cloud I/O | LiDAR scans (LAS, E57, PLY, PCD, PTS, XYZ) in the scene, to check the model against the site |
 
 - Before you install or sync an extension, ask the user. Name each extension and its download size.
 - Install an extension once per machine. Do not enable it in the user's preferences.
