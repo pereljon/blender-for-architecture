@@ -16,6 +16,7 @@ State of the blender-architectural-renders skill: open bugs, planned work, next 
 - [ ] After v1.0.0: SKILL.md step 5 of the setup list requires `context/dimensions.md` with no exemption for a quick preview outside a project (Revision 6 eval gap b). Add the exemption.
 - [ ] Revision 5, before release: the remaining items, designed as Revision 5b (contract, "Revision 5b"); branch `rev5b`. Next: pre-merge review, then evals E3 to E5 and E7, then merge approval.
 - [ ] If a CAD file (DXF or DWG) ever arrives: read it with ezdxf, which comes with Bonsai, and build a wall extractor against that file. Findings: contract, "Revision 5b", Verified.
+- [ ] After v1.0.0, a possible revision: build walls and slabs from a LiDAR scan (laspy slices at set heights, fitted to axis-aligned wall records), so a scan can feed the model as well as check it. Approved for the backlog by the user on 2026-10-21; needs its own design.
 - [ ] After v1.0.0: HDRI environment lighting for exterior views and views through windows, from a fixed, reviewed source (for example a Poly Haven CC0 file kept in the project). Idea from reviewing two public Blender skills on 2026-10-21; their code is not reused (one has no licence).
 
 ## Next steps
