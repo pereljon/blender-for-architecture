@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 
 _IFC_NS = "{http://www.ifcopenshell.org/ns}"
 _SVG_NS = "{http://www.w3.org/2000/svg}"
-_GLOBAL_ID = re.compile(r"[0-9A-Za-z_$]{22}")
+_GLOBAL_ID = re.compile(r"[0-3][0-9A-Za-z_$]{21}")
 _PATH_TOKEN = re.compile(r"([A-Za-z])|([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)|[\s,]+|(.)")
 
 
@@ -46,13 +46,18 @@ def write_walls_ifc(walls, path, z0, z1, unit=1.0, prefix="wall_", storey="Level
     Record k becomes one element of its ifc_class named f"{prefix}{k}", the name walls_from_plan gives the box.
     A record's own z0 and z1 override the arguments. A record with kind "new" or "existing" gets Status NEW or
     EXISTING in Pset_<class>Common. The file is read back, and ValueError names up to five elements whose world box
-    differs from the record by more than tol metres. Pass bh.U as unit from a scene script.
+    differs from the record by more than tol metres. ValueError, before any file is written, names a record with an
+    extent of 0 or less. Pass bh.U as unit from a scene script.
     """
     import numpy as np
     import ifcopenshell
     import ifcopenshell.api
     import ifcopenshell.geom
     run = ifcopenshell.api.run
+    for k, w in enumerate(walls):
+        x0, x1, y0, y1, a, b = (v * unit for v in _record(w, z0, z1)[:6])
+        if x1 - x0 <= 0 or y1 - y0 <= 0 or b - a <= 0:
+            raise ValueError(f"record {k} ({prefix}{k}) has an extent of 0 or less")
     f = run("project.create_file", version="IFC4")
     project = run("root.create_entity", f, ifc_class="IfcProject", name="walls")
     run("unit.assign_unit", f, units=[run("unit.add_si_unit", f, unit_type="LENGTHUNIT")])
@@ -84,7 +89,7 @@ def write_walls_ifc(walls, path, z0, z1, unit=1.0, prefix="wall_", storey="Level
         m[2, 3] = a
         run("geometry.edit_object_placement", f, product=el, matrix=m, is_si=True)
         run("spatial.assign_container", f, products=[el], relating_structure=level)
-        if kind in ("new", "existing"):
+        if isinstance(kind, str) and kind.lower() in ("new", "existing"):
             pset = run("pset.add_pset", f, product=el, name=f"Pset_{cls[3:]}Common")
             run("pset.edit_pset", f, pset=pset, properties={"Status": kind.upper()})
         placed[name] = (el.GlobalId, (x0, x1, y0, y1, a, b))
@@ -124,7 +129,7 @@ def drawing_walls(svg):
     tuple of the GlobalIds of one cut outline, and the box bounds every point of it in metres. Bonsai puts the
     GlobalIds of joined walls in the group's class, and the ifc:guid attribute holds those of elements it does not
     join (a column). A cut group with no GlobalId or no point is left out.
-    ValueError: not exactly one drawing group, or a path command other than absolute M, L, Z.
+    ValueError: not exactly one drawing group, a rotated drawing camera, or a path command other than absolute M, L, Z.
     """
     root = ET.parse(svg).getroot()
     drawings = [g for g in root.iter(_SVG_NS + "g") if _IFC_NS + "matrix3" in g.attrib]
@@ -132,6 +137,8 @@ def drawing_walls(svg):
         raise ValueError(f"expected one drawing group with ifc:matrix3, found {len(drawings)}")
     drawing = drawings[0]
     m = json.loads(drawing.attrib[_IFC_NS + "matrix3"])
+    if m[0][1] != 0 or m[1][0] != 0:
+        raise ValueError("the drawing camera is rotated (ifc:matrix3 has off-diagonal terms)")
     sx, tx, sy, ty = m[0][0], m[0][2], m[1][1], m[1][2]
     cut_z = float(json.loads(drawing.attrib[_IFC_NS + "plane"])[2][3])
     groups = []
@@ -173,7 +180,7 @@ def check_drawing(svg, ifc_path, tol=0.003):
             continue
         x0, x1, y0, y1, z0, z1 = _world_box(settings, el)
         if z0 < cut_z < z1:
-            cut[el.GlobalId] = (el.Name, (x0, x1, y0, y1))
+            cut[el.GlobalId] = (el.Name or el.GlobalId, (x0, x1, y0, y1))
     items = []
     drawn = set()
     for ids, box in groups:
