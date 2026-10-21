@@ -448,7 +448,7 @@ Verified with a prototype of the revised functions (uvx, outside the repo) on th
 
 ### Order of work, and how to continue if interrupted
 
-C2 first, if approved. Then T21 to T27 and T29 by the test author, on branch `rev5b-remaining` (they fail as stated). Then R33. Then D13 to D20, with D18 written from T29's output. Then the suite, the mutation checks, and E3 to E7. Then the pre-merge review, merge, and the v1.0.0 release with the discovery eval after install. Each finished item is ticked in skill `docs/ISSUES.md` under the Revision 5 line; a fresh session reads that line, this section, and `git log` on the branch.
+C2 first, if approved. Then T21 to T27 and T29 by the test author, on branch `rev5b` (they fail as stated). Then R33. Then D13 to D20, with D18 written from T29's output. Then the suite, the mutation checks, and E3 to E7. Then the pre-merge review, merge, and the v1.0.0 release with the discovery eval after install. Each finished item is ticked in skill `docs/ISSUES.md` under the Revision 5 line; a fresh session reads that line, this section, and `git log` on the branch.
 
 ## Revision 6 (2026-10-20, phantom geometry defects; requested by render project B, approved by the user)
 
