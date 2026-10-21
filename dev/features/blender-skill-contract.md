@@ -476,6 +476,26 @@ Architecture review of the first Revision 6 text at `a5e5158` (opus, read-only; 
 - G12 Minor. Wording: D11 put two instructions in one sentence, D6 put a condition after its action, and D5 dropped the clash instruction for furniture. Resolved in D5, D6, and D11.
 - G13 Minor, uncertain. The design names the user. Kept, by decision (skill `docs/ISSUES.md`, Decisions).
 
+### Code review findings (2026-10-20, opus, at `352a14b`)
+
+Suite at review: 48 passed, 2 failed (the expected `test_api_doc` steps). Scratch probes are outside the repo. the user approved the fixes below on 2026-10-20 (M1, M2); the fixes amend R22, R24, R26, R27 wiring and R32.
+
+- C1 Critical. A plan view fails `no-header` on every split-wall opening with a header. `plan_cut` hides objects above the cut from render, so the up ray finds nothing (`checks.py:286-297`, `bhelpers.py:977-1002`; verified in Blender). Fix: run the opening up-ray probe only when the scene camera is perspective; a plan run checks floors only. Test: the opening scene with a header under a plan camera gives `OK wall_gaps`.
+- I1 Important. `floor_fit` reports ceilings, beams, and pendants under an upper slab as sunk, because the probe starts above or inside that slab (`checks.py:337-343`; verified). Fix: start the probe at `min(lo.z + hang, hi.z - 1e-4)`. Test: a two-storey case.
+- I2 Important. An open floor with a downward normal makes every object above it "sunk more than 0.300 m"; the determinant rule is wrong for an open mesh (`checks.py:83-86`; verified). Fix: orient each face of an open floor, and of an open support candidate, so its world normal z is at least 0. Test: an unmirrored open plane with a downward normal.
+- I3 Important. `wall_gaps` is cubic in the wall count: 800 walls take 43.5 s (`wall_gaps.py:80`; verified). Fix: build the fill list only for candidate pairs (0.15 s at 800 walls). Test: a plain-Python timing case in T16, 800 rects under 2 s.
+- I4 Important. Three mutations survive: the support ray accepting any facing (`checks.py:353`), removing the open-floor branch (`checks.py:85`), and the literal `abs(z - top) <= tol` (`checks.py:286`). Fix: add an open mirrored floor, a support candidate whose down face is within 2 tol, a wall under 1 m, and the mirrored-and-inside-out floor.
+- m1. Named floors that are hidden from render, excluded, or not meshes pass silently (`checks.py:498-507`). Fix: check existence against the R32 set; print `SKIP floor_fit: none of the floors exists` or a WARN.
+- m2. A bare string for `floors` or `exempt` is read letter by letter (`checks.py:499-511`). Fix: treat a `str` as one name.
+- m3. Half walls under a ceiling report `no-header`. Fix (M2): probe only when the lower wall top is at least 2.0 m.
+- m4. A thin gap closed by a column still reports (`wall_gaps.py:86-88`). Contract behaviour; logged in skill `docs/ISSUES.md`.
+- m5. A plan rotated off the axes is silently unchecked. Fix: print `SKIP wall_gaps: no axis-aligned walls` when every wall is angled.
+- m6. Checks see viewport geometry, not render geometry (a boolean with `show_viewport=False`). Document in D5 beside the instance limit.
+- m7. Overlapped wall corners give coplanar hits. Add them to the backlog note's list.
+- m8. `scene.camera` set to a non-camera object raises before the gate (`checks.py:520-522`). Fix: test `cam.type != "CAMERA"`.
+- m9. The top-level `wall_gaps` import breaks a project that copies only `checks.py`, outside the gate. Fix: import inside `wall_gap_check`, so a missing module prints `FAIL wall_gaps: error ModuleNotFoundError`.
+- Implementer deviations, all accepted: floor winding by raw world signed volume (R26's "or both" remark is wrong; fix the text); openings skipped at or above top minus tol; `SKIP camera: panoramic camera` (add to D5); `_off_axis` as the sine off the nearest axis.
+
 ### Open questions
 
 None open. the user answered A1 to A7 and B1 on 2026-10-20, accepting each recommendation (skill `docs/ISSUES.md`, Decisions): `exempt` takes exact names only (A1); fix `lathe` normals (A2); add the dark-sill QA item (A3); fold in the coplanar mirrored fix (A4); keep the 0.30 m hung limit (A5); approve the revised T16 to T20 (A6); send the wiring to the render project after v1.0.0 (A7); keep the floor-fit support test (B1).
