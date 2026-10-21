@@ -118,6 +118,16 @@ nothing = svg_of('<g class="cut IfcWall"><path d="M250,250 L260,250 L260,240 Z"/
                  f'<g class="cut IfcWall {ID_A}"></g>')
 expect("group without id or point", nothing, [])
 
+# M1: a 22-character class name is not a GlobalId.
+long_class = svg_of(f'<g class="IfcBuildingElementPart IfcFlowTreatmentDevice IfcDistributionElement {ID_A} cut">'
+                    f'<path d="{rect_path(EW, 10, 249.999995, 249.999995)}"/></g>')
+expect("22-character class names", long_class, [((ID_A,), EW)])
+
+# M3: a rotated drawing camera has off-diagonal terms in matrix3.
+rotated = svg_of(f'<g class="cut IfcWall {ID_A}"><path d="{rect_path(EW, 10, 249.999995, 249.999995)}"/></g>',
+                 matrix3="[[0,10,250],[-10,0,250],[0,0,1]]")
+check(raises(ifc_walls.drawing_walls, write("t25_rot.svg", rotated)), "T25 a rotated matrix3 raises ValueError")
+
 arc = two_walls.replace("L310.96,250.0 Z", "A5,5 0 0 1 310.96,250.0 Z")
 check(raises(ifc_walls.drawing_walls, write("t25_arc.svg", arc)), "T25 a path with an A command raises ValueError")
 rel = two_walls.replace("L310.96,250.0 Z", "l0.5,0 Z")

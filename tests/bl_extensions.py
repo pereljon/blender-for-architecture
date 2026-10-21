@@ -146,6 +146,40 @@ def t21(ifc):
     return ids
 
 
+def t21_bad_records(ifc):
+    """M4: an extent of 0 or less raises ValueError before anything is written; kind is case-insensitive."""
+    import ifcopenshell
+    import ifcopenshell.util.element as ue
+    try:
+        from ifc_walls import write_walls_ifc
+    except ImportError as e:
+        check(False, f"T21 cannot import ifc_walls: {e!r}")
+        return
+    ok = {"x0": 0, "x1": 10, "y0": 0, "y1": 0.5}
+    bad = {"thickness": {**ok, "y1": 0}, "length": {**ok, "x1": 0}, "height": {**ok, "z0": 3, "z1": 3}}
+    for label, rec in bad.items():
+        path = os.path.join(tcommon.OUT, f"ext_bad_{label}.ifc")
+        if os.path.exists(path):
+            os.remove(path)
+        try:
+            write_walls_ifc([ok, rec], path, 0.0, 9.0, unit=FT)
+            check(False, f"T21 zero {label} raised no error")
+        except ValueError as e:
+            check("1" in str(e) or "wall_1" in str(e), f"T21 zero {label}: ValueError names the record (got {e})")
+        except Exception as e:
+            check(False, f"T21 zero {label} raised {e!r} (need ValueError)")
+        check(not os.path.exists(path), f"T21 zero {label}: nothing is written at the path")
+    path = os.path.join(tcommon.OUT, "ext_kind_case.ifc")
+    try:
+        write_walls_ifc([{**ok, "kind": "New"}, {**ok, "kind": "EXISTING"}], path, 0.0, 9.0, unit=FT)
+    except Exception as e:
+        check(False, f"T21 kind 'New' and 'EXISTING' raised {e!r}")
+        return
+    f = ifcopenshell.open(path)
+    got = [ue.get_psets(e).get("Pset_WallCommon", {}).get("Status") for e in sorted(f.by_type("IfcWall"), key=lambda e: e.Name)]
+    check(got == ["NEW", "EXISTING"], f"T21 kind 'New' and 'EXISTING' give Status {got} (need ['NEW', 'EXISTING'])")
+
+
 # ---------------------------------------------------------------- T13c: Bonsai plan drawing
 def t13c(ifc, started):
     """Return the drawing SVG path, or None."""
@@ -318,6 +352,14 @@ def t22(ifc, svg, ids, started):
     got = check_drawing(gap, ifc)
     check(got == [("missing", "wall_4", None)], f"T22 a missing outline returns [('missing', 'wall_4', None)] (got {got})")
 
+    # M2: an element with no Name that is missing from the drawing is reported by its GlobalId.
+    def unname_wall_4(f, scale):
+        next(e for e in f.by_type("IfcWall") if e.Name == "wall_4").Name = None
+
+    nameless = with_file(os.path.join(tcommon.OUT, "ext_nameless.ifc"), unname_wall_4)
+    got = check_drawing(gap, nameless)
+    check(got == [("missing", ids["wall_4"], None)], f"T22 a missing outline of an element with no Name returns its GlobalId (got {got})")
+
     # An element above the 1.6 m cut (z 2.0 to 2.6 m) is left out of the result.
     def add_high(f, scale):
         import numpy as np
@@ -483,6 +525,7 @@ def main():
     ifc = os.path.join(tcommon.OUT, "ext_walls.ifc")
     t13a()
     ids = t21(ifc)
+    t21_bad_records(ifc)
     if ids:
         svg = t13c(ifc, started)
         if svg:
