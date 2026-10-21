@@ -1,6 +1,6 @@
 # Construction sheets
 
-Optional module. Sheets for trades (carpentry, plumbing, electrical, tile) are drawn with Pillow from the same numbers as the model, so the sheets and the renders cannot disagree.
+Optional module. Sheets for trades (carpentry, plumbing, electrical, tile) are drawn with Pillow from the same numbers as the model. The sheets and the renders then cannot disagree.
 
 ## Sources of numbers
 
@@ -10,7 +10,7 @@ Optional module. Sheets for trades (carpentry, plumbing, electrical, tile) are d
 Never retype a model position into a sheet generator. A hand copy drifts from the model when the geometry changes.
 
 ```
-/Applications/Blender.app/Contents/MacOS/Blender --factory-startup -b --python-exit-code 1 \
+BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 \
   -P blender/build_bath.py -- --export-pieces scratch/pieces.json
 ```
 
@@ -18,7 +18,7 @@ Pieces are written in project units. `items_from_pieces(path, unit=U)` reads the
 
 ## Drawing a sheet
 
-`sheets.py` holds the drawing kit. A sheet is US Tabloid (11 x 17 in) landscape at 200 dpi. Call `set_paper(name)` before the first `Sheet` to pick another size. Use `set_paper("a3")` for metric projects. The names are in `PAPERS`.
+`sheets.py` holds the drawing kit. A sheet is US Tabloid (11 x 17 in) landscape at 200 dpi, which is 3400 x 2200 px. Call `set_paper(name)` before the first `Sheet` to pick another size. The names are `letter`, `tabloid`, `arch-c`, `arch-d`, `a4`, and `a3`. Use `set_paper("a3")` for metric projects.
 
 ```python
 from sheets import Sheet, Draw, save_pdf
@@ -46,7 +46,7 @@ The owner's rounding rule (for example 5 mm or 10 mm) applies to every dimension
 
 ## Tile cutting plans
 
-`pack(items, tw, th, kerf)` packs cut pieces onto stock tiles with guillotine cuts. Items are `dict(id, w, h)` in metres.
+`pack(items, tw, th, kerf)` packs cut pieces onto stock tiles with guillotine cuts: straight cuts from one edge of a tile to the other. `kerf` is the width of the saw cut. Items are `dict(id, w, h)` in metres. An `id` is a piece ID: the piece's object name, which the sheets print.
 
 ```python
 from sheets import items_from_pieces, pack

@@ -1,8 +1,6 @@
 # Views
 
-Define every view as an entry in the script's `VIEWS` dict, and select it with `--view`. `add_camera(VIEWS[name], res)` builds the camera and sets the resolution. Render one view per Blender run.
-
-A plan entry's `width` is the view's span on its longer side, in project units.
+Define every view as an entry in the script's `VIEWS` dict, and select it with `--view`. `add_camera(VIEWS[name], res)` builds the camera and sets the resolution.
 
 ## Perspective views
 
@@ -12,12 +10,11 @@ VIEWS = {"vanity": dict(loc=(1.2, 3.4, 1.55), target=(1.2, 0.5, 1.2), lens=24, a
 
 - Keep the camera level, and frame with `shift_x` and `shift_y` instead of tilting. Tilted cameras make walls lean.
 - Place the camera close enough to read the action, such as a hand at a basin.
-- Keep the camera outside every object. Check again after moving furniture.
 - `hide` lists name prefixes hidden from the camera in this view only, such as a wall between the camera and the room. A hidden object still casts shadows, blocks light, and shows in mirrors.
 
 ## Plan views
 
-A plan view is an orthographic camera looking down, cut at a fixed height (5'-0" or 1.25 m is usual).
+A plan view is an orthographic camera looking down, cut at a fixed height. The usual cut is 1.2 m in a metric project and 5 ft (`cut=5.0`) in a project in feet.
 
 Every plan entry does these steps:
 1. The camera's `clip_start` sits at the cut height, which gives a true cut.
@@ -26,7 +23,9 @@ Every plan entry does these steps:
 
 The clip alone is not enough. `clip_start` removes geometry only from camera rays, so a ceiling above the cut still blocks light and casts shadows.
 
-The clip shows each object that crosses the cut as a dark section, because the inside of the object is unlit. That reads as solid poché for walls. When an item must read from above, add its prefix to `drop`: a door leaf, a mirror, a fixture, or walls that should render grey.
+The clip shows each object that crosses the cut as a dark section, because the inside of the object is unlit. Walls then read as poché: the solid fill that a plan drawing gives to cut walls.
+
+When an item must read from above, add its prefix to `drop`. Items that need this include a door leaf, a mirror, a fixture, and walls that should render grey.
 
 | Entry key | Does | Use when |
 |---|---|---|
@@ -35,8 +34,8 @@ The clip shows each object that crosses the cut as a dark section, because the i
 | `hide` | Removes the named objects from this plan render. | Scale figures, fill lights, wall tile, upper cabinets. |
 
 ```python
-VIEWS["plan"] = dict(plan=True, center=(15.5, 12.4), width=84.0, cut=5.0, aspect=0.75,
-                     hide=("ceil_", "L_", "person_"), drop=("wic_hang", "fixture_"), keep=("stair1_",))
+VIEWS["plan"] = dict(plan=True, center=(20.0, 15.0), width=60.0, cut=5.0, aspect=0.75,
+                     hide=("ceil_", "fill_", "person_"), drop=("closet_", "fixture_"), keep=("stair1_",))
 ```
 
 - Darker floors read better in plan than light ones.

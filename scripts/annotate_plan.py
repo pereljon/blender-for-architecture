@@ -1,6 +1,6 @@
 """Draw circled callouts on an ortho plan render (PIL post-pass).
 
-Usage: uvx --with pillow python -I blender/lib/annotate_plan.py IN.png OUT.png CALLOUTS.json
+Usage: uvx --with pillow python -I blender/lib/<LIB>/annotate_plan.py IN.png OUT.png CALLOUTS.json
 
 CALLOUTS.json gives the plan camera's framing (the same centre and width as the plan view, in project units) and
 the callouts in plan coordinates. width is the plan view's width: the ortho span of the image's larger side.

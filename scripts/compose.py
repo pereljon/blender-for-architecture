@@ -1,6 +1,6 @@
 """Compose labelled study sheets from rendered views (PIL).
 
-Usage: uvx --with pillow python -I blender/lib/compose.py OUT.jpg [--title=TEXT] [--width=PX] ITEM ...
+Usage: uvx --with pillow python -I blender/lib/<LIB>/compose.py OUT.jpg [--title=TEXT] [--width=PX] ITEM ...
 
 ITEM is one of:
   "Label=path.png"   an image with its label; "Label=-" leaves a blank cell with the label

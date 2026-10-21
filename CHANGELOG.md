@@ -2,6 +2,38 @@
 
 All notable changes to this skill. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
 
+Conventions, kept from v1.1.0 on:
+- Each release heading is `## [X.Y.Z] - YYYY-MM-DD`, newest first. The release retitles `## Unreleased`, which sits above them.
+- Name each public function whose signature or behaviour changed, or that was added or removed, as `module.function()`. Put it under Changed, Fixed, Added, or Removed.
+- The skill reads the installed version from the first numbered heading.
+
+## Unreleased
+
+### Changed
+
+- `bhelpers.setup_cycles()`: with `gpu=True` it tries each backend in `bhelpers.GPU_BACKENDS` in order, takes the first backend that has a device, and uses every device of that backend plus the CPU. The order is Metal on macOS, else OptiX, CUDA, then HIP. It lists devices with `prefs.refresh_devices()` in place of the deprecated `get_devices()`; the result is the same. With no device it prints one line, `WARN no GPU device found (tried ...), rendering on CPU`, and renders on CPU. The old code tried only Metal.
+- `templates/scene_template.py`: defines `LIB = "v1.1.0"` and imports the lib from `lib/<LIB>/`; sets the eye-level camera at `EYE`, from the new `VIEWER` line; the run line uses `$BLENDER`.
+- Usage lines of `compose.py`, `annotate_plan.py`, `extract_plan.py`, and `sheets.py` name `blender/lib/<LIB>/`.
+- The install ships `CHANGELOG.md`, which is how a session reads the installed version.
+- SKILL.md: a Project lib section pins each script to one skill version in `blender/lib/<LIB>/`, with a pin check each session. `$BLENDER` has one definition and a table of paths and GPU backends for macOS, Linux, and Windows (only macOS is tested). The Blender folder, the notes files, and the delivery folder have plain defaults, and `context/` and `deliverables/` are optional. Git rules are gone. Checks run in the order run, read the output, exemptions, setup, limits. The pin warning is shown to the user before the script runs, with the headline CHANGELOG items since the pin. A script on an older pin uses that version's equivalent for a missing feature. Setup says where `interior=True` goes. The figure's clash-check rule points to `reference/studies.md`, which holds the note on touching surfaces.
+- Docs restructure: the owner and the user are defined; "figure" and "scene script" are the only terms; each repeated fact has one home; `reference/api.md` has a signature line and a description line per entry; history notes are in the present tense or in `docs/ISSUES.md`; examples are neutral; poché, kerf, guillotine cut, pole, and piece ID are defined where they first appear.
+- `reference/extensions.md`: the scan note is a general check of a scan's length unit, coordinate system, and height datum.
+
+### Added
+
+- `bhelpers.eye_height()`: the eye height of a viewer of a given height, in project units. The default viewer is 5'-7". `bhelpers.EYE_HEIGHT` stays at 1.5875 m, so that a script written for an older pin runs after its pin is upgraded. New scripts use `eye_height()`.
+- `bhelpers.GPU_BACKENDS`: the backends that `setup_cycles` tries.
+- `reference/migration.md`: the geometry dump (`dump_geometry`, which records geometry, Principled BSDF base color, roughness and metallic, light type, energy, color and rotation, and camera location, rotation and lens, after the camera is placed), a compare-before-swap step for helper defaults, the pin upgrade, moving a project's own helpers onto the lib, wiring the checks, and the comparison steps.
+- `reference/extensions.md`: how a scene script exposes its corrected wall list and runs an IFC-only pass (`--ifc PATH`). The drawing step runs in its own script beside the scene script, and `check_drawing` gets the SVG's path, not a glob that reaches `cache/` and `assets/`.
+
+### Fixed
+
+- `reference/api.md`: `load_plan` returns the tuple `(walls, doors, leaves)`; `EXAMPLE_POSE` and `FONTS` no longer show cut-off values; `Sheet` and `Draw` list each method's signature; `floor_fit_check` defines the hang limit (0.3 m); `cut_openings` says its `min_piece` is an argument, separate from the config list.
+- `reference/studies.md`: `sun` shows its real parameter names; the study-page example path is neutral.
+- `reference/views.md`: the usual plan cut is stated as 1.2 m or 5 ft, not as equal values.
+- `reference/plan-input.md`: each `sheets` entry needs `page`, `region`, and `out`; the config `min_piece` list is distinguished from the `cut_openings` argument.
+- `SKILL.md`: the Point Cloud I/O format list matches `reference/extensions.md` (no LAZ); "hit", "walking box", and "hang limit" are defined where they first appear; the `paths` instruction is split into two sentences.
+
 ## [1.0.0] - 2026-10-21
 
 ### Changed

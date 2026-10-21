@@ -3,14 +3,14 @@
 Two routes bring the plan into the scene script. Choose one per drawing set.
 
 - **Route A, PDF extraction:** the architect's plan PDF has vector linework. `extract_plan.py` turns it into walls JSON in project units.
-- **Route B, hand-entered coordinates:** the plan is a scan, or the scene is small. Enter coordinates from the plans and `context/dimensions.md` into the script's constants block.
+- **Route B, hand-entered coordinates:** the plan is a scan, or the scene is small. Enter coordinates from the plans and the dimensions file into the script's constants block.
 
 ## Route A: extract from a PDF
 
-1. Copy `plan_config.example.json` next to the script. Set `pdf`, `pt_per_unit`, and `origin`, and give each entry in `sheets` its `region` and `out`.
+1. Copy `plan_config.example.json` next to the script. Set `pdf`, `pt_per_unit`, and `origin`, and give each entry in `sheets` its `page`, `region`, and `out`. An entry may also set `shift`.
 2. List `page.get_drawings()` for a small area that holds known walls, doors, and posts.
 3. Read their fill, stroke color, and stroke width. Set `new_fill`, `existing_width`, `swing_width`, and `leaf_width` from them.
-4. Run `uvx --with pymupdf python -I lib/extract_plan.py plan_config.json`.
+4. Run `uvx --with pymupdf python -I blender/lib/<LIB>/extract_plan.py plan_config.json`.
 5. Render a plan view and compare it with the sheet. Fix differences in the correction layer, never in the JSON.
 6. Run the extraction again whenever a new plan set arrives.
 
@@ -20,7 +20,7 @@ At 1/8" = 1'-0", `pt_per_unit` is 9.0 points per foot. Every office draws walls 
 
 - Angled walls and some outside walls. Add them in `EXTRA_WALLS`, or as `seg()` calls for angled walls.
 - Short wall pieces where one wall meets another. Check each junction, and add a missing piece in the correction block.
-- Stray pieces in doorways and jamb fragments. The config's `min_piece` drops most of them; `cut_openings` trims the rest.
+- Stray pieces in doorways and jamb fragments. The config's `min_piece` list, `[new, existing]` in PDF points, drops most of them. `cut_openings` trims the rest; its `min_piece` argument is in project units.
 
 ### The correction layer
 
@@ -45,7 +45,7 @@ walls_from_plan(walls, 0.0, CEIL, wall_mat)
 
 After `walls_from_plan`, add a header box over each door opening, from the door head to the ceiling. Without it, `run_checks` reports `no-header` on every door.
 
-Before you exempt an opening, rename its two wall objects to stable names. A name built from the wall list index can point at another wall after the plan changes.
+Before you exempt an opening, rename its two wall objects to stable names (SKILL.md, Checks, exemptions).
 
 When you shift walls to match site measurements, shift the door swings and leaves in the same region. Otherwise the leaves are trimmed away as if inside a wall.
 
@@ -55,7 +55,7 @@ When you shift walls to match site measurements, shift the door swings and leave
 
 - Give each sheet its own entry in the config's `sheets`, with a shift that registers it onto the first sheet.
 - Find the shift from a feature drawn on both sheets, such as a lot-line post.
-- Never reuse one source's offset for a drawing from another source. A uniform shift misplaced items in practice.
+- Never reuse one source's offset for a drawing from another source. A uniform shift misplaces items.
 
 ## Route B: hand-entered coordinates
 
@@ -65,6 +65,6 @@ When you shift walls to match site measurements, shift the door swings and leave
 
 ## State the accuracy
 
-- State the plan accuracy in deliverables, and name its source.
-- Vector extraction matches the PDF linework exactly. Positions scaled from an older or raster sheet can be inches off. In one project, posts scaled from a 2016 sheet were about 6 in off.
+- State the plan accuracy in each deliverable, and name its source.
+- Vector extraction matches the PDF linework exactly. Positions scaled from an older or raster sheet can be inches off.
 - Mark which positions are measured on site and which are assumed.
