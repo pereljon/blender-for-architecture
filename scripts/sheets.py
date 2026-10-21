@@ -1,6 +1,6 @@
 """Drawing sheets and cut-piece packing (Pillow, plain Python; not for Blender).
 
-Run with: uvx --with pillow python -I blender/lib/sheets.py   (self-test of the packing)
+Run with: uvx --with pillow python -I blender/lib/<LIB>/sheets.py   (self-test of the packing)
 Units: millimetres on sheets, metres for packed pieces.
 """
 import json

@@ -1,7 +1,7 @@
 """Blender helpers for scripted renders: geometry, materials, tiles, plan input, lights, cameras, plan overlays.
 
-Runs inside Blender 5.2 (bpy, bmesh, mathutils; no numpy):
-  /Applications/Blender.app/Contents/MacOS/Blender -b -P scene.py -- --view NAME --res 800 --samples 48 --out out/NAME.png
+Runs inside Blender 5.2 (bpy, bmesh, mathutils; the helpers use no numpy):
+  BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P scene.py -- --view NAME --res 800 --samples 48 --out out/NAME.png
 
 Conventions:
 - Every length argument is in project units; U is metres per project unit (set_units), applied inside each helper.
@@ -13,13 +13,15 @@ Conventions:
 """
 import json
 import math
+import sys
 
 import bpy  # must precede bmesh
 import bmesh
 from mathutils import Matrix, Vector
 
 U = 1.0
-EYE_HEIGHT = 1.5875   # metres: the eye of a 5'-7" viewer, 5'-2 1/2"
+EYE_HEIGHT = 1.5875   # metres: the eye of a 5'-7" viewer, 5'-2 1/2"; fixed value kept for scripts pinned before v1.1.0
+GPU_BACKENDS = ("METAL",) if sys.platform == "darwin" else ("OPTIX", "CUDA", "HIP")
 _OV = 0.03       # plan overlay mark height, metres
 
 
@@ -28,6 +30,13 @@ def set_units(u):
     global U
     U = {"m": 1.0, "ft": 0.3048}[u] if isinstance(u, str) else float(u)
     return U
+
+
+def eye_height(viewer=None):
+    """Eye height, in project units, of a viewer `viewer` tall (project units); the default viewer is 5'-7"."""
+    if viewer is None:
+        return (1.7018 - 0.1143) / U
+    return viewer - 0.1143 / U
 
 
 def clear_scene():
@@ -853,26 +862,34 @@ def setup_cycles(samples, gpu=True, exposure=0.0, look="AgX - Medium High Contra
                  glossy_bounces=6, transmission_bounces=10, sky=(0.55, 0.70, 0.95), sky_strength=1.0):
     """Cycles with adaptive sampling, denoising, AgX and a sky world. Does not set resolution or output.
 
-    gpu=True uses Metal on every device; without a Metal device it prints one warning and renders on CPU.
+    gpu=True tries Metal on macOS, else OptiX, CUDA, then HIP, and uses every device of the first backend that has one.
+    With none, it prints one warning and renders on CPU.
     """
     sc = bpy.context.scene
     sc.render.engine = "CYCLES"
     sc.cycles.device = "CPU"
     if gpu:
-        metal = False
+        found = False
         try:
             prefs = bpy.context.preferences.addons["cycles"].preferences
-            prefs.compute_device_type = "METAL"
-            prefs.get_devices()
-            metal = any(dv.type == "METAL" for dv in prefs.devices)
-            for dv in prefs.devices:
-                dv.use = True
+            prefs.get_devices()   # fills prefs.devices for every backend; the loop below only picks one
+            for name in GPU_BACKENDS:
+                try:
+                    prefs.compute_device_type = name
+                except (TypeError, KeyError, AttributeError):
+                    continue
+                if any(dv.type == name for dv in prefs.devices):
+                    found = True
+                    break
+            if found:
+                for dv in prefs.devices:
+                    dv.use = True
         except (TypeError, KeyError, AttributeError):
             pass
-        if metal:
+        if found:
             sc.cycles.device = "GPU"
         else:
-            print("WARN no Metal device found, rendering on CPU")
+            print(f"WARN no GPU device found (tried {', '.join(GPU_BACKENDS)}), rendering on CPU")
     sc.cycles.samples = samples
     sc.cycles.use_adaptive_sampling = True
     sc.cycles.use_denoising = True

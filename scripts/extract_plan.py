@@ -1,7 +1,7 @@
 """Extract wall rectangles, door swings and door leaves from an architect's plan PDF (vector linework) into JSON.
 
 Usage (PyMuPDF via uvx; nothing installed system-wide):
-  uvx --with pymupdf python -I blender/lib/extract_plan.py CONFIG.json
+  uvx --with pymupdf python -I blender/lib/<LIB>/extract_plan.py CONFIG.json
 
 CONFIG.json holds everything that belongs to one drawing set (see DEFAULTS below and plan_config.example.json).
 Values are in PDF points unless named otherwise. Find them by listing page.get_drawings() for a small area and
