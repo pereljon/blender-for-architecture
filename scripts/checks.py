@@ -323,7 +323,8 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
     floors holds exact object names. d is the base height above the floor in metres: positive is floating
     (more than tol, with nothing under the centre), negative is sunk (more than tol); None is sunk more than hang.
     An object at hang or higher is hung (lights, upper cabinets) and passes, and so does one that rests on another
-    object under its centre. Objects named with walls prefixes are reported only when floating. Sorted by name.
+    object under its centre. An object that hangs from the underside of a floor above it is measured against the
+    floor below, and one that pierces that floor is sunk. Objects named with walls prefixes are reported only when floating. Sorted by name.
     """
     dg = _depsgraph()
     wpre = _prefixes(walls)
@@ -340,13 +341,19 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
         return []
     tree = _bvh(fl)[0]
     support = {}
-    down = Vector((0, 0, -1))
+    down, up = Vector((0, 0, -1)), Vector((0, 0, 1))
     hits = []
     for n, (ob, vs, ps, lo, hi) in data.items():
         if n in floors or n in skip:
             continue
         cx, cy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
-        loc, normal = tree.ray_cast(Vector((cx, cy, min(lo.z + hang, max(hi.z - 1e-4, lo.z + 1e-4)))), down)[:2]
+        start = Vector((cx, cy, min(lo.z + hang, max(hi.z - 1e-4, lo.z + 1e-4))))
+        loc, normal = tree.ray_cast(start, down)[:2]
+        if loc is not None and normal.z < 0 and loc.z > lo.z + tol:
+            # An up ray tells an object hung from the slab's underside from one that pierces the slab.
+            top = tree.ray_cast(start, up)[0]
+            if top is not None and hi.z < top.z - tol:
+                loc, normal = tree.ray_cast(Vector((cx, cy, loc.z - 1e-4)), down)[:2]
         if loc is None:
             continue
         d = None if normal.z < 0 else lo.z - loc.z
@@ -374,7 +381,9 @@ def camera_check(interior=None, rays=160, skip=()):
     """Items (kind, name, count, (x0, y0, x1, y1)) for faces the scene camera sees from behind, and for sky.
 
     Casts a grid of rays (rays columns) through the image from the camera. A face hit from behind is a "backface"
-    on that object; a miss in an interior view is an "escape" (name None). The pixel box covers the ray centres.
+    on that object only when a ray a quarter cell away (up and right, or down and left) also hits a back face of it,
+    so a ray that grazes a silhouette edge is not counted; a miss in an interior view is an "escape" (name None).
+    The pixel box covers the cell centres.
     interior None means auto: interior when a ray straight up from the camera hits something; an exterior view
     prints a NOTE and checks no escapes. Returns [] for no camera or a non-perspective one. Sorted.
     """
@@ -403,15 +412,21 @@ def camera_check(interior=None, rays=160, skip=()):
     tr, _, bl, tl = c.view_frame(scene=sc)
     rows = max(1, round(rays * ry / rx))
     found = {}
+    def cast(u, v):
+        d = (rot @ (tl + (tr - tl) * u + (bl - tl) * v)).normalized()
+        loc, normal, idx, _ = tree.ray_cast(pos + d * c.clip_start, d, c.clip_end - c.clip_start)
+        if loc is None:
+            return ("escape", None) if interior else None
+        return ("backface", names[bisect_right(starts, idx) - 1]) if normal.dot(d) > 0 else None
+
+    du, dv = 0.25 / rays, 0.25 / rows
     for j in range(rows):
         for i in range(rays):
             u, v = (i + 0.5) / rays, (j + 0.5) / rows
-            d = (rot @ (tl + (tr - tl) * u + (bl - tl) * v)).normalized()
-            loc, normal, idx, _ = tree.ray_cast(pos + d * c.clip_start, d, c.clip_end - c.clip_start)
-            if loc is None:
-                key = ("escape", None) if interior else None
-            else:
-                key = ("backface", names[bisect_right(starts, idx) - 1]) if normal.dot(d) > 0 else None
+            key = cast(u, v)
+            # Diagonal offsets: a vertical edge needs a u offset and a horizontal edge a v offset.
+            if key and key[0] == "backface" and key not in (cast(u + du, v + dv), cast(u - du, v - dv)):
+                key = None
             if key:
                 px, py = u * rx, v * ry
                 f = found.setdefault(key, [0, px, py, px, py])
