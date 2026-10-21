@@ -216,3 +216,190 @@ Architect review (opus, read-only) and code review (opus; suite 41/41 on an expo
 - Open before release (skill `docs/ISSUES.md`): DWG route; IFC written from the scene script's wall records, not retyped (F1); Sun Position against `bhelpers.sun()`, `north_offset` in radians, and a solar-noon check (F2, F13); description triggers for IFC, scan, and sun tasks, with a discovery eval (F11); drawing geometry check (F14); doc keep-in-step for extension ids and `ifcopenshell.api` names (F15); re-eval of the post-eval fixes and evals for Sun Position, point clouds, DXF (F16); Bonsai enabled in the user's preferences since 10:35 (F4, asked of the user).
 - F4 resolved 2026-10-19: the user enabled Bonsai in their Blender preferences themselves, and it stays enabled.
 - DWG decided 2026-10-19 by the user: DXF is enough; DWG is out of scope for now. Rejected for now: a DWG route through the ODA File Converter or LibreDWG. The DXF extensions in the doc (`cad2cube`, `export_autocad_dxf_format_dxf`) were picked from the extension listing and are untested.
+
+## Revision 6 (2026-10-20, phantom geometry defects; requested by render project B, approved by the user)
+
+Source: `../inputs/2026-10-20-phantom-defects.md`. Decision: skill `docs/ISSUES.md`, Decisions, 2026-10-20. Investigated against this repo at `6cf8009` and Blender 5.2.0 LTS, and against render project B's build script and README (read-only, the two files the user named).
+
+One gate, `run_checks()`, runs six checks over the whole scene right before every render, previews included: the existing `coplanar_check` and five new checks (flipped faces, wall gaps, floor fit, camera rays, clearance). Every check skips objects hidden from render and reads evaluated geometry (modifiers and booleans applied). Lengths inside the checks are world metres, so a script that builds its own scene in feet gets the same results; only `paths` takes project units. Every hit names the objects involved.
+
+### Verified (2026-10-20, headless Blender 5.2.0 LTS, scratch scripts outside the repo)
+
+- `BVHTree.ray_cast(origin, direction, distance)` returns `(location, normal, index, distance)`, or four `None` on a miss or past `distance`. The normal follows the polygon's winding, not the ray: a ray going up through a +Z quad returns normal +Z. `normal.dot(direction) > 0` therefore marks a face hit from behind.
+- `BVHTree.overlap()` returns no pairs for boxes that only touch, for overlapping boxes whose faces share planes, and for a box fully inside another. It does return pairs for a walking box shrunk by 5 mm and crossed by a slab, and for a 15 mm guard panel inside that box. Containment needs a separate vertex test.
+- `Scene.ray_cast()` hits objects with `hide_render` set (such as `cut_holes` cutters) and objects with `visible_camera` off. The checks therefore build their own BVH from the objects that render.
+- `camera.data.view_frame(scene=scene)` returns the frame corners in camera space in the order top-right, bottom-right, bottom-left, top-left, with the render aspect and lens shift applied. A ray through grid cell (i, j) of a cols x rows grid lands on pixel ((i + 0.5) / cols * res_x, (j + 0.5) / rows * res_y), y down: `project_points` of the hit agrees to 0.0000 px, in metres and in feet, with shift_x 0.05 and aspect 0.75.
+- Signed volume in local coordinates: `box()` gives +6.0 for 1 x 2 x 3; a clockwise `prism` is positive (it recalculates normals); `sphere` and `cyl` are positive; `lathe` is positive or negative with the profile's direction, and positive after `bmesh.ops.recalc_face_normals`. A box with scale (-1, 1, 1) stays positive in local coordinates.
+- Existing bug: `coplanar_check` reports a box with scale (-1, 1, 1) resting on a floor, because world-space winding turns its bottom normal up. Without the mirrored box the same scene passes. Fixed by R23.
+- `sys.exit(1)` inside a `-P` script stops the script and makes Blender exit 1, with or without `--python-exit-code 1`. A project run command without the flag still stops before the render.
+- The template scene passes coplanar over the whole scene (walls included), flipped, wall gaps, and floor fit, in both views. The template's comment "walls butt at the corners by design" on its scoped coplanar call is stale.
+- The template's perspective view sees through the door into the empty world below the horizon (427 of 16,000 rays). A rule that fails every escape below the horizon would fail the template, and any finite ground plane near the horizon.
+- A mannequin in the template gives 20 coplanar pairs between its own joint ellipsoids in the perspective view, and none once the figure is left out. Its parts pass the flipped check.
+- A 4 cm slot between two 10 cm ceiling pieces, seen at 17 to 30 degrees, lets no ray escape: the slot's sides block every ray, and the render shows a dark line. A 0.6 m hole lets 890 of 16,000 rays escape.
+- Cost on a synthetic scene of 1,925 objects and 74,216 polygons (walls, ceilings, a floor with boolean holes, 1,300 boxes, cylinders, spheres, 240 tiles, a mannequin), CPU, prototype code: scan and BVH 0.11 s; flipped 0.12 s; wall gaps and floor fit under 0.01 s each; camera rays 0.03 s at 160 columns and 0.10 s at 320; clearance with 6 paths under 0.01 s; coplanar over the whole scene 1.64 s. About 2.5 s per render in all. Coplanar grows with the polygons of touching pairs; render project B's scene was not measured.
+
+### Simplify before building (architect, 2026-10-20)
+
+Each part traces to a defect in the request or to the 2026-10-20 decision. Deleted, with the reason:
+- A stair helper in `bhelpers`: none exists, and the clearance check needs only boxes. Paths are plain tuples, the same for the template and a project script.
+- Sloped walking volumes along a flight: one box per tread gives the same vertical headroom over each tread.
+- A command line for `wall_gaps.py`: nobody asked for one. The function runs on `load_plan` output in Blender or plain Python.
+- One shared geometry scan for all checks: a scan costs 0.11 s at 74,000 polygons, so each check scans on its own.
+- `clash_check` inside `run_checks`: it counts touching as a clash, so over the whole scene every wall on a floor would fail. It stays a separate call for the figure.
+- Camera rays in plan views: the plan clip starts rays inside cut walls, so every wall would show a face from behind.
+- Escape rays below the horizon in exterior views: they fail at the edge of any finite ground plane (verified on the template's door).
+- Grouping escape rays into connected holes: one line per kind and object, with the pixel box of its rays, points to the place in the preview.
+
+Flags on the approved shape: "every check over the whole scene" leaves out `clash_check` and leaves the figure out of coplanar, floor fit, and clearance; "each view's camera" is the scene camera of the run, since a run renders one view; exemptions are exact names, but walls and the figure are selected by prefix, as `clash_check`, `coplanar_check`, and `plan_cut` already select (question A1).
+
+### Code (implementer)
+
+Keep out: the implementer does not edit `tests/`; the test author does not edit `scripts/` or `templates/`.
+
+- R22 `scripts/wall_gaps.py` (new, plain Python, imports only `math`): `wall_gaps(rects, unit=1.0, gap=0.3, touch=0.001)`. `rects` items are `(x0, x1, y0, y1, ...)` tuples (extra items ignored) or dicts with those keys (`load_plan` walls); each is normalised so x0 <= x1 and y0 <= y1. `unit` is metres per rect unit; `gap` and `touch` are metres. For each pair, with separations dx, dy >= 0 and d = hypot(dx, dy) in metres: when touch < d <= gap, report `(i, j, "gap", d)`. When d <= touch, the pair touches or overlaps: if both overlap lengths exceed `touch`, it is an overlap and fine; otherwise the contact length c is the larger overlap length, and when c < min(thickness_i, thickness_j) - touch (thickness = a rect's shorter side), report `(i, j, "corner", c)`. That catches walls meeting only at a corner point, a partial butt that leaves a notch, and a false jog. Return the hits sorted by (i, j), with i < j indexing the input list and lengths in metres. Sweep pairs in x0 order and stop a sweep once the next x0 is more than `gap` past the current x1.
+- R23 `coplanar_check(prefixes=None, tol=0.0005, min_area=1e-6, skip=())`: `skip` holds exact object names to leave out. Fix: `_tris` negates each normal of an object whose `matrix_world` has a negative determinant, so a mirrored object's faces keep their real facing. Otherwise unchanged.
+- R24 `flipped_check(skip=())`: for each render-visible mesh object not in `skip`, take the evaluated mesh in local coordinates. Skip it unless every undirected edge is used by exactly two polygon sides (closed). Report `(name, "mixed")` when any directed edge appears twice (some faces turned against their neighbours); otherwise report `(name, "inside-out")` when the signed volume is below -1e-12. Sorted by name.
+- R25 `wall_gap_check(prefixes=("wall_",), gap=0.3, touch=0.001, skip=())`: render-visible mesh objects named with `prefixes`, not in `skip`. A wall's footprint is the world x-y box of its evaluated vertices. Leave out a wall when any world polygon normal is more than 1e-4 off a world axis (angled `seg` walls, bevelled walls), and print one line `NOTE wall_gaps: not axis-aligned, not checked: <names>`. Run `wall_gaps` on the footprints with `unit=1.0`; drop pairs whose z ranges overlap by `touch` or less (walls on different levels). Return `[(name_i, name_j, kind, length_m)]`, each pair's names in name order, sorted.
+- R26 `floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=0.3, skip=())`: `floors` are exact names. Build one BVH from the render-visible floor objects' world polygons. For each other render-visible mesh object not in `skip`: take its world box (lo, hi) and cast a ray straight down from (centre x, centre y, lo.z + hang) against the floor BVH. On a miss, the object is not over a floor: skip it. When the first hit faces up, d = lo.z - hit z: report `(name, d)` when d < -tol (sunk) or tol < d < hang (floating); d >= hang means hung (lights, upper cabinets, headers) and passes. When the first hit faces down, the probe started inside a floor: report `(name, None)` (sunk more than `hang`). Objects named with `walls` prefixes are reported only when floating: walls may run down through a slab. Sorted by name.
+- R27 `camera_check(interior=None, rays=160, skip=())`: uses `scene.camera`; returns `[]` when there is no camera or it is not perspective. Builds a BVH from render-visible mesh and curve objects with `visible_camera` on, not in `skip`, with each polygon's vertex order reversed when the object's `matrix_world` has a negative determinant. Grid: `rays` columns, rows = max(1, round(rays * res_y / res_x)), one ray per cell centre through the `view_frame(scene=scene)` plane, from the camera at `clip_start` for at most `clip_end - clip_start`. A hit with `normal.dot(direction) > 0` is a `backface` on the hit object. A miss is an `escape` when the view is interior. `interior=None` means auto: interior when a ray straight up from the camera hits anything within `clip_end`; when auto finds an exterior view, print `NOTE camera: exterior view, escapes not checked`. `interior=False` never checks escapes; `interior=True` always does. Return `[(kind, name, count, (x0, y0, x1, y1))]`: one item per kind and object (name `None` for escapes), with the pixel box of the ray centres, rounded to whole pixels, y down. Sorted by (kind, name or "").
+- R28 `clearance_check(paths, headroom=2.032, unit=None, tol=0.005, skip=())`: `paths` maps a name to `(x0, x1, y0, y1, z)` in project units, z being the walking surface (tread top); `unit` None means `bhelpers.U` (import inside the function). Each walking box in metres is [x0 + tol, x1 - tol] x [y0 + tol, y1 - tol] x [z + tol, z + headroom]. An object (render-visible mesh or curve, not in `skip`) is a hit when its world polygons cross the box (BVH overlap) or any of its world vertices lies strictly inside the box. Headroom: cast a 3 x 3 grid of rays straight up from the box bottom, at cell centres; for a hit object, headroom = the lowest hit on it minus z (metres), or `None` when no grid ray hits it. Return `[(path, name, headroom_m or None)]` sorted by (path, name). 2.032 m is 6'-8".
+- R29 `run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt=None, interior=None, unit=None, rays=160)`:
+  - Call `bpy.context.view_layer.update()` first.
+  - `exempt` maps a check name (`coplanar`, `flipped`, `wall_gaps`, `floor_fit`, `camera`, `clearance`) to exact object names. Raise `ValueError` for an unknown check name, before any check runs. For each exempt name that no object has, print `WARN exempt <check>: no object named <name>`; for each name in `floors` that no object has, print `WARN floors: no object named <name>`.
+  - Objects named with `figure` prefixes are added to `skip` for coplanar, floor fit, and clearance.
+  - Run in this order, each with its `exempt` names as `skip`: coplanar, flipped, wall_gaps, floor_fit (`floors`, `walls`), camera (`interior`, `rays`), clearance (`paths`, `unit`). Run every check even after a failure.
+  - Print per check: `OK <check> (<t> s)`, or `FAIL <check>: <n> (<t> s)` followed by one indented line per hit (at most 20, then `  ... and <k> more`), or `SKIP <check>: <reason>`. `<t>` has two decimals. Skips: floor_fit `no floors given` or `none of the floors exists`; camera `no scene camera` or `orthographic camera`; clearance `no paths given`.
+  - Hit lines: coplanar `  <a> <b>`; flipped `  <name> inside-out` or `  <name> mixed`; wall_gaps `  <a> <b> gap|corner <length:.3f> m`; floor_fit `  <name> floating <d:.3f> m`, `  <name> sunk <-d:.3f> m`, or `  <name> sunk more than <hang:.3f> m`; camera `  backface <name>: <n> rays at px <x0>-<x1>, <y0>-<y1>` or `  escape: <n> rays at px <x0>-<x1>, <y0>-<y1>`; clearance `  <path> <name> headroom <h:.3f> m` or `  <path> <name> inside`.
+  - Last line: `OK run_checks`, or `FAIL run_checks: <failed checks, comma-separated>` and then `sys.exit(1)`. Returns None.
+- R30 `bhelpers.EYE_HEIGHT = 1.5875` (metres; the eye of a 5'-7" viewer, 5'-2 1/2"). `lathe` calls `bmesh.ops.recalc_face_normals` on its faces before writing the mesh, as `prism` and `slab` do, so a lathe built from either profile direction passes `flipped_check` (question A2).
+- R31 Template: import `run_checks`; drop the scoped `coplanar_check` call and its stale comment; keep the `clash_check` call where it is; after `add_camera`, call `run_checks(floors=("floor",), interior=VIEWS[args.view].get("interior"))`, then render. The perspective entry's eye height becomes `bh.EYE_HEIGHT / bh.U`. Both views must print `OK run_checks`.
+
+Tolerances, false positives, and exemptions:
+
+| Check | Defaults | Known false positives | Remedy |
+|---|---|---|---|
+| coplanar | tol 0.5 mm, min_area 1e-6 m2 | Curved meshes with tangent faces; overlapping slab pieces whose shared top is hidden | Figure left out by prefix; exempt by name or fix the overlap |
+| flipped | volume below -1e-12 | A closed mesh made inside out on purpose (none known) | Exempt by name |
+| wall_gaps | gap 0.30 m, touch 1 mm | A chase between two parallel walls; an opening narrower than 0.30 m | Exempt one of the two walls by name |
+| floor_fit | tol 25 mm, hang 0.30 m | Plinth-raised fronts (toe kick about 0.10 m), a floating bed, door undercuts over 25 mm | Exempt by name |
+| camera | 160 columns; interior auto | Single-sheet meshes seen from behind (backdrops, leaves, open `lathe` profiles); a view through an opening without glass | Exempt by name; `interior=False` in that view's entry |
+| clearance | headroom 2.032 m, tol 5 mm | Handrails inside a box drawn wider than the clear width | Draw the box between the handrails |
+
+Defects in the request, and what catches each:
+
+| Defect | Caught by | Not caught |
+|---|---|---|
+| 1. Missing wall pieces at junctions | `wall_gaps` (gap, corner); `camera` escape when the gap opens to sky in an interior view | Walls outside the `walls` prefixes; angled walls; gaps wider than 0.30 m |
+| 2. Opening interiors | `camera` backface for a missing jamb or head face in view | The dark full-depth sill (geometry was present; a material reads as a hole): QA item, D8. A thin slot seen at an angle shows a dark line and lets no ray escape |
+| 3. Slab side coplanar with a wall face | `coplanar` over the whole scene | Nothing |
+| 4. Objects left at the old floor level | `floor_fit` (project B's offsets were 0.11 m and 0.22 m) | Offsets of 0.30 m or more; objects over no named floor. The prefix skip that caught an unrelated object: rule, D6 |
+| 5. Stale `matrix_world` | `run_checks` updates the view layer itself | The script's own reads: rule, D6 |
+| 6. Stray guard across a stair | `clearance` `inside` | Paths nobody declared |
+| 7. Emissive strips proud of the risers | None | Rule and QA item, D6 and D8 (decision) |
+| 8. Headroom 6'-3 5/8" against 6'-8" | `clearance` with the measured headroom | Paths nobody declared |
+
+Wiring in a project script that builds its own scene (sent by skill-developer to the project after the release):
+
+```python
+sys.path.insert(0, os.path.join(HERE, "lib"))       # copies of the skill's scripts/*.py
+from checks import run_checks
+
+FLOORS = ["floor", ...]          # exact names of every floor, slab, deck, and paving object
+PATHS = {}                       # name -> (x0, x1, y0, y1, z), feet; the stair builder adds one per tread and landing
+EXEMPT = {}                      # check -> exact object names, each with a dated reason
+
+# in the stair builder, for tread i (box from its nosing to the next nosing, between the guards):
+PATHS[f"flight1_{i}"] = (x0, x1, y_nosing, y_next_nosing, tread_top)
+
+# the last call before bpy.ops.render.render(write_still=True):
+run_checks(floors=FLOORS, paths=PATHS, unit=0.3048, figure=("person_",), exempt=EXEMPT,
+           interior=VIEWS.get(view, {}).get("interior"))
+```
+
+Expect a backlog on the first run in an existing scene (overlapping stair treads and slab pieces give coplanar hits; plinth fronts give floor-fit hits). Fix each hit or exempt it by name with a reason.
+
+### Docs (development session)
+
+Draft text below follows the instruction-writing rules; adjust wording only.
+
+- D5 SKILL.md Checks section, replacing the current one:
+  ```
+  The scene script calls `run_checks` after it sets the camera and before it renders. It runs six checks over the whole scene, prints `OK`, `FAIL`, or `SKIP` for each, and exits 1 on any hit.
+
+  from checks import clash_check, fail_on, run_checks
+  fail_on(clash_check(("man_",), ("vanity_", "basin", "tub_")), "clash")
+  run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("interior"))
+
+  | Check | Finds |
+  | coplanar | Same-facing faces on one plane: z-fighting, black strips, a slab side on a wall face |
+  | flipped | Closed meshes that are inside out, or have faces turned the wrong way |
+  | wall_gaps | Walls that almost meet, or meet only at a corner |
+  | floor_fit | Objects that float above or sink into the floor under them |
+  | camera | Faces seen from behind (a missing face), and sky seen from an interior view |
+  | clearance | Anything inside the walking box over a stair tread or path, with the headroom |
+
+  - Run the checks before every render, previews included.
+  - Fix every hit.
+  - If a hit is intended, exempt the object by its exact name: `exempt={"floor_fit": ["vanity_front"]}`.
+  - Give the reason for each exemption in a comment.
+  - Name every floor, slab, deck, and paving object in `floors`. Without floors, `floor_fit` does not run.
+  - Name every wall with the `wall_` prefix, or pass your wall prefixes in `walls`.
+  - Add a walking box to `paths` for each stair tread and landing: `(x0, x1, y0, y1, z)`, with z at the tread top.
+  - Draw each tread's box between the handrails, from its nosing to the next nosing.
+  - If a view looks out through an opening without glass, set `interior=False` in its entry.
+  - Run `clash_check` for the figure. `run_checks` leaves the figure out of most checks.
+  - In a project script that builds its own scene, copy `scripts/*.py` into its `lib/`.
+  - Then call `run_checks` right before the render call, with `unit` set to metres per project unit.
+  ```
+- D6 SKILL.md Rules for every scene, added:
+  ```
+  - Call `bpy.context.view_layer.update()` before you read `matrix_world` or any world position. Until then, positions are stale.
+  - Use exact object names in a skip list, never prefixes. A prefix also catches unrelated objects.
+  - Set an emissive strip into its recess, so that only its front face shows.
+  - After a floor or wall level changes, look at every threshold and wall base in a preview.
+  - Place an eye-level camera at the floor height plus `EYE_HEIGHT / U`. That is a 5'-7" viewer's eye, 5'-2 1/2".
+  ```
+- D7 SKILL.md loop: step 2 becomes `Preview at --res 800 --samples 48 --gpu into scratch/; the checks run first`; step 3 becomes `Fix every check hit, then read the preview image`.
+- D8 SKILL.md QA list, added: `An emissive strip whose top or sides show, or that streaks nearby glass`; `A dark sill or track across the full wall depth, which reads as a hole` (question A3).
+- D9 SKILL.md Scripts table: the `checks.py` row lists `run_checks` and the six checks; a new row `wall_gaps.py | Blender or plain Python | Wall rectangles that almost meet, from a list such as load_plan's`.
+- D10 `reference/api.md`: lines for `wall_gaps`, `flipped_check`, `wall_gap_check`, `floor_fit_check`, `camera_check`, `clearance_check`, `run_checks`, `EYE_HEIGHT`, and the new `coplanar_check` signature, from the code. VIEWS entries: perspective entries may carry `interior` (read by the scene script and passed to `run_checks`; `add_camera` ignores it).
+- D11 `reference/plan-input.md`, one line: after the correction layer, run `wall_gaps(walls, unit=<metres per unit>)` on the corrected list and fix each hit before you build.
+- D12 CHANGELOG, README (suite size), skill `docs/ISSUES.md`.
+
+### Tests (test author)
+
+All under the suite's timeouts; no sleeps. Lengths in metres unless stated; compare floats within 1e-6 unless stated.
+
+- T16 `tests/test_wall_gaps.py` (plain Python, `python3 -I`, imports `wall_gaps` from `SCRIPTS_DIR` or `../scripts`). Each case is `wall_gaps(rects)` with defaults unless stated:
+  - `[(0, 4, 0, 0.1), (3.9, 4.0, 0.15, 3)]` gives `[(0, 1, "gap", 0.05)]`; with the second rect at y0 0.1 (T joint) gives `[]`; at y0 0 (overlap) gives `[]`.
+  - `[(0, 3.9, 0, 0.1), (3.9, 4.0, 0.1, 3)]` (corner point) gives `[(0, 1, "corner", 0.0)]`; second rect at y0 0.05 gives `[(0, 1, "corner", 0.05)]`.
+  - Jog `[(0, 2, 0, 0.1), (2, 4, 0.05, 0.15)]` gives `[(0, 1, "corner", 0.05)]`; aligned thickness change `[(0, 2, 0, 0.1), (2, 4, 0, 0.15)]` gives `[]`.
+  - Door `[(0, 2, 0, 0.1), (2.9, 4, 0, 0.1)]` gives `[]`; `(2.3, 4, 0, 0.1)` gives one gap of 0.3 (within 1e-9); `(2.31, 4, 0, 0.1)` gives `[]`.
+  - Diagonal `[(0, 2, 0, 0.1), (2.1, 2.2, 0.2, 3)]` gives `[(0, 1, "gap", hypot(0.1, 0.1))]`.
+  - Touch tolerance: `(2.0005, 4, 0, 0.1)` after `(0, 2, 0, 0.1)` gives `[]`; `(2.002, 4, 0, 0.1)` gives one gap of 0.002.
+  - Feet dicts `[dict(x0=0, x1=13, y0=0, y1=0.33), dict(x0=12.67, x1=13, y0=0.5, y1=10)]` with `unit=0.3048` give `[(0, 1, "gap", 0.17 * 0.3048)]`.
+  - Three rects given out of x order, with gaps between rects 2 and 0: indices refer to the input order, and hits are sorted by (i, j). Six-item tuples and a rect with x0 > x1 are accepted.
+- T17 `tests/bl_rev6.py` (Blender):
+  - `wall_gap_check`: boxes `wall_a (0, 4, 0, 0.1, 0, 2.6)` and `wall_b (3.9, 4.0, 0.15, 3, 0, 2.6)` give `[("wall_a", "wall_b", "gap", 0.05)]`; the same in feet (coordinates divided by 0.3048 after `set_units("ft")`) gives 0.05 m. `wall_b` at z 3 to 5.6 gives `[]`; renamed `shelf_b` gives `[]`; `skip=("wall_b",)` gives `[]`. A door cut into `wall_a` by `cut_holes` changes nothing. A `seg` wall at 30 degrees beside `wall_a` is not reported, and stdout has a line starting `NOTE wall_gaps:` that names it.
+  - `flipped_check`: boxes `ok`, `inside_out` (`flip_normals()`), `mixed` (one face reversed with bmesh), `open_box` (top face deleted), `mirrored` (scale (-1, 1, 1)), a `cyl`, a `sphere`, and a `lathe` from each profile direction give exactly `[("inside_out", "inside-out"), ("mixed", "mixed")]`. `skip=("mixed",)` drops that item; an inside-out box with `hide_render` is not reported.
+  - `floor_fit_check(("floor", "up_floor"))`: `floor (-5, 5, -5, 5, -0.5, 0)`, `up_floor (0, 5, 0, 5, 0, 0.11)`, and boxes, each over `floor` alone unless stated: `on_floor` (base 0), `sunk5mm` (base -0.005), `float_011` (base 0.11, over `floor`), `buried_011` (base 0, inside `up_floor`'s footprint), `deep_sunk` (base -0.4 at x -4 to -3, y 2 to 3), `shelf` (base 1.2), `on_upper` (base 0.11 on `up_floor`), `outside` (beyond both floors, base 0.2), `float_002` (base 0.02), `float_003` (base 0.03), `wall_deep` (base 0 inside `up_floor`'s footprint, top 2.6), `wall_float` (base 0.05 over `floor`, top 2.6). Result: `[("buried_011", -0.11), ("deep_sunk", None), ("float_003", 0.03), ("float_011", 0.11), ("wall_float", 0.05)]`. `skip=("float_011",)` drops that item.
+  - `camera_check`, open box: `floor (-5, 5, -5, 5, -0.1, 0)`, `open_box (-0.5, 0.5, -0.5, 0.5, 0, 1)` with its top face deleted, perspective entry `loc (0, -3, 3)`, `target (0, 0, 0.5)`, lens 24, res 160. Result: exactly one item `("backface", "open_box", n, box)` with n > 0, and `box` inside the pixel box of `project_points` of the opening's four top corners, widened by 1 px. Stdout has the exterior NOTE. `skip=("open_box",)` gives `[]`. A box in front of it with `visible_camera` off changes nothing. `rays=320` gives at least 3 times the count. The same box made with negative x scale still gives the backface item, and a closed box with scale (-1, 1, 1) in view gives none.
+  - `camera_check`, escape: walls `(-2, 2, -2, -1.9)`, `(-2, 2, 1.9, 2)`, `(-2, -1.9, -1.9, 1.9)`, `(1.9, 2, -1.9, 1.9)`, z 0 to 2.5, on a floor `(-2, 2, -2, 2, -0.1, 0)`, `ceil_a (-2, 0, -2, 2, 2.5, 2.6)`, `ceil_b (0.6, 2, -2, 2, 2.5, 2.6)`, camera `loc (-1.5, -1.5, 1.6)`, `target (1, 1, 2.3)`, lens 18, res 160. Result: one item `("escape", None, n, box)` with n > 0. With `ceil_b` from x 0 the result is `[]`; with the hole and `interior=False` it is `[]`; with `ceil_a` hidden from render it is `[]` (exterior, NOTE printed) and with `interior=True` it has an escape item. A plan entry's camera gives `[]`.
+  - `clearance_check`: treads `stair_i (0, 1, 0.25 i, 0.25 (i + 1), 0, 0.18 (i + 1))` for i 0 to 3, paths `t_i = (0, 1, 0.25 i, 0.25 (i + 1), 0.18 (i + 1))`, side walls `side_l (-0.1, 0, 0, 1, 0, 3)` and `side_r (1, 1.1, 0, 1, 0, 3)`, and `slab_above (-1, 2, 0.5, 3, zb, zb + 0.3)`. zb 2.80 gives `[]`; zb 2.60 gives `[("t_3", "slab_above", 1.88)]`; zb 2.60 with `headroom=1.8` gives `[]`. With zb 2.80 plus `guard_x (0, 1, 0.5, 0.515, 0.54, 1.454)`: `[("t_2", "guard_x", None)]`. With zb 2.80 plus `guard_in (0.3, 0.4, 0.55, 0.6, 0.7, 1.0)` (inside, touching nothing): `[("t_2", "guard_in", None)]`. `skip=("slab_above",)` with zb 2.60 gives `[]`. Feet: after `set_units("ft")`, treads 3 ft wide, 11/12 ft deep, 7.5/12 ft risers, `slab_above (-1, 4, 1.5, 6, 8.8, 9.5)`: `unit=None` gives `[("t_3", "slab_above", 1.92024)]`; the same scene checked after `set_units("m")` with `unit=0.3048` gives the same.
+  - `coplanar_check(skip=("cp_b",))` on two coplanar overlapping boxes gives `[]`. A box with scale (-1, 1, 1) resting on a floor box gives `[]`; with scale (1, 1, 1) and the same placement it also gives `[]`.
+  - `run_checks`, captured with `contextlib.redirect_stdout` and catching `SystemExit`. Clean scene (floor, four walls butted at the corners as in the template, a ceiling resting on them, a counter on the floor, a perspective camera inside the room): the lines `OK coplanar`, `OK flipped`, `OK wall_gaps`, `OK floor_fit`, `OK camera` (each followed by ` (<t> s)`), `SKIP clearance: no paths given`, and last `OK run_checks`; no exit. Add `float_011` (base 0.11): `FAIL floor_fit: 1 (`, the line `  float_011 floating 0.110 m`, the camera line still printed, last line `FAIL run_checks: floor_fit`, exit code 1. `exempt={"floor_fit": ["float_011"]}`: passes. `exempt={"floor_fit": ["no_such"]}`: prints `WARN exempt floor_fit: no object named no_such`. `exempt={"florr_fit": []}`: `ValueError` and no `OK`/`FAIL` line. `floors=()`: `SKIP floor_fit: no floors given`. `floors=("nope",)`: the WARN line and `SKIP floor_fit: none of the floors exists`. Clean scene plus a mannequin: still `OK run_checks`. 25 floating boxes: 20 hit lines, then `  ... and 5 more`. A box moved to float by setting `location` with no view-layer update is still reported. A plan camera: `SKIP camera: orthographic camera`.
+  - `bh.EYE_HEIGHT == 1.5875`.
+- T18 `tests/bl_rev6_perf.py`, its own step: the 1,925-object synthetic scene from the verification (seeded `random.Random(1)`), each of the six checks timed; passes when their total is under 60 s, and prints each time. Guards against a pair loop without the bounding-box prefilter.
+- T19 `run_tests.sh`: add `wall_gaps.py` to the required files and `test_wall_gaps.py` and the two Blender steps to the suite; each template view's log must have the line `^OK run_checks$` before `DONE`. Negative template step: `tests/seed_template.py`, copied beside the template copy, imports `scene_template`, wraps `build` to add `box("float_test", 2.0, 2.4, 3.0, 3.4, 0.11, 0.9)`, and calls `main()` with `--view persp`; the run must exit non-zero, its log must have `^FAIL run_checks: floor_fit$`, and it must have no `^DONE` line.
+- T20 `test_api_doc.py` also checks `wall_gaps`.
+- Mutation checks (report each): remove the `wall_gaps` corner rule; make `flipped_check` read world coordinates; drop the walls float-only rule; use `Scene.ray_cast` in `camera_check`; drop the vertex test in `clearance_check`; drop the figure skip in `run_checks`; drop the negative-determinant normal fix in `coplanar_check`; stop `run_checks` after the first failure. Each must fail at least one of T16 to T19.
+
+### Evals
+
+Fresh subagents read `SKILL.md` by absolute path, not through the Skill tool; synthetic data only.
+- E1: "A 12 x 16 ft room with a 4 5/16 in step to a raised landing and a straight stair of 7 risers up to a floor 9 ft above; render an eye-level preview from the room." Pass: `set_units("ft")`, `run_checks` with every floor named and one path per tread, every hit fixed or exempted with a reason, the camera at the floor plus `EYE_HEIGHT / U`.
+- E2: a synthetic 150-line legacy build script (its own `box()`, feet, no checks) with a floating panel, a missing wall corner, and a guard across a tread. Prompt: "The renders show odd gaps; add the skill's checks and fix what they find." Pass: the wiring above before the render call with `unit=0.3048`, all three defects fixed, no prefix exemptions.
+
+### Order of work, and how to continue if interrupted
+
+R22 and T16 first (plain Python), then R23 to R29 with T17, then R30 and R31 with T19, then T18 and T20, then docs D5 to D12, then evals. Each finished item is ticked in skill `docs/ISSUES.md` under Revision 6; a fresh session reads that line, this section, and `git log` on `rev6-phantom-checks`.
