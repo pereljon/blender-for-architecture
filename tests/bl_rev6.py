@@ -731,6 +731,61 @@ def t_wall_heights():
     expect("both walls 2.1 m under a ceiling", pair(2.1, 2.1), [("wall_a", "wall_b", "no-header", 0.9)])
 
 
+def storey_pair(z0, h, ceiling=True, floors="one"):
+    """Two in-line walls h tall from z0 with a 0.9 m opening; a floor 0.1 m thick under z0 and a ceiling on the tops."""
+    reset()
+    if floors == "one":
+        bh.box("floor", -3, 5, -3, 3, z0 - 0.1, z0)
+    elif floors == "split":
+        bh.box("floor", -3, 2.2, -3, 3, z0 - 0.1, z0)
+        bh.box("floor_r", 2.7, 5, -3, 3, z0 - 0.1, z0)
+    bh.box("wall_a", 0, 2, 0, 0.1, z0, z0 + h)
+    bh.box("wall_b", 2.9, 4, 0, 0.1, z0, z0 + h)
+    if ceiling:
+        bh.box("ceiling", -3, 5, -3, 3, z0 + h, z0 + h + 0.1)
+    upd()
+
+
+def t_wall_heights_storeys():
+    nh = [("wall_a", "wall_b", "no-header", 0.9)]
+    nf = [("wall_a", "wall_b", "no-floor", 0.9)]
+    fl = ("floor", "floor_r")
+    storey_pair(3.0, 2.6)
+    expect("2.6 m walls on a storey at z 3.0, no header", ck.wall_gap_check(floors=fl), nh)
+    storey_pair(3.0, 1.5)
+    expect("1.5 m half walls at z 3.0 under a ceiling", ck.wall_gap_check(floors=fl), [])
+    storey_pair(-2.7, 2.6)
+    expect("2.6 m walls at z -2.7, no header", ck.wall_gap_check(floors=fl), nh)
+    storey_pair(3.0, 1.5, ceiling=False, floors="split")
+    expect("half walls, no floor under the opening: no-floor only", ck.wall_gap_check(floors=fl), nf)
+    reset()
+    bh.box("floor", -3, 5, -3, 3, -0.1, 0)
+    bh.box("wall_a", 0, 2, 0, 0.1, 0, 2.6)
+    bh.box("wall_b", 2.9, 4, 0, 0.1, 1.6, 2.6)
+    bh.box("ceiling", -3, 5, -3, 3, 2.6, 2.7)
+    upd()
+    expect("stepped walls 0 to 2.6 and 1.6 to 2.6", ck.wall_gap_check(floors=("floor",)), [])
+
+
+def t_floor_fit_decals():
+    reset()
+    bh.box("floor", -3, 3, -3, 3, -0.2, 0)
+    open_plane("decal_0", down=True, z=0.0, half=0.3)
+    open_plane("decal_5e5", down=True, z=5e-5, half=0.3)
+    bh.box("mm_1", 1, 1.5, 1, 1.5, 0.0, 0.001)
+    upd()
+    expect("down-facing zero-thickness planes on the floor top and 5e-5 above, and a 1 mm box",
+           ck.floor_fit_check(("floor",)), [])
+
+
+def t_run_openings_bare_pair():
+    opening_scene()
+    lines, code = run(floors=("floor",), exempt={"openings": ("wall_a", "wall_b")})
+    check("  wall_a wall_b no-header 0.900 m" in lines, f"bare pair leaves the hit in wall_gaps: {block(lines, 'wall_gaps')}")
+    check(any(ln.startswith("FAIL wall_gaps: 1 (") for ln in lines), f"bare pair: FAIL wall_gaps: {lines}")
+    check(code == 1, f"bare pair: run fails (code {code})")
+
+
 def t_run_names_as_strings():
     clean_room()
     bh.box("float_011", 0.3, 0.6, 1.5, 1.8, 0.11, 0.5)
@@ -868,7 +923,8 @@ def t_timing():
 CASES = (t_wall_gaps, t_openings, t_flipped, t_floor_fit, t_floor_orientation, t_support, t_camera_backface,
          t_camera_escape, t_clearance, t_coplanar, t_coplanar_mirrored, t_run_clean, t_run_float, t_run_formats, t_run_walls,
          t_run_errors, t_run_openings, t_misc, t_plan_view_openings, t_floor_fit_upper_slab,
-         t_floor_open_planes, t_support_variants, t_wall_heights, t_run_names_as_strings, t_run_unrendered_floors,
+         t_floor_open_planes, t_support_variants, t_wall_heights, t_wall_heights_storeys, t_floor_fit_decals,
+         t_run_openings_bare_pair, t_run_names_as_strings, t_run_unrendered_floors,
          t_run_camera_not_a_camera, t_checks_alone, t_timing)
 
 
