@@ -39,6 +39,7 @@ mannequin(dict(EXAMPLE_POSE, root=(1.0, 0.75)), height=1.52)
 - An out-of-reach target clamps to full extension, so check that the hands reach what they should.
 - Run `clash_check(("man_",), (...fixture prefixes...))` on every figure view, and re-pose until it is empty.
 - The clash check also reports a part fully inside a closed object. It cannot test containment in open meshes.
+- The clash check counts surfaces that touch as a hit. Keep furniture 1 mm off the wall behind it, or leave walls out of the second prefix list.
 
 `person(mat, x, y, h)` is a simpler scale figure: a cylinder and a sphere. Use it for scale in wide views.
 

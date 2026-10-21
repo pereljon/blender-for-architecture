@@ -60,7 +60,8 @@ ids = write_walls_ifc(walls, "out/walls.ifc", 0.0, CEIL, unit=bh.U)
 - Pass `z0` and `z1` in the records' units. `unit` converts them to metres with the other lengths.
 - Give each record a `kind` of `new` or `existing`. The IFC then carries it as the element's status.
 - For a post or a beam, build it in the scene with `box()`. `walls_from_plan` ignores `z0`, `z1`, and `ifc_class`.
-- Append a record for each post or beam after the wall records, with its own `z0`, `z1`, and `ifc_class` such as `IfcColumn`. Pass that longer list only to `write_walls_ifc`; the scene's wall boxes keep their names.
+- Append a record for each post or beam after the wall records. Give it its own `z0`, `z1`, and `ifc_class` such as `IfcColumn`.
+- Pass that longer list only to `write_walls_ifc`. The scene's wall boxes keep their names.
 - `write_walls_ifc` reads the file back and raises an error when an element differs from its record by over 3 mm.
 - For signatures and the record format, see [reference/api.md](api.md).
 
@@ -95,7 +96,7 @@ bpy.ops.bim.save_project(filepath=ifc)
 - Bonsai joins touching walls of one class, material, and status into one outline. The check compares each joined outline as a whole.
 - Review the image only for appearance. The check covers the geometry.
 
-For doors and windows in openings, dimensions and labels, sheets, and an IFC scene with project materials, check the result in a preview. The skill's tests do not cover them.
+The skill's tests do not cover doors and windows in openings, dimensions, labels, sheets, or an IFC scene with project materials. Check each in a preview.
 
 ## Sun Position
 
@@ -117,11 +118,11 @@ sun(math.degrees(p.sun_elevation), math.degrees(p.sun_azimuth), plan_north_deg=P
 
 ## Point Cloud I/O
 
-- Use Point Cloud I/O to bring a LiDAR scan into the scene and check walls, slabs, and grades against the model.
+- Use Point Cloud I/O to bring a LiDAR scan into the scene. Check walls, slabs, and grades against the model.
 - Import a LAS file with `bpy.ops.import_scene.point_cloud_las(filepath=...)`.
 - The other importers are `bpy.ops.import_scene.point_cloud_e57`, `bpy.ops.import_scene.point_cloud_ply`, `bpy.ops.import_scene.point_cloud_pcd`, `bpy.ops.import_scene.point_cloud_pts`, and `bpy.ops.import_scene.point_cloud_xyz`.
 - The LAS importer takes `import_colors`, `import_intensity`, `import_classification`, `center_on_origin`, `scale_factor`, and `point_radius`.
-- Before you use a scan, find its length unit, its coordinate system (local, or a map grid such as UTM), and its height datum. Scans from different apps differ, and two scans from one app can differ in heading.
+- Before you use a scan, find its length unit, coordinate system, and height datum. The system is local, or a map grid such as UTM. Scans from different apps differ, and two scans from one app can differ in heading.
 - Leave `center_on_origin` on for scans in UTM coordinates. The importer then moves the points to the origin, and the object's `location` stays (0, 0, 0).
 - The importer keeps the offset in the object's custom property `las_origin_offset`, three floats. It is the bounding-box minimum of the points, not the LAS header offset.
 - To get a point's scan coordinates, add `las_origin_offset` to its position. This holds only at `scale_factor` 1, because the importer scales after it subtracts the offset. Keep `scale_factor` at 1.

@@ -1,6 +1,6 @@
 # Construction sheets
 
-Optional module. Sheets for trades (carpentry, plumbing, electrical, tile) are drawn with Pillow from the same numbers as the model, so the sheets and the renders cannot disagree.
+Optional module. Sheets for trades (carpentry, plumbing, electrical, tile) are drawn with Pillow from the same numbers as the model. The sheets and the renders then cannot disagree.
 
 ## Sources of numbers
 

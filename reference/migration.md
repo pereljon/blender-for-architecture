@@ -20,7 +20,11 @@ How to upgrade a script's pinned lib version, and how to move a project's own he
 
 The geometry dump is a JSON file that describes every object in the built scene. Two dumps compare with a plain diff. Geometry decides whether a swap or an upgrade changed the model, so the dumps must be equal.
 
-Each entry is keyed by object name. It holds the object type, the vertex count of the evaluated mesh (0 for other types), the world bounding box of the evaluated object rounded to 1e-6 m, and the material names of its slots.
+Each entry is keyed by object name and holds four fields:
+- `type`: the object type.
+- `vertices`: the vertex count of the evaluated mesh, or 0 for other types.
+- `box`: the world bounding box of the evaluated object, rounded to 1e-6 m.
+- `materials`: the material names of the object's slots.
 
 ```python
 import json
@@ -91,7 +95,7 @@ Use this for a project that built its scene with its own functions, such as a si
 Do this as a separate step, after the helper swap compares clean.
 
 1. Rename walls named by list index (`wall_27`) to stable names.
-2. Add `run_checks` as SKILL.md ("Checks") says.
+2. Add `run_checks` as SKILL.md ("Checks") says. Call it right before the render call, with `unit` set to metres per project unit.
 3. Expect many hits on a large existing model. Take them check by check.
    - Fix a real defect.
    - Exempt an intended one by its exact name, with the reason in a comment.
