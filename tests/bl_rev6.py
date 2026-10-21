@@ -760,11 +760,11 @@ def t_wall_heights_storeys():
     expect("half walls, no floor under the opening: no-floor only", ck.wall_gap_check(floors=fl), nf)
     reset()
     bh.box("floor", -3, 5, -3, 3, -0.1, 0)
-    bh.box("wall_a", 0, 2, 0, 0.1, 0, 2.6)
-    bh.box("wall_b", 2.9, 4, 0, 0.1, 1.6, 2.6)
-    bh.box("ceiling", -3, 5, -3, 3, 2.6, 2.7)
+    bh.box("wall_a", 0, 2, 0, 0.1, 0, 3.0)
+    bh.box("wall_b", 2.9, 4, 0, 0.1, 1.4, 3.0)
+    bh.box("ceiling", -3, 5, -3, 3, 3.0, 3.1)
     upd()
-    expect("stepped walls 0 to 2.6 and 1.6 to 2.6", ck.wall_gap_check(floors=("floor",)), [])
+    expect("stepped walls 0 to 3.0 and 1.4 to 3.0", ck.wall_gap_check(floors=("floor",)), [])
 
 
 def t_floor_fit_decals():
