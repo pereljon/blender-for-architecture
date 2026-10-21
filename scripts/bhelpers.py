@@ -20,7 +20,7 @@ import bmesh
 from mathutils import Matrix, Vector
 
 U = 1.0
-EYE_HEIGHT = 1.5875   # metres: the eye of a 5'-7" viewer, 5'-2 1/2"; fixed value kept for scripts pinned before v1.1.0
+EYE_HEIGHT = 1.5875   # metres: the eye of a 5'-7" viewer, 5'-2 1/2"; kept so that a script written for an older pin runs after its pin is upgraded
 GPU_BACKENDS = ("METAL",) if sys.platform == "darwin" else ("OPTIX", "CUDA", "HIP")
 _OV = 0.03       # plan overlay mark height, metres
 
@@ -862,8 +862,8 @@ def setup_cycles(samples, gpu=True, exposure=0.0, look="AgX - Medium High Contra
                  glossy_bounces=6, transmission_bounces=10, sky=(0.55, 0.70, 0.95), sky_strength=1.0):
     """Cycles with adaptive sampling, denoising, AgX and a sky world. Does not set resolution or output.
 
-    gpu=True tries Metal on macOS, else OptiX, CUDA, then HIP, and uses every device of the first backend that has one.
-    With none, it prints one warning and renders on CPU.
+    gpu=True tries Metal on macOS, else OptiX, CUDA, then HIP, and takes the first backend that has a device.
+    It then uses every device of that backend plus the CPU. With none, it prints one warning and renders on CPU.
     """
     sc = bpy.context.scene
     sc.render.engine = "CYCLES"
@@ -872,7 +872,7 @@ def setup_cycles(samples, gpu=True, exposure=0.0, look="AgX - Medium High Contra
         found = False
         try:
             prefs = bpy.context.preferences.addons["cycles"].preferences
-            prefs.get_devices()   # fills prefs.devices for every backend; the loop below only picks one
+            prefs.refresh_devices()   # fills prefs.devices for every backend; the loop below only picks one
             for name in GPU_BACKENDS:
                 try:
                     prefs.compute_device_type = name

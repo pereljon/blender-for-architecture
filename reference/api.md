@@ -40,9 +40,9 @@ Keys of a `mannequin` pose, in project units. `EXAMPLE_POSE` is in metres, so a 
 
 - `U` = `1.0`
 - `EYE_HEIGHT` = `1.5875`
-  The eye height in metres of a 5'-7" viewer (5'-2 1/2"). It stays fixed for scripts pinned before v1.1.0.
+  The eye height in metres of a 5'-7" viewer (5'-2 1/2"). It is kept so that a script written for an older pin still runs after its pin is upgraded. New scripts use `eye_height()`.
 - `eye_height(viewer=None)`
-  Eye height, in project units, of a viewer `viewer` tall (project units). The default viewer is 5'-7". The eye sits 0.1143 m (4.5 in) below the crown. Place an eye-level camera at the floor height plus `eye_height()`.
+  Eye height, in project units, of a viewer `viewer` tall (project units). The default viewer is 5'-7". The eye sits 0.1143 m (4.5 in) below the crown.
 - `GPU_BACKENDS` = the Cycles GPU backends that `setup_cycles` tries, in order: `("METAL",)` on macOS, else `("OPTIX", "CUDA", "HIP")`
 - `set_units(u)`
   Set metres per project unit: "m", "ft" or a number.
@@ -140,7 +140,7 @@ Keys of a `mannequin` pose, in project units. `EXAMPLE_POSE` is in metres, so a 
 - `downlights(mat, rect, ceil, nx=3, ny=2, watts=45, tag='room', trim_r=None)`
   Recessed downlights over rect (x0, x1, y0, y1): an emissive trim in the ceiling plane plus a spot light below each.
 - `setup_cycles(samples, gpu=True, exposure=0.0, look='AgX - Medium High Contrast', max_bounces=10, glossy_bounces=6, transmission_bounces=10, sky=(0.55, 0.7, 0.95), sky_strength=1.0)`
-  Cycles with adaptive sampling, denoising, AgX and a sky world. Does not set resolution or output. With gpu=True it uses every device of the first backend in `GPU_BACKENDS` that has one. With none, it prints one WARN line and renders on CPU.
+  Cycles with adaptive sampling, denoising, AgX and a sky world. Does not set resolution or output. With gpu=True it takes the first backend in `GPU_BACKENDS` that has a device, and uses every device of that backend plus the CPU. With none, it prints one WARN line and renders on CPU.
 - `set_resolution(res, aspect=0.625)`
   Width res pixels, height round(res * aspect), at 100 percent.
 - `new_camera(name='cam', clip_start=None)`
