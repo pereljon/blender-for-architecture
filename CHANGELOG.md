@@ -2,7 +2,11 @@
 
 All notable changes to this skill. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## [1.0.0] - 2026-10-21
+
+### Changed
+
+- Renamed from `blender-architectural-renders` to `blender-for-architecture`.
 
 ### Added
 

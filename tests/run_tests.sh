@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs every test for the blender-architectural-renders skill headless. Exits non-zero on any failure.
+# Runs every test for the blender-for-architecture skill headless. Exits non-zero on any failure.
 # Output goes to tests/out/. Override BLENDER or SCRIPTS_DIR (default: ../scripts) from the environment.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SKILL="$(dirname "$HERE")"

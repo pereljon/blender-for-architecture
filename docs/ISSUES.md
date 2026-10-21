@@ -1,6 +1,6 @@
 # Issues
 
-State of the blender-architectural-renders skill: open bugs, planned work, next steps, open questions, and decisions. The skill-developer project's `docs/ISSUES.md` holds the migration.
+State of the blender-for-architecture skill: open bugs, planned work, next steps, open questions, and decisions. The skill-developer project's `docs/ISSUES.md` holds the migration.
 
 ## Bugs
 
@@ -11,10 +11,10 @@ State of the blender-architectural-renders skill: open bugs, planned work, next 
 ## Planned
 
 - [x] Receive the design contract (`dev/features/`) and review inputs (`dev/inputs/`) from the development session (resolved 2026-10-17): moved in unedited; three stale paths fixed.
-- [ ] Release and install v1.0.0 (skill-developer migration step 5).
+- [ ] Release and install v1.0.0 as `blender-for-architecture` (skill-developer migration step 5); release in progress 2026-10-21.
 - [x] Revision 6 (resolved 2026-10-21): merged at `aeb257b`; suite 50 of 50 on main. Next: Revision 5, then the v1.0.0 release. Was: before Revision 5's remaining items and before release: catch phantom geometry defects (one check gate run before every render, five new checks, loop rules, default eye height). Source: `dev/inputs/2026-10-20-phantom-defects.md`. Design: contract, "Revision 6", revised after the architecture review (G1 to G13). Branch `rev6-phantom-checks`. Tests at `022f22d`, implementation at `352a14b`. P1 and P2 fixed at `0ce6203`.
 - [ ] After v1.0.0: SKILL.md step 5 of the setup list requires `context/dimensions.md` with no exemption for a quick preview outside a project (Revision 6 eval gap b). Add the exemption.
-- [ ] Revision 5, before release: the remaining items, designed as Revision 5b (contract, "Revision 5b"); branch `rev5b`. Progress: tests T21 to T27 and T29, R33 at `04331ad`, docs at `2009477`, review at `ef4c013`. M1 to M4 fixed at `6718875`; L2 at `d7eead5`; evals E3, E4, E5, and E7 passed 2026-10-21 (contract, "Revision 5b eval results"). Next: merge approval.
+- [x ] Revision 5, before release: the remaining items, designed as Revision 5b (contract, "Revision 5b"); branch `rev5b`. Progress: tests T21 to T27 and T29, R33 at `04331ad`, docs at `2009477`, review at `ef4c013`. M1 to M4 fixed at `6718875`; L2 at `d7eead5`; evals E3, E4, E5, and E7 passed 2026-10-21 (contract, "Revision 5b eval results"). Next: merge approval. (resolved 2026-10-21): merged at `1796aca`; suite 54 of 54 on main.
 - [ ] If a CAD file (DXF or DWG) ever arrives: read it with ezdxf, which comes with Bonsai, and build a wall extractor against that file. Findings: contract, "Revision 5b", Verified.
 - [ ] After v1.0.0, a possible revision: build walls and slabs from a LiDAR scan (laspy slices at set heights, fitted to axis-aligned wall records), so a scan can feed the model as well as check it. Approved for the backlog by the user on 2026-10-21; needs its own design.
 - [ ] After v1.0.0: HDRI environment lighting for exterior views and views through windows, from a fixed, reviewed source (for example a Poly Haven CC0 file kept in the project). Idea from reviewing two public Blender skills on 2026-10-21; their code is not reused (one has no licence).
@@ -36,6 +36,7 @@ State of the blender-architectural-renders skill: open bugs, planned work, next 
 
 ## Decisions
 
+- 2026-10-21, the user: rename the skill from `blender-architectural-renders` to `blender-for-architecture` before v1.0.0, with a public release in mind; the skill now covers plan views, sheets, IFC, sun, and scans, not only renders. Rejected: `blender-architectural-models`, `blender-scripted-architecture`, `blender-architecture`, `blender-ai-architect`, `blender-pro-architect`, `blender-architecture-skill`, and keeping the old name.
 - 2026-10-21, the user: construction sheets default to US Tabloid (11 x 17 in) landscape, and paper size is a parameter (`set_paper`), with A3 kept for metric projects (P1). The paper parameter and two input rules (an unreadable dimension is marked unread, never guessed; a plan-versus-site conflict is recorded with both sources and the owner decides) go into v1.0.0 (P2). Rejected: A3 as the default; Letter as the default (too small for dimensioned details); leaving both to v1.1.0.
 - 2026-10-21, the user: keep the user's AGENTS.md files out of the skill; restate in the skill only the input rules its results depend on. Rejected: copying root or personal AGENTS.md rules into the skill.
 - 2026-10-21, the user, on the Revision 5b review (L2, M10): every run that enables extensions enables every installed one of the three, the same set in every run; if the user declined one, it leaves the tuple. Rejected: requiring all three (a declined extension would fail every run); saying nothing until it happens.

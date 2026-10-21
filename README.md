@@ -1,4 +1,4 @@
-# blender-architectural-renders
+# blender-for-architecture
 
 A Claude Code skill that builds architectural and remodel renders in Blender. One Python scene script builds the whole model, and Blender renders it headless with Cycles.
 
@@ -63,7 +63,7 @@ Prerequisites:
 Install from the skill-developer project root, after the release is approved:
 
 ```
-python3 scripts/install_skill.py blender-architectural-renders <tag>
+python3 scripts/install_skill.py blender-for-architecture <tag>
 ```
 
 Run the tests from the skill root. The suite has 54 steps, and a full run prints `54 passed, 0 failed`.
