@@ -5,12 +5,14 @@ import io
 import os
 import random
 import re
+import struct
 import sys
 import time
 import traceback
 
 import bmesh
 import bpy
+from mathutils.bvhtree import BVHTree
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # Blender -P does not add the script folder
 import tcommon
@@ -314,6 +316,113 @@ def t_camera_backface():
     bh.perspective_camera((0, -3, 3), (0, 0, 0.5), lens=24)
     upd()
     expect("closed mirrored box", ck.camera_check(), [])
+
+
+def f32_step(x, n):
+    """x moved by n steps of the float32 spacing; mesh vertices are stored as float32."""
+    bits = struct.unpack("i", struct.pack("f", x))[0]
+    return struct.unpack("f", struct.pack("i", bits + n))[0]
+
+
+def cell_ray(i, j, rays=160):
+    """Origin and direction of the ray that camera_check casts through cell (i, j) of the scene camera."""
+    sc = bpy.context.scene
+    cam = sc.camera
+    c = cam.data
+    rx = sc.render.resolution_x * sc.render.resolution_percentage / 100
+    ry = sc.render.resolution_y * sc.render.resolution_percentage / 100
+    tr, _, bl, tl = c.view_frame(scene=sc)
+    rows = max(1, round(rays * ry / rx))
+    u, v = (i + 0.5) / rays, (j + 0.5) / rows
+    d = (cam.matrix_world.to_3x3() @ (tl + (tr - tl) * u + (bl - tl) * v)).normalized()
+    return cam.matrix_world.translation + d * c.clip_start, d
+
+
+def graze_scene(edge, i, j, k):
+    """A box whose silhouette edge lies k float32 steps from the centre ray of cell (i, j), with a wall behind.
+
+    The camera at y -4 looks along +y. edge "v" puts the box's left vertical edge on the ray at y 0, so the box's
+    left face (normal -x) is seen from behind; edge "h" puts its top edge there, so the top face is. Nothing is
+    missing: the box is closed.
+    """
+    reset()
+    bh.box("floor", -20, 20, -20, 20, -0.1, 0)
+    bh.box("wall_back", -20, 20, 4, 4.1, -0.1, 8)
+    bh.set_resolution(160)
+    bh.perspective_camera((0, -4, 1.5), (0, 0, 1.5), lens=24)
+    upd()
+    o, d = cell_ray(i, j)
+    p = o + d * (-o.y / d.y)
+    if edge == "v":
+        x = f32_step(p.x, k)
+        bh.box("graze_box", x, x + 1.0, 0, 1, 0, 3)
+    else:
+        bh.box("graze_box", p.x - 1.0, p.x + 1.0, 0, 1, 0, f32_step(p.z, k))
+    upd()
+
+
+def grazed(edge, i, j):
+    """True when a centre ray in the band of cells along the edge hits a back face first, in a BVH of every mesh.
+
+    The ray of every cell in the column i (edge "v") or the row j (edge "h") passes through the same edge, so the
+    band holds the cells that can tie.
+    """
+    vs, ps = [], []
+    for ob in bpy.data.objects:
+        if ob.type == "MESH":
+            ps += [tuple(v + len(vs) for v in p.vertices) for p in ob.data.polygons]
+            vs += [ob.matrix_world @ v.co for v in ob.data.vertices]
+    tree = BVHTree.FromPolygons(vs, ps)
+    sc = bpy.context.scene
+    rows = round(160 * sc.render.resolution_y / sc.render.resolution_x)
+    cells = [(i, jj) for jj in range(rows)] if edge == "v" else [(ii, j) for ii in range(160)]
+    for ci, cj in cells:
+        o, d = cell_ray(ci, cj)
+        loc, normal, _, _ = tree.ray_cast(o, d, sc.camera.data.clip_end - sc.camera.data.clip_start)
+        if loc is not None and normal.dot(d) > 0:
+            return True
+    return False
+
+
+def t_camera_graze():
+    for edge, i, j in (("v", 60, 50), ("h", 80, 40)):
+        for k in range(-6, 7):
+            graze_scene(edge, i, j, k)
+            if grazed(edge, i, j):
+                break
+        else:
+            check(False, f"edge {edge}: no float32 step puts a cell ray on a back face of the box")
+            continue
+        expect(f"closed box edge {edge} under a cell-centre ray, nothing missing", ck.camera_check(interior=False), [])
+        expect(f"the same box with 320 rays and edge {edge}", ck.camera_check(interior=False, rays=320), [])
+
+
+def t_camera_backface_area():
+    open_box_scene()
+    res = ck.camera_check()
+    check(len(res) == 1 and res[0][2] >= 9, f"a missing face that spans many cells reports at least 9 rays: {res}")
+
+    reset()
+    bh.box("floor", -5, 5, -5, 5, -0.1, 0)
+    ob = bh.box("small_open", -0.04, 0.04, -0.04, 0.04, 0, 0.08)
+    edit_mesh(ob, lambda bm: bmesh.ops.delete(
+        bm, geom=[max(bm.faces, key=lambda f: f.calc_center_median().z)], context="FACES_ONLY"))
+    bh.set_resolution(160)
+    bh.perspective_camera((0, -3, 3), (0, 0, 0.04), lens=24)
+    upd()
+    res = ck.camera_check()
+    check(len(res) == 1 and res[0][:2] == ("backface", "small_open") and res[0][2] >= 1,
+          f"a missing face that spans a few cells reports: {res}")
+
+    reset()
+    bh.box("floor", -5, 5, -5, 5, -0.1, 0)
+    bh.box("room_box", -2, 2, -2, 2, 0, 3)
+    bh.set_resolution(160)
+    bh.perspective_camera((0, -1, 1.5), (0, 1, 1.5), lens=24)
+    upd()
+    res = ck.camera_check()
+    check(len(res) == 1 and res[0][:2] == ("backface", "room_box") and res[0][2] >= 14000,
+          f"a camera inside a closed box sees back faces in nearly every cell: {res}")
 
 
 def room_scene(ceil_b_x0=0.6):
@@ -673,6 +782,20 @@ def t_floor_fit_upper_slab():
            [("float_011", 0.11)])
 
 
+def t_floor_fit_hung_into_slab():
+    reset()
+    bh.box("floor", -5, 5, -5, 5, -0.5, 0)
+    bh.box("slab_up", -5, 5, -5, 5, 3.0, 3.2)
+    bh.box("beam_under", 0, 4, 0, 0.3, 2.7, 3.0)
+    bh.box("beam_into", 0, 4, 1, 1.3, 2.8, 3.1)
+    bh.box("downlight", 2, 2.16, -2, -1.84, 2.95, 3.05)
+    bh.box("deep_sunk", -4, -3, 2, 3, -0.4, 0.5)
+    bh.box("sunk_up", -4, -3, -4, -3, 3.1, 3.5)
+    upd()
+    expect("objects under or running into an upper slab named in floors",
+           ck.floor_fit_check(("floor", "slab_up")), [("deep_sunk", None), ("sunk_up", -0.1)])
+
+
 def t_floor_open_planes():
     for down, mirror, label in ((True, False, "open plane, normal down"),
                                 (True, True, "open plane, normal down, mirrored"),
@@ -921,9 +1044,10 @@ def t_timing():
 
 
 CASES = (t_wall_gaps, t_openings, t_flipped, t_floor_fit, t_floor_orientation, t_support, t_camera_backface,
-         t_camera_escape, t_clearance, t_coplanar, t_coplanar_mirrored, t_run_clean, t_run_float, t_run_formats, t_run_walls,
-         t_run_errors, t_run_openings, t_misc, t_plan_view_openings, t_floor_fit_upper_slab,
-         t_floor_open_planes, t_support_variants, t_wall_heights, t_wall_heights_storeys, t_floor_fit_decals,
+         t_camera_graze, t_camera_backface_area, t_camera_escape, t_clearance, t_coplanar, t_coplanar_mirrored,
+         t_run_clean, t_run_float, t_run_formats, t_run_walls, t_run_errors, t_run_openings, t_misc,
+         t_plan_view_openings, t_floor_fit_upper_slab, t_floor_fit_hung_into_slab, t_floor_open_planes,
+         t_support_variants, t_wall_heights, t_wall_heights_storeys, t_floor_fit_decals,
          t_run_openings_bare_pair, t_run_names_as_strings, t_run_unrendered_floors,
          t_run_camera_not_a_camera, t_checks_alone, t_timing)
 
