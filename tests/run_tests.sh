@@ -88,7 +88,7 @@ blender_test() {
 # 0. syntax and prerequisites
 step syntax:bash 30 bash -n "$HERE/run_tests.sh"
 step syntax:python 60 python3 -I -m py_compile "$HERE"/tcommon.py "$HERE"/bl_*.py "$HERE"/test_*.py \
-    "$HERE"/check_png.py "$HERE"/list_views.py "$HERE"/with_timeout.py "$HERE"/seed_template.py
+    "$HERE"/check_png.py "$HERE"/list_views.py "$HERE"/template_lib.py "$HERE"/with_timeout.py "$HERE"/seed_template.py
 rm -rf "$HERE/__pycache__"
 
 missing=0
@@ -113,6 +113,7 @@ blender_test bl_rev2
 blender_test bl_rev3
 blender_test bl_rev4
 blender_test bl_rev6
+blender_test bl_v110
 blender_test bl_extensions
 SKIPS=""
 SKIP_LINE="$(grep -m1 '^SKIP' "$OUT/bl_extensions.log")"
@@ -127,7 +128,15 @@ expect_line bl_render:DONE-plan "$OUT/bl_render.log" "^DONE $OUT/render_plan.png
 TPL="$OUT/tpl"
 rm -rf "$TPL"; mkdir -p "$TPL"
 cp "$SKILL/templates/scene_template.py" "$TPL/scene_template.py"
-cp -R "$SCRIPTS_DIR" "$TPL/lib"
+LIB="$(python3 -I "$HERE/template_lib.py" "$SKILL/templates/scene_template.py")"
+if [ -z "$LIB" ]; then
+    FAILED+=("template:lib"); echo "FAIL template:lib (the template has no module-level LIB)"
+    cp -R "$SCRIPTS_DIR" "$TPL/lib"
+else
+    PASSED+=("template:lib"); echo "PASS template:lib ($LIB)"
+    mkdir -p "$TPL/lib"
+    cp -R "$SCRIPTS_DIR" "$TPL/lib/$LIB"
+fi
 VIEWS="$(python3 -I "$HERE/list_views.py" "$TPL/scene_template.py")"
 if [ -z "$VIEWS" ]; then
     FAILED+=("template:views"); echo "FAIL template:views (no VIEWS keys found)"
@@ -157,6 +166,25 @@ expect_line template:export-pieces:DONE "$OUT/template:export-pieces.log" "^DONE
 step template:export-pieces:json 60 python3 -I -c \
     'import json,sys; d=json.load(open(sys.argv[1])); assert isinstance(d["pieces"], list)' "$PJ"
 
+# 2c. The template beside a flat lib/ copy (no version folder) stops on the missing import and writes no image
+FLAT="$OUT/tpl_flat"
+rm -rf "$FLAT"; mkdir -p "$FLAT"
+cp "$SKILL/templates/scene_template.py" "$FLAT/scene_template.py"
+cp -R "$SCRIPTS_DIR" "$FLAT/lib"
+step_fails template:flat-lib 420 "$BLENDER" --factory-startup -b --python-exit-code 1 -P "$FLAT/scene_template.py" -- \
+    --view persp --res 160 --samples 8 --out "$FLAT/flat.png"
+expect_line template:flat-lib:ModuleNotFoundError "$OUT/template:flat-lib.log" "ModuleNotFoundError"
+expect_no_line template:flat-lib:no-DONE "$OUT/template:flat-lib.log" "^DONE "
+
+# 2d. The synthetic monolithic project of eval E10 renders, and its sheet generator runs the way the project ran it
+FIX="$HERE/fixtures/migration"
+step fixture:render 420 "$BLENDER" --factory-startup -b --python-exit-code 1 -P "$FIX/renders/build_house.py" -- \
+    --view living --res 160 --samples 8 --out "$OUT/fixture/living.png"
+expect_line fixture:render:DONE "$OUT/fixture:render.log" "^DONE $OUT/fixture/living.png\$"
+step fixture:sheet 120 uvx --with pillow python "$FIX/renders/make_sheet.py" "$OUT/fixture/sheet.png"
+step_fails fixture:sheet-isolated 120 uvx --with pillow python -I "$FIX/renders/make_sheet.py" "$OUT/fixture/sheet_isolated.png"
+rm -rf "$FIX/renders/__pycache__"
+
 # 3. Plain Python tests (after the renders, which feed compose and annotate)
 step test_sheets 300 uvx --with pillow python -I "$HERE/test_sheets.py"
 expect_line test_sheets:finished "$OUT/test_sheets.log" "^TESTPASS test_sheets\$"
@@ -176,6 +204,13 @@ step test_description 60 python3 -I "$HERE/test_description.py"
 expect_line test_description:finished "$OUT/test_description.log" "^TESTPASS test_description\$"
 step test_extensions_doc 60 python3 -I "$HERE/test_extensions_doc.py"
 expect_line test_extensions_doc:finished "$OUT/test_extensions_doc.log" "^TESTPASS test_extensions_doc\$"
+step test_v110 120 python3 -I "$HERE/test_v110.py"
+expect_line test_v110:finished "$OUT/test_v110.log" "^TESTPASS test_v110\$"
+SKIP_LINES="$(grep -h '^SKIP' "$OUT/test_v110.log" "$OUT/bl_v110.log" 2>/dev/null)"
+if [ -n "$SKIP_LINES" ]; then
+    echo "$SKIP_LINES"
+    SKIPS="$SKIPS (v1.1.0 tests: $(echo "$SKIP_LINES" | wc -l | tr -d ' ') skipped)"
+fi
 
 echo
 echo "${#PASSED[@]} passed, ${#FAILED[@]} failed$SKIPS"
