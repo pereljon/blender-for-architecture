@@ -498,7 +498,7 @@ Suite at review: 48 passed, 2 failed (the expected `test_api_doc` steps). Scratc
 
 ### Re-review findings (2026-10-20, opus, at `aaaa951`)
 
-the user approved the fixes below on 2026-10-21 (Q1). The 2.0 m rule now gates only the `no-header` probe, so `no-floor` still runs at half walls; this amends m3.
+the user approved the fixes below on 2026-10-21 (Q1). The 2.0 m rule now gates only the `no-header` probe, so `no-floor` still runs at half walls more than 1 m above the higher wall bottom; this amends m3.
 
 - N1 Important. The m3 gate compares the wall top's absolute z with 2.0 m, not the wall height (`checks.py:296`, `top < 2.0`). Fix: gate on `top - max(bottoms) < 2.0`. Tests: walls on a storey at z 3.0 and at z -2.7.
 - N2 Important. The I1 probe start fails for a zero-thickness object on the floor top: the probe starts inside the floor and reports sunk more than 0.300 m (`checks.py:348`; verified at 0 and 5e-5 m). Fix: start at `min(lo.z + hang, max(hi.z - 1e-4, lo.z + 1e-4))`.
