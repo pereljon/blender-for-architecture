@@ -292,7 +292,7 @@ Keep out: the implementer does not edit `tests/`; the test author does not edit 
   - Down ray, only when `floors` is given, against a BVH of those floors: report `no-floor` when it hits nothing, or its first hit is more than `tol` below the lower wall bottom.
   - Return `[(name_i, name_j, kind, length_m)]` with kind `gap`, `corner`, `no-header`, or `no-floor`; the length is d, c, or the opening width w. Each pair's names are in name order; the list is sorted.
 - R26 `floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=0.3, skip=())`:
-  - `floors` are exact names. Build one BVH from the floors' world polygons. Reverse a floor's polygon order when it is closed and its signed volume in world coordinates is negative (inside out, mirrored, or both), or when it is open and its `matrix_world` has a negative determinant (G5). "Faces up" then means the side that renders as the top.
+  - `floors` are exact names. Build one BVH from the floors' world polygons. Reverse a floor's polygon order when it is closed and its signed volume in world coordinates is negative (inside out or mirrored, but not both), or when it is open and its `matrix_world` has a negative determinant (G5). "Faces up" then means the side that renders as the top.
   - For each other R32 mesh object not in `skip`, take its world box (lo, hi) and cast a ray straight down from (centre x, centre y, lo.z + hang) against the floor BVH. On a miss, the object is not over a floor: skip it.
   - When the first hit faces down, the probe started inside a floor: report `(name, None)` (sunk more than `hang`).
   - When it faces up, d = lo.z - hit z. Report `(name, d)` when d < -tol (sunk). When d >= hang the object is hung (lights, upper cabinets, headers) and passes.
@@ -358,7 +358,7 @@ run_checks(floors=FLOORS, walls=WALLS, paths=PATHS, unit=0.3048, figure=("person
 
 The project's run command gains `--python-exit-code 1`. Without it, an exception outside `run_checks` (the import, or the script's own code) exits 0, skips the render, and leaves the old image in place (G3).
 
-Expect a backlog on the first run in an existing scene: overlapping stair treads and slab pieces give coplanar hits; plinth fronts and stair parts (guards, stringer shoes, riser LEDs) give floor-fit hits; open-plan passages between wall ends give `no-header` hits. Fix each hit or exempt it by name with a reason.
+Expect a backlog on the first run in an existing scene: overlapping stair treads, slab pieces, and overlapped wall corners give coplanar hits; plinth fronts and stair parts (guards, stringer shoes, riser LEDs) give floor-fit hits; open-plan passages between wall ends give `no-header` hits. Fix each hit or exempt it by name with a reason.
 
 ### Docs (development session)
 

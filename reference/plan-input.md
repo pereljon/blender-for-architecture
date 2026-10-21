@@ -42,6 +42,8 @@ walls = cut_openings(walls, OPENINGS)
 walls_from_plan(walls, 0.0, CEIL, wall_mat)
 ```
 
+After you apply the correction layer, run `wall_gaps(walls, unit=<metres per unit>)` on the corrected list. Fix each hit before you build the walls.
+
 When you shift walls to match site measurements, shift the door swings and leaves in the same region. Otherwise the leaves are trimmed away as if inside a wall.
 
 `extra_walls` turns the `EXTRA_WALLS` tuples into the same wall records that `load_plan` returns.

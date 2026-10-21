@@ -6,7 +6,7 @@ One line per public function, from the scripts' signatures and docstrings. Check
 - Conventions
 - VIEWS entries
 - Pose format
-- bhelpers.py, mannequin.py, checks.py, sheets.py
+- bhelpers.py, mannequin.py, checks.py, wall_gaps.py, sheets.py
 - Command-line scripts
 
 ## Conventions
@@ -19,6 +19,7 @@ One line per public function, from the scripts' signatures and docstrings. Check
 ## VIEWS entries
 
 - Perspective: `dict(loc, target, lens=24, aspect=0.625, shift_x=0, shift_y=0, hide=())`.
+- A perspective entry may carry `interior` (`True`, `False`, or absent for auto). The scene script reads it and passes it to `run_checks`; `add_camera` ignores it.
 - Plan: `dict(plan=True, center=(x, y), width, cut, floor_z=0, aspect=1.0, hide=(), drop=(), keep=())`.
 - `width` is the plan's span on its longer side. Every plan entry runs `plan_cut` and `plan_light`; `drop` and `keep` are optional.
 - `hide` in a perspective entry hides objects from the camera only; in a plan entry it removes them from the render.
@@ -38,6 +39,7 @@ Keys of a `mannequin` pose, in project units. `EXAMPLE_POSE` is in metres.
 ## bhelpers.py
 
 - `U` = `1.0`
+- `EYE_HEIGHT` = `1.5875`: eye height in metres of a 5'-7" viewer (5'-2 1/2"). Place an eye-level camera at the floor plus `EYE_HEIGHT / U`.
 - `set_units(u)`: Set metres per project unit: "m", "ft" or a number.
 - `clear_scene()`: Remove every object, mesh, material, light, camera and curve, and forget the tile pieces.
 - `new_obj(name, mesh, mat=None)`: Link a mesh object to the scene, with an optional material.
@@ -108,9 +110,24 @@ Keys of a `mannequin` pose, in project units. `EXAMPLE_POSE` is in metres.
 
 ## checks.py
 
+Lengths in the checks are world metres, except `paths` in `run_checks` and `clearance_check`, which take project units.
+
 - `clash_check(a_prefixes=('man_',), b_prefixes=None, ignore=())`: Pairs (a_name, b_name) where an a* object overlaps a b* object, or has a vertex inside it.
-- `coplanar_check(prefixes=None, tol=0.0005, min_area=1e-06)`: Pairs (name1, name2) of mesh objects with faces on one plane (within tol metres) whose in-plane extents overlap.
+- `coplanar_check(prefixes=None, tol=0.0005, min_area=1e-06, skip=())`: Pairs (name1, name2) of mesh objects with faces on one plane (within tol metres) whose in-plane extents overlap; skip holds exact object names to leave out.
+- `flipped_check(skip=())`: Pairs (name, "inside-out" or "mixed") of closed mesh objects whose faces turn the wrong way. Sorted by name.
+- `wall_gap_check(prefixes=('wall_',), floors=(), gap=0.3, opening=2.5, touch=0.001, tol=0.025, skip=(), full_height=())`: Hits (name_i, name_j, kind, length_m) for walls that almost meet (kind "gap" or "corner") or frame a door-sized opening with no header ("no-header") or no floor ("no-floor"). full_height holds wall-name pairs whose opening runs to the ceiling.
+- `floor_fit_check(floors, walls=('wall_',), tol=0.025, hang=0.3, skip=())`: Pairs (name, d) of mesh objects that float above (d > 0) or sink into (d < 0, or None for more than hang) the floor under their centre. floors holds exact object names.
+- `camera_check(interior=None, rays=160, skip=())`: Items (kind, name, count, (x0, y0, x1, y1)) for faces the perspective scene camera sees from behind ("backface") and for sky in an interior view ("escape"). The box is in pixels.
+- `clearance_check(paths, headroom=2.032, unit=None, tol=0.005, skip=())`: Items (path, name, headroom_m) for objects inside the walking box over each path. paths maps a name to (x0, x1, y0, y1, z) in project units.
 - `fail_on(hits, label)`: Print OK <label>, or FAIL <label>: <hits> and exit with status 1 when hits is not empty.
+- `run_checks(floors=(), walls=('wall_',), paths=None, figure=('man_',), exempt=None, interior=None, unit=None, rays=160)`: Run the six checks over the whole scene right before a render, print OK, FAIL or SKIP for each, and exit 1 when any failed. exempt is {check: [exact object names]} for coplanar, flipped, wall_gaps, floor_fit, camera, and clearance, and {"openings": [(wall, wall), ...]} (a list of pairs) for openings meant to run to the ceiling.
+
+## wall_gaps.py
+
+Plain Python (no Blender). Rects are `(x0, x1, y0, y1)`, `(x0, x1, y0, y1, z0, z1)`, or `load_plan` wall dicts. `unit` is metres per rect unit; `gap`, `opening`, and `touch` are metres.
+
+- `wall_gaps(rects, unit=1.0, gap=0.3, touch=0.001)`: Hits (i, j, kind, length_m) between rects i < j that almost meet: kind "gap" (apart by up to gap) or "corner" (touching, with the junction left unfilled). A third rect that fills the space clears the hit.
+- `wall_openings(rects, unit=1.0, gap=0.3, opening=2.5, touch=0.001)`: Door-sized openings (i, j, width_m, (x0, x1, y0, y1)) between in-line rects i < j; the box is in metres.
 
 ## sheets.py
 
