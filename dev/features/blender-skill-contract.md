@@ -478,17 +478,7 @@ Architecture review of the first Revision 6 text at `a5e5158` (opus, read-only; 
 
 ### Open questions
 
-From the first round, still open:
-- A1 Prefix selection against exact-name exemptions. Walls, the figure, and VIEWS entries select by prefix; `exempt` takes exact names. Changed by this revision: D6 scopes the exact-name rule to `exempt` and move or skip lists (G7), and opening exemptions are pairs of names. The support test removes most furniture and stair-tread exemptions, but each riser LED still needs its own name. Open: whether `exempt` should also accept prefixes.
-- A2 `lathe` normals (R30). Unchanged.
-- A3 The QA item for a dark full-depth sill (D8). Unchanged; the opening probe sees geometry, not materials.
-- A4 Folding the coplanar mirrored-object fix (R23) into Revision 6. Unchanged; R26 now treats mirrored floors the same way.
-- A5 The 0.30 m hung limit in floor fit. Unchanged value; the support test changes what still gets reported below it.
-- A6 Approval of the test plan. The revised T16 to T20 replace the first-round plan.
-- A7 Sending the wiring to the render project after v1.0.0. Changed: the wiring now passes `walls`, has the `openings` exemption key, and adds `--python-exit-code 1` to the run command.
-
-New:
-- B1 The floor-fit support test (G6). Keep it (recommended): it clears rugs, plinths, treads, and bed frames without exemptions, at one small BVH per candidate. Or drop it, and exempt each such object by name.
+None open. the user answered A1 to A7 and B1 on 2026-10-20, accepting each recommendation (skill `docs/ISSUES.md`, Decisions): `exempt` takes exact names only (A1); fix `lathe` normals (A2); add the dark-sill QA item (A3); fold in the coplanar mirrored fix (A4); keep the 0.30 m hung limit (A5); approve the revised T16 to T20 (A6); send the wiring to the render project after v1.0.0 (A7); keep the floor-fit support test (B1).
 
 ### Order of work, and how to continue if interrupted
 
