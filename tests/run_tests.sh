@@ -44,6 +44,41 @@ expect_line() {
     fi
 }
 
+# expect_order NAME LOG FIRST SECOND: passes when a line matching FIRST comes before the first line matching SECOND.
+expect_order() {
+    local a b
+    a="$(grep -En "$3" "$2" | head -n 1 | cut -d: -f1)"
+    b="$(grep -En "$4" "$2" | head -n 1 | cut -d: -f1)"
+    if [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]; then
+        PASSED+=("$1"); echo "PASS $1"
+    else
+        FAILED+=("$1"); echo "FAIL $1 (no line matching '$3' before a line matching '$4' in $2)"
+    fi
+}
+
+# expect_no_line NAME LOG PATTERN: passes when no line of the log matches the grep pattern.
+expect_no_line() {
+    if grep -Eq "$3" "$2"; then
+        FAILED+=("$1"); echo "FAIL $1 (unexpected line matching '$3' in $2)"
+    else
+        PASSED+=("$1"); echo "PASS $1"
+    fi
+}
+
+# step_fails NAME SECONDS CMD...: runs one step that must exit non-zero; a timeout (124) does not count.
+step_fails() {
+    local name="$1" secs="$2"; shift 2
+    with_timeout "$secs" "$@" >"$OUT/$name.log" 2>&1
+    local rc=$?
+    if [ "$rc" -eq 0 ]; then
+        FAILED+=("$name"); echo "FAIL $name (exit 0, expected non-zero, log $OUT/$name.log)"
+    elif [ "$rc" -eq 124 ]; then
+        FAILED+=("$name"); echo "FAIL $name (timeout, log $OUT/$name.log)"
+    else
+        PASSED+=("$name"); echo "PASS $name (exit $rc)"
+    fi
+}
+
 blender_test() {
     local name="$1"; shift
     step "$name" 420 "$BLENDER" --factory-startup -b --python-exit-code 1 -P "$HERE/$name.py" -- "$@"
@@ -53,11 +88,11 @@ blender_test() {
 # 0. syntax and prerequisites
 step syntax:bash 30 bash -n "$HERE/run_tests.sh"
 step syntax:python 60 python3 -I -m py_compile "$HERE"/tcommon.py "$HERE"/bl_*.py "$HERE"/test_*.py \
-    "$HERE"/check_png.py "$HERE"/list_views.py "$HERE"/with_timeout.py
+    "$HERE"/check_png.py "$HERE"/list_views.py "$HERE"/with_timeout.py "$HERE"/seed_template.py
 rm -rf "$HERE/__pycache__"
 
 missing=0
-for f in bhelpers.py mannequin.py checks.py sheets.py compose.py annotate_plan.py extract_plan.py; do
+for f in bhelpers.py mannequin.py checks.py wall_gaps.py sheets.py compose.py annotate_plan.py extract_plan.py; do
     [ -f "$SCRIPTS_DIR/$f" ] || { echo "MISSING $SCRIPTS_DIR/$f"; missing=1; }
 done
 [ -f "$SKILL/templates/scene_template.py" ] || { echo "MISSING $SKILL/templates/scene_template.py"; missing=1; }
@@ -77,6 +112,7 @@ blender_test bl_render
 blender_test bl_rev2
 blender_test bl_rev3
 blender_test bl_rev4
+blender_test bl_rev6
 blender_test bl_extensions
 SKIPS=""
 SKIP_LINE="$(grep -m1 '^SKIP' "$OUT/bl_extensions.log")"
@@ -103,8 +139,15 @@ for v in $VIEWS; do
     step "template:$v" 420 "$BLENDER" --factory-startup -b --python-exit-code 1 -P "$TPL/scene_template.py" -- \
         --view "$v" --res 160 --samples 8 --out "$img"
     expect_line "template:$v:DONE" "$OUT/template:$v.log" "^DONE $img\$"
+    expect_order "template:$v:checks" "$OUT/template:$v.log" "^OK run_checks\$" "^DONE $img\$"
     step "template:$v:image" 120 uvx --with pillow python -I "$HERE/check_png.py" "$img" 160
 done
+
+# 2a. A floating box in the template scene stops the render: run_checks fails and no DONE line is written
+cp "$HERE/seed_template.py" "$TPL/seed_template.py"
+step_fails template:seeded-defect 420 "$BLENDER" --factory-startup -b --python-exit-code 1 -P "$TPL/seed_template.py"
+expect_line template:seeded-defect:FAIL "$OUT/template:seeded-defect.log" "^FAIL run_checks: floor_fit\$"
+expect_no_line template:seeded-defect:no-DONE "$OUT/template:seeded-defect.log" "^DONE "
 
 # 2b. Template --export-pieces writes valid JSON and prints DONE without rendering
 PJ="$TPL/pieces.json"
@@ -123,6 +166,8 @@ step test_rev3 120 uvx --with pillow python -I "$HERE/test_rev3.py"
 expect_line test_rev3:finished "$OUT/test_rev3.log" "^TESTPASS test_rev3\$"
 step test_extract 300 uvx --with pillow --with pymupdf python -I "$HERE/test_extract.py"
 expect_line test_extract:finished "$OUT/test_extract.log" "^TESTPASS test_extract\$"
+step test_wall_gaps 60 python3 -I "$HERE/test_wall_gaps.py"
+expect_line test_wall_gaps:finished "$OUT/test_wall_gaps.log" "^TESTPASS test_wall_gaps\$"
 step test_api_doc 60 python3 -I "$HERE/test_api_doc.py"
 expect_line test_api_doc:finished "$OUT/test_api_doc.log" "^TESTPASS test_api_doc\$"
 step test_extensions_doc 60 python3 -I "$HERE/test_extensions_doc.py"

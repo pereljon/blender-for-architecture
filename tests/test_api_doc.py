@@ -6,8 +6,12 @@ import sys
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 doc = open(os.path.join(ROOT, "reference", "api.md")).read()
 missing = []
-for mod in ("bhelpers", "mannequin", "checks", "sheets"):
-    for n in ast.parse(open(os.path.join(ROOT, "scripts", f"{mod}.py")).read()).body:
+for mod in ("bhelpers", "mannequin", "checks", "sheets", "wall_gaps"):
+    path = os.path.join(ROOT, "scripts", f"{mod}.py")
+    if not os.path.exists(path):
+        missing.append(f"{mod}.py (file not found)")
+        continue
+    for n in ast.parse(open(path).read()).body:
         if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and not n.name.startswith("_") and f"`{n.name}(" not in doc:
             missing.append(f"{mod}.{n.name}")
 if missing:
