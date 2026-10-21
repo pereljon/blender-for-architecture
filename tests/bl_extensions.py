@@ -149,8 +149,8 @@ def t21(ifc):
 # ---------------------------------------------------------------- T13c: Bonsai plan drawing
 def t13c(ifc, started):
     """Return the drawing SVG path, or None."""
-    bpy.ops.bim.load_project(filepath=ifc)
     import bonsai.tool as tool
+    bpy.ops.bim.load_project(filepath=ifc)
     f = tool.Ifc.get()
     dp = bpy.context.scene.DocProperties
     bpy.ops.bim.load_drawings()
@@ -171,28 +171,124 @@ def t13c(ifc, started):
     return None
 
 
-# ---------------------------------------------------------------- T22: check_drawing
-def t22(ifc, svg, ids):
-    import shutil
+# ---------------------------------------------------------------- T22: drawing_walls and check_drawing
+ROOM = [  # feet: south, north, west, east, partition
+    dict(kind="existing", x0=0, x1=12, y0=0, y1=0.5),
+    dict(kind="existing", x0=0, x1=12, y0=9.5, y1=10),
+    dict(kind="existing", x0=0, x1=0.5, y0=0.5, y1=9.5),
+    dict(kind="existing", x0=11.5, x1=12, y0=0.5, y1=9.5),
+    dict(kind="existing", x0=6, x1=6.5, y0=0.5, y1=5),
+]
+
+
+def cut_groups(tree_root, gids):
+    """Parents and cut groups whose class or ifc:guid holds one of the GlobalIds."""
+    hits = []
+    for parent in tree_root.iter():
+        for child in list(parent):
+            cls = child.attrib.get("class", "").split()
+            guid = child.attrib.get("{http://www.ifcopenshell.org/ns}guid")
+            if child.tag.endswith("}g") and "cut" in cls and (guid in gids or any(c in gids for c in cls)):
+                hits.append((parent, child))
+    return hits
+
+
+def svg_without(svg, gids, out_path):
+    """Copy of the drawing without the cut groups that hold the GlobalIds; return the number removed."""
     import xml.etree.ElementTree as ET
+    ET.register_namespace("", "http://www.w3.org/2000/svg")
+    ET.register_namespace("ifc", "http://www.ifcopenshell.org/ns")
+    tree = ET.parse(svg)
+    hits = cut_groups(tree.getroot(), set(gids))
+    for parent, child in hits:
+        parent.remove(child)
+    tree.write(out_path)
+    return len(hits)
+
+
+def t22(ifc, svg, ids, started):
+    import shutil
     import ifcopenshell
     import ifcopenshell.api
     import ifcopenshell.util.placement
     import ifcopenshell.util.unit
     try:
-        from ifc_walls import check_drawing as check_drawing_raw
+        from ifc_walls import check_drawing as check_drawing_raw, drawing_walls as drawing_walls_raw, write_walls_ifc
     except ImportError as e:
-        check(False, f"T22 cannot import check_drawing: {e!r}")
+        check(False, f"T22 cannot import drawing_walls and check_drawing: {e!r}")
         return
-    def check_drawing(*args):
-        try:
-            return check_drawing_raw(*args)
-        except Exception as e:
-            check(False, f"T22 check_drawing raised {e!r}")
-            return None
+
+    def guarded(fn, name):
+        def call(*args):
+            try:
+                return fn(*args)
+            except Exception as e:
+                check(False, f"T22 {name} raised {e!r}")
+                return None
+        return call
+
+    check_drawing = guarded(check_drawing_raw, "check_drawing")
+    drawing_walls = guarded(drawing_walls_raw, "drawing_walls")
+    names = {gid: name for name, gid in ids.items()}
 
     got = check_drawing(svg, ifc)
     check(got == [], f"T22 check_drawing on the unchanged IFC returns [] (got {got})")
+
+    # Grouping, pinned from Bonsai 0.9.0, which joins walls of one class, material, and status into one outline.
+    res = drawing_walls(svg)
+    if res is not None:
+        cut_z, groups = res
+        check(abs(cut_z - 1.6) <= 1e-6, f"T22 cut height is {cut_z} m (need 1.6)")
+        have = sorted(sorted(names.get(i, i) for i in g[0]) for g in groups)
+        want = [["wall_0", "wall_2"], ["wall_1", "wall_3"], ["wall_4"], ["wall_5"]]
+        check(have == want, f"T22 Bonsai's outline groups are {have} (need {want}); read the new SVG before changing the check")
+
+    # Closed room of one status, in its own folder so T21's drawing stays. Bonsai 0.9.0 joins the south, west, east, and
+    # partition walls into one outline and leaves the north wall alone: the union that closes the ring would have a hole.
+    room_dir = os.path.join(tcommon.OUT, "room")
+    shutil.rmtree(room_dir, ignore_errors=True)
+    os.makedirs(room_dir)
+    room_ifc = os.path.join(room_dir, "room.ifc")
+    try:
+        room_ids = write_walls_ifc(ROOM, room_ifc, 0.0, 9.0, unit=FT)
+    except Exception as e:
+        check(False, f"T22 write_walls_ifc raised {e!r} for the closed room")
+        return
+    room_names = {gid: name for name, gid in room_ids.items()}
+    room_svg = t13c(room_ifc, started)
+    if room_svg:
+        res = drawing_walls(room_svg)
+        if res is not None:
+            groups = res[1]
+            have = sorted(sorted(room_names.get(i, i) for i in g[0]) for g in groups)
+            want = [["wall_0", "wall_2", "wall_3", "wall_4"], ["wall_1"]]
+            check(have == want, f"T22 the closed room's outline groups are {have} (need {want}); read the new SVG before changing the check")
+            check(set().union(*(g[0] for g in groups)) == set(room_ids.values()), "T22 the room's groups hold all five GlobalIds")
+            boxes = [g[1] for g in groups]
+            hull = (min(b[0] for b in boxes), max(b[1] for b in boxes), min(b[2] for b in boxes), max(b[3] for b in boxes))
+            want = (0.0, 12 * FT, 0.0, 10 * FT)
+            worst = max(abs(a - b) for a, b in zip(hull, want))
+            check(worst <= 1e-4, f"T22 the room's outlines span {tuple(round(v, 4) for v in hull)} m vs {tuple(round(v, 4) for v in want)} m (off {worst:.2e})")
+        got = check_drawing(room_svg, room_ifc)
+        check(got == [], f"T22 check_drawing on the closed room returns [] (got {got})")
+
+        # The room's drawing without its cut groups: five missing items.
+        gap = os.path.join(tcommon.OUT, "ext_room_gap.svg")
+        n = svg_without(room_svg, room_ids.values(), gap)
+        check(n == 2, f"T22 test setup removed {n} cut group(s) from the room drawing (need 2)")
+        got = check_drawing(gap, room_ifc)
+        want = [("missing", f"wall_{k}", None) for k in range(5)]
+        check(got == want, f"T22 the room drawing without its outline returns five missing items (got {got})")
+
+        # Stale: the room's drawing against T21's IFC.
+        got = check_drawing(room_svg, ifc)
+        if got is not None:
+            kinds = sorted(k for k, _, _ in got)
+            miss = sorted(n for k, n, _ in got if k == "missing")
+            extra = sorted(n for k, n, _ in got if k == "extra")
+            check(kinds == ["extra"] * 5 + ["missing"] * 6, f"T22 a stale drawing gives 5 extra and 6 missing items (got {kinds})")
+            check(miss == [f"wall_{k}" for k in range(6)], f"T22 the stale drawing's missing items are wall_0 to wall_5 (got {miss})")
+            check(extra == sorted(room_ids.values()), f"T22 the stale drawing's extra items are the room's GlobalIds (got {extra})")
 
     # Move wall_1 0.1 m east by its placement. Matrices below are in project units; edit_object_placement takes metres.
     def with_file(path, edit):
@@ -211,26 +307,16 @@ def t22(ifc, svg, ids):
 
     moved = with_file(os.path.join(tcommon.OUT, "ext_moved.ifc"), move_wall_1)
     got = check_drawing(svg, moved)
-    ok = len(got) == 1 and got[0][0] == "wall_1" and got[0][1] is not None and abs(got[0][1] - 0.1) <= 1e-3
-    check(ok, f"T22 a wall moved 0.1 m east returns [('wall_1', ~0.1)] (got {got})")
+    ok = (got is not None and len(got) == 1 and got[0][0] == "off" and got[0][1] == "wall_1+wall_3"
+          and got[0][2] is not None and abs(got[0][2] - 0.1) <= 1e-3)
+    check(ok, f"T22 a wall moved 0.1 m east returns [('off', 'wall_1+wall_3', ~0.1)] (got {got})")
 
-    # Remove wall_4's cut group from the drawing.
-    ET.register_namespace("", "http://www.w3.org/2000/svg")
-    ET.register_namespace("ifc", "http://www.ifcopenshell.org/ns")
-    tree = ET.parse(svg)
-    gid = ids["wall_4"]
-    removed = 0
-    for parent in tree.getroot().iter():
-        for child in list(parent):
-            cls = child.attrib.get("class", "").split()
-            if child.tag.endswith("}g") and "cut" in cls and gid in cls:
-                parent.remove(child)
-                removed += 1
-    check(removed == 1, f"T22 test setup removed {removed} cut group(s) for wall_4 (need 1)")
+    # T21's drawing without wall_4's cut group.
     gap = os.path.join(tcommon.OUT, "ext_gap.svg")
-    tree.write(gap)
+    n = svg_without(svg, [ids["wall_4"]], gap)
+    check(n == 1, f"T22 test setup removed {n} cut group(s) for wall_4 (need 1)")
     got = check_drawing(gap, ifc)
-    check(got == [("wall_4", None)], f"T22 a missing outline returns [('wall_4', None)] (got {got})")
+    check(got == [("missing", "wall_4", None)], f"T22 a missing outline returns [('missing', 'wall_4', None)] (got {got})")
 
     # An element above the 1.6 m cut (z 2.0 to 2.6 m) is left out of the result.
     def add_high(f, scale):
@@ -400,7 +486,7 @@ def main():
     if ids:
         svg = t13c(ifc, started)
         if svg:
-            t22(ifc, svg, ids)
+            t22(ifc, svg, ids, started)
     t14()
     t29()
     finish(NAME)
