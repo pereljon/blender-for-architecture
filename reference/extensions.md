@@ -23,7 +23,8 @@ In the commands below, `$BLENDER` is the full Blender path from SKILL.md Environ
 - Pass `default_set=True`. Without it, Bonsai fails with a KeyError when it reads its own preferences.
 - Keep the `assert`. A failed enable only prints an error, and the scene script would run without the extension.
 - A per-run enable does not change the saved preferences. Bonsai still adds each IFC it opens to its recent-projects list.
-- Enable the same three extensions in every run that enables any. Blender re-syncs their shared packages whenever the set changes.
+- Enable the same set of extensions in every run that enables any. Blender re-syncs their shared packages whenever the set changes.
+- If the user declined one of the three, remove it from the tuple. Use that shorter tuple in every run.
 - Do not run two Blender runs that enable extensions at the same time. A re-sync can remove the other run's packages.
 
 ## Bonsai and IfcOpenShell

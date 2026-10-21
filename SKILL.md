@@ -188,7 +188,7 @@ Read [reference/extensions.md](reference/extensions.md) before you install or us
 
 - Before you install or sync an extension, ask the user. Name each extension and its download size.
 - Install an extension once per machine. Do not enable it in the user's preferences.
-- Enable all three extensions inside each run that needs any.
+- Enable every installed extension of the three inside each run that needs any, the same set in every run.
 
 ## Reference
 
