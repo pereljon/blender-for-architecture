@@ -489,7 +489,7 @@ Suite at review: 48 passed, 2 failed (the expected `test_api_doc` steps). Scratc
 - m2. A bare string for `floors` or `exempt` is read letter by letter (`checks.py:499-511`). Fix: treat a `str` as one name.
 - m3. Half walls under a ceiling report `no-header`. Fix (M2): probe only when the lower wall top is at least 2.0 m.
 - m4. A thin gap closed by a column still reports (`wall_gaps.py:86-88`). Contract behaviour; logged in skill `docs/ISSUES.md`.
-- m5. A plan rotated off the axes is silently unchecked. Fix: print `SKIP wall_gaps: no axis-aligned walls` when every wall is angled.
+- m5. A plan rotated off the axes is silently unchecked. Not fixed in Revision 6; document in D5 (a later fix could print `SKIP wall_gaps: no axis-aligned walls`).
 - m6. Checks see viewport geometry, not render geometry (a boolean with `show_viewport=False`). Document in D5 beside the instance limit.
 - m7. Overlapped wall corners give coplanar hits. Add them to the backlog note's list.
 - m8. `scene.camera` set to a non-camera object raises before the gate (`checks.py:520-522`). Fix: test `cam.type != "CAMERA"`.
