@@ -27,6 +27,8 @@ State of the blender-for-architecture skill: open bugs, planned work, next steps
 - [ ] After v1.0.0: a pitched-roof helper in `bhelpers` (pitch, overhang, thickness), built from the wall records and named so the checks see it (N4; idea from the blender-architect skill listing).
 - [ ] After v1.0.0: a standard-dimensions reference table, US and metric (door, counter, and ceiling heights; riser, tread, and headroom limits), used only as values marked assumed in the dimensions file (N5).
 
+- [ ] v1.1.0, versioned project lib (contract, Revision 7, R34 to R39): per-version `lib/vX.Y.Z/` folders, a `LIB` pin in each script, the shipped CHANGELOG as the installed version, the pin check and upgrade steps in SKILL.md. Needs the skill-developer export change that ships CHANGELOG.md.
+
 ## Next steps
 
 - Import check (2026-10-17): suite 37 of 37 in this repo. With `set_units("ft")` broken to 0.3 in a copy of `scripts/`, 8 of 37 steps fail (`bl_helpers`, `bl_mannequin`, `bl_rev2`, `bl_rev3`).
@@ -36,6 +38,7 @@ State of the blender-for-architecture skill: open bugs, planned work, next steps
 
 ## Decisions
 
+- 2026-10-21, the user: projects keep one lib folder per skill version they have used, and each script pins its version; the details and the rejected options are in the contract, Revision 7. Answers F1 to F6 accept the architect's defaults, with F3 revised: an upgrade offers to move every script, and a scene the user holds back keeps its pin with a comment.
 - 2026-10-21, the user: rename the skill from `blender-architectural-renders` to `blender-for-architecture` before v1.0.0, with a public release in mind; the skill now covers plan views, sheets, IFC, sun, and scans, not only renders. Rejected: `blender-architectural-models`, `blender-scripted-architecture`, `blender-architecture`, `blender-ai-architect`, `blender-pro-architect`, `blender-architecture-skill`, and keeping the old name.
 - 2026-10-21, the user: construction sheets default to US Tabloid (11 x 17 in) landscape, and paper size is a parameter (`set_paper`), with A3 kept for metric projects (P1). The paper parameter and two input rules (an unreadable dimension is marked unread, never guessed; a plan-versus-site conflict is recorded with both sources and the owner decides) go into v1.0.0 (P2). Rejected: A3 as the default; Letter as the default (too small for dimensioned details); leaving both to v1.1.0.
 - 2026-10-21, the user: keep the user's AGENTS.md files out of the skill; restate in the skill only the input rules its results depend on. Rejected: copying root or personal AGENTS.md rules into the skill.
