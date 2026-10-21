@@ -39,8 +39,13 @@ Apply them in this order:
 walls, doors, leaves = load_plan("plan_walls.json")
 walls = fix_walls(walls, WALL_FIXES, WALL_REPLACE) + extra_walls(EXTRA_WALLS)
 walls = cut_openings(walls, OPENINGS)
+hits = wall_gaps(walls, unit=U)   # on the corrected list; fix each hit before the next line
 walls_from_plan(walls, 0.0, CEIL, wall_mat)
 ```
+
+After `walls_from_plan`, add a header box over each door opening, from the door head to the ceiling. Without it, `run_checks` reports `no-header` on every door.
+
+Before you exempt an opening, rename its two wall objects to stable names. A name built from the wall list index can point at another wall after the plan changes.
 
 When you shift walls to match site measurements, shift the door swings and leaves in the same region. Otherwise the leaves are trimmed away as if inside a wall.
 

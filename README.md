@@ -16,6 +16,7 @@ python3 scripts/install_skill.py blender-architectural-renders <tag>
 tests/run_tests.sh
 ```
 
+- The suite has 50 steps. A full run prints `50 passed, 0 failed`.
 - Requires Blender at `/Applications/Blender.app/Contents/MacOS/Blender`; override with `BLENDER`.
 - `SCRIPTS_DIR` overrides the scripts under test (default `scripts/`).
 - Output and logs go to `tests/out/`, which is gitignored.

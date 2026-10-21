@@ -43,6 +43,13 @@ The project owns its copy of the scripts. To upgrade, copy a newer script delibe
 - Round design constants to the owner's step (for example 5 mm) before they reach a render or a sheet. Derive odd values only for fit checks.
 - Model a floor as one slab, and cut openings with `cut_holes`. A floor pieced from rectangles leaves gaps at thresholds.
 - Use one fixed sun time for every render in a project, so options compare fairly.
+- Before you read `matrix_world` or any world position, call `bpy.context.view_layer.update()`. Until then, positions are stale.
+- In `exempt`, and in any list of objects that a script moves or skips, use exact object names. A prefix there also catches unrelated objects.
+- Exempt only objects with stable names. A name built from a list index, such as `wall_27`, can point at another object after the plan changes.
+- Build each stair step as one box from its riser to the next riser, butted to its neighbours.
+- Set an emissive strip into its recess, so that only its front face shows.
+- After a floor or wall level changes, look at every threshold and wall base in a preview.
+- Place an eye-level camera at the floor height plus `EYE_HEIGHT / U`. That is a 5'-7" viewer's eye, 5'-2 1/2".
 
 ## The loop
 
@@ -50,8 +57,8 @@ Copy this checklist into the response and track it:
 
 ```
 - [ ] 1. Check dimensions.md and decisions.md; edit constants or geometry in the script
-- [ ] 2. Preview at --res 800 --samples 48 --gpu into scratch/, then read the image
-- [ ] 3. Run the checks (clash, coplanar) and fix every hit
+- [ ] 2. Preview at --res 800 --samples 48 --gpu into scratch/; the checks run first
+- [ ] 3. Fix every check hit, then read the preview image
 - [ ] 4. Check the preview against the QA list below
 - [ ] 5. Studies: render each option, compose one labeled page per question
 - [ ] 6. Final: --res 1600..2400 --samples 128..256, in the background, into out/
@@ -77,19 +84,59 @@ done; echo ALL_DONE
 
 ## Checks
 
-Run these in the script after the build and before rendering. `fail_on` exits non-zero on any hit.
+The scene script calls `run_checks` after it sets the camera and before it renders. It runs six checks over the whole scene, prints `OK`, `FAIL`, or `SKIP` for each, and exits 1 on any hit.
 
 ```python
-from checks import clash_check, coplanar_check, fail_on
+from checks import clash_check, fail_on, run_checks
 fail_on(clash_check(("man_",), ("vanity_", "basin", "tub_")), "clash")
-fail_on(coplanar_check(("vanity_", "tile_", "ceil_")), "coplanar")
+run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("interior"))
 ```
 
-- Run `clash_check` on every view that contains the figure.
-- Run `coplanar_check` before finals. It finds same-facing coplanar faces, which z-fight or render black strips.
-- Scope `coplanar_check` with prefixes. Leave out the figure and other curved meshes, whose tangent faces give false hits.
-- Faces that meet back to back, such as a butt joint, are fine and are not reported.
+| Check | Finds |
+|---|---|
+| coplanar | Same-facing faces on one plane: z-fighting, black strips, a slab side on a wall face |
+| flipped | Closed meshes that are inside out, or have faces turned the wrong way |
+| wall_gaps | Walls that almost meet or meet only at a corner; door-sized openings with no header, or with no floor through them |
+| floor_fit | Objects that float above or sink into the floor under them |
+| camera | Faces seen from behind (a missing face, or a camera inside an object), and sky seen from an interior view |
+| clearance | Anything inside the walking box over a stair tread or path, with the headroom |
+
+Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
+
+| Line | Meaning |
+|---|---|
+| `NOTE wall_gaps: not axis-aligned, not checked: ...` | Walls rotated off the axes are not checked. Check those walls in the preview. |
+| `NOTE camera: exterior view, escapes not checked` | No object is above the camera, so sky is not reported. Set `interior=True` to check it. |
+| `WARN exempt <check>: no object named X` | An exemption names no object, so it does nothing. Correct the name. |
+| `WARN floors: no rendered mesh named X` or `no object named X` | The floor is hidden from render, is not a mesh, or does not exist. `floor_fit` leaves it out. |
+| `SKIP <check>: ...` | The check did not run. Reasons: `no floors given`, `none of the floors exists`, `no paths given`, `no scene camera`, `scene camera is not a camera object`, or an orthographic or panoramic camera. |
+| `FAIL <check>: error ...` | The check raised an exception. Treat it as a failure. |
+
+- Run the checks before every render, previews included.
+- Keep `--python-exit-code 1` in every run command. Without it, an error outside the checks exits 0 and leaves the old image in place.
+- Fix every hit.
+- If a hit is intended, exempt the object by its exact name: `exempt={"floor_fit": ["vanity_front"]}`.
+- If an opening is meant to run to the ceiling, exempt it by its two wall names: `exempt={"openings": [("wall_hall_w", "wall_hall_e")]}`.
+- Give `openings` a list of pairs. One bare pair is read as two names, and the hit stays.
+- Give the reason for each exemption in a comment.
+- Name every floor, slab, deck, and paving object in `floors`. Without floors, `floor_fit` does not run, and openings are not checked for a floor.
+- Name every wall with the `wall_` prefix, or pass your wall prefixes in `walls`.
+- Add a walking box to `paths` for each stair tread and landing: `(x0, x1, y0, y1, z)`, with z at the tread top.
+- Draw each walking box between the handrails, from its nosing to the next nosing.
+- If a view looks out through an opening without glass, set `interior=False` in its entry.
+- In a script without a VIEWS table, leave out `interior` unless the view looks out through an opening without glass. The default detects an interior view from an object above the camera.
+- An object buried entirely inside a floor reports as sunk more than the hang limit, whatever its depth.
+- A camera hit gives a pixel box in the view's image at the run's `--res`. A failing run writes no image.
+- To see a camera hit, exempt its object for one preview run at the same `--res`. Then look inside the pixel box.
+- A plan (orthographic) view checks openings for a floor only, not for a header.
+- The header check runs only where the opening's walls stand at least 2.0 m above the higher wall bottom. Half walls get no header check.
+- A wall pair that stands about 1 m or less above the higher wall bottom gets no opening check.
+- The checks do not see instances (collection, geometry-nodes, or particle instances). Check those in the preview.
+- The checks see viewport geometry, not render geometry. A modifier shown in render but hidden in the viewport, such as a boolean with `show_viewport` off, is not seen.
+- Run `clash_check` for the figure. `run_checks` leaves the figure out of the coplanar, floor_fit, and clearance checks.
 - `clash_check` counts surfaces that touch as a hit. Keep furniture 1 mm off the wall behind it, or leave walls out of the second prefix list.
+- In a project script that builds its own scene, copy `scripts/*.py` into its `lib/`.
+- Then call `run_checks` right before the render call, with `unit` set to metres per project unit.
 
 ## QA checklist
 
@@ -102,6 +149,8 @@ Check every preview against this list. The owner's colored-box markup of a plan 
 - Overexposure from sRGB colors or unrealistic light wattage
 - Fixture, step, and bay counts that differ from the plans or site photos
 - Missing corners, headers, or reveal faces inside openings
+- An emissive strip whose top or sides show, or that streaks nearby glass
+- A dark sill or track across the full wall depth, which reads as a hole
 - Products modeled from look-alikes, or the wrong SKU
 - Door and window swings hitting built-ins (set a stop angle)
 - A black mirror: it reflects a removed object or the dark world
@@ -119,7 +168,8 @@ Run these; do not read them into context. Look up signatures in [reference/api.m
 |---|---|---|
 | `bhelpers.py` | Blender | Units, geometry, materials, tiles, plan input, lights, Cycles setup, cameras, plan cut, overlays, `render` |
 | `mannequin.py` | Blender | Clay figure at a given height, posed with two-bone IK |
-| `checks.py` | Blender | `clash_check`, `coplanar_check`, `fail_on` |
+| `checks.py` | Blender | `run_checks` and the six checks (coplanar, flipped, wall gaps, floor fit, camera, clearance), `clash_check`, `fail_on` |
+| `wall_gaps.py` | Blender or plain Python | Wall rectangles that almost meet, and door-sized openings between in-line walls, from a list such as `load_plan`'s |
 | `compose.py` | uvx pillow | Labeled study pages from PNGs |
 | `annotate_plan.py` | uvx pillow | Circled callouts on a plan render |
 | `extract_plan.py` | uvx pymupdf | Walls, door swings, and leaves from a plan PDF's vector linework |
