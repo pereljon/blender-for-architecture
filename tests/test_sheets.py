@@ -62,6 +62,44 @@ def main():
     finally:
         ImageFont.truetype = real
 
+    # paper size: tabloid by default, set_paper switches PAGE and S
+    papers = {"letter": (279.4, 215.9), "tabloid": (431.8, 279.4), "arch-c": (609.6, 457.2),
+              "arch-d": (914.4, 609.6), "a4": (297, 210), "a3": (420, 297)}
+    check(getattr(sheets, "PAPERS", None) == papers, f"PAPERS table {getattr(sheets, 'PAPERS', None)!r}")
+    check(getattr(sheets, "DPI", None) == 200, f"DPI {getattr(sheets, 'DPI', None)!r}")
+    check(tuple(sheets.PAGE) == (3400, 2200), f"default PAGE is tabloid {sheets.PAGE!r}")
+    check(close(sheets.S, 3400 / 431.8), f"default S {sheets.S!r}")
+    try:
+        for name, (w_mm, h_mm) in papers.items():
+            page = (round(w_mm * 200 / 25.4), round(h_mm * 200 / 25.4))
+            got = sheets.set_paper(name)
+            check(tuple(got) == page, f"set_paper({name!r}) returns {page}, got {got!r}")
+            check(tuple(sheets.PAGE) == page, f"set_paper({name!r}) sets PAGE {page}, got {sheets.PAGE!r}")
+            check(close(sheets.S, page[0] / w_mm), f"set_paper({name!r}) sets S {page[0] / w_mm}, got {sheets.S!r}")
+        got = sheets.set_paper("A3")
+        check(tuple(got) == (3307, 2339) and tuple(sheets.PAGE) == (3307, 2339), f"set_paper('A3') case-insensitive {sheets.PAGE!r}")
+        sheets.set_paper("Arch-D")
+        check(tuple(sheets.PAGE) == (7200, 4800), f"set_paper('Arch-D') case-insensitive {sheets.PAGE!r}")
+        sheets.set_paper("tabloid")
+        for bad in ("foolscap", ""):
+            before = (tuple(sheets.PAGE), sheets.S)
+            try:
+                sheets.set_paper(bad)
+                check(False, f"set_paper({bad!r}) raises ValueError")
+            except ValueError as e:
+                check(all(n in str(e) for n in papers), f"ValueError for {bad!r} lists the names: {e}")
+            check((tuple(sheets.PAGE), sheets.S) == before, f"set_paper({bad!r}) leaves PAGE and S unchanged")
+        for name, size in (("tabloid", (3400, 2200)), ("a3", (3307, 2339))):
+            sheets.set_paper(name)
+            sh_p = sheets.Sheet("T", "S", 1, 1, "F")
+            check(sh_p.img.size == size, f"Sheet image after set_paper({name!r}) is {size}, got {sh_p.img.size}")
+    except Exception as e:
+        check(False, f"paper size tests raised {e!r}")
+    finally:
+        if hasattr(sheets, "set_paper"):
+            sheets.set_paper("tabloid")
+    check(tuple(sheets.PAGE) == (3400, 2200), "default paper restored after the paper tests")
+
     # fmt
     check(sheets.fmt(1.5) == "1,5", f"fmt(1.5) {sheets.fmt(1.5)!r}")
     check(sheets.fmt(2.0) == "2", f"fmt(2.0) drops the trailing ,0: {sheets.fmt(2.0)!r}")
