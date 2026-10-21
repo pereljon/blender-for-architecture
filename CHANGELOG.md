@@ -2,7 +2,30 @@
 
 All notable changes to this skill. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
 
+Conventions, kept from v1.1.0 on:
+- Each release heading is `## [X.Y.Z] - YYYY-MM-DD`, newest first. The release retitles `## Unreleased`, which sits above them.
+- Name each public function whose signature or behaviour changed, or that was added or removed, as `module.function()`. Put it under Changed, Fixed, Added, or Removed.
+- The skill reads the installed version from the first numbered heading.
+
 ## Unreleased
+
+### Changed
+
+- `bhelpers.setup_cycles()`: with `gpu=True` it tries each backend in `bhelpers.GPU_BACKENDS` in order, and uses every device of the first backend that has one. The order is Metal on macOS, else OptiX, CUDA, then HIP. With no device it prints one line, `WARN no GPU device found (tried ...), rendering on CPU`, and renders on CPU. The old code tried only Metal.
+- `templates/scene_template.py`: defines `LIB = "v1.1.0"` and imports the lib from `lib/<LIB>/`; sets the eye-level camera at `EYE`, from the new `VIEWER` line; the run line uses `$BLENDER`.
+- `bhelpers.EYE_HEIGHT` stays at 1.5875 m, for scripts pinned before v1.1.0. New scripts use `bhelpers.eye_height()`.
+- Usage lines of `compose.py`, `annotate_plan.py`, `extract_plan.py`, and `sheets.py` name `blender/lib/<LIB>/`.
+- The install ships `CHANGELOG.md`, which is how a session reads the installed version.
+- SKILL.md: a Project lib section pins each script to one skill version in `blender/lib/<LIB>/`, with a pin check each session. `$BLENDER` has one definition and a table of paths and GPU backends for macOS, Linux, and Windows (only macOS is tested). The Blender folder, the notes files, and the delivery folder have plain defaults, and `context/` and `deliverables/` are optional. Git rules are gone. Checks run in the order run, read the output, exemptions, setup, limits.
+- Docs restructure: the owner and the user are defined; "figure" and "scene script" are the only terms; each repeated fact has one home; `reference/api.md` has a signature line and a description line per entry; history notes are in the present tense or in `docs/ISSUES.md`; examples are neutral; poché, kerf, guillotine cut, pole, and piece ID are defined where they first appear.
+- `reference/extensions.md`: the scan note is a general check of a scan's length unit, coordinate system, and height datum.
+
+### Added
+
+- `bhelpers.eye_height()`: the eye height of a viewer of a given height, in project units. The default viewer is 5'-7".
+- `bhelpers.GPU_BACKENDS`: the backends that `setup_cycles` tries.
+- `reference/migration.md`: the geometry dump (`dump_geometry`), the pin upgrade, moving a project's own helpers onto the lib, wiring the checks, and the comparison steps.
+- `reference/extensions.md`: how a scene script exposes its corrected wall list and runs an IFC-only pass (`--ifc PATH`).
 
 ### Fixed
 
