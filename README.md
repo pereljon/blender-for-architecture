@@ -1,62 +1,80 @@
 # blender-for-architecture
 
-A Claude Code skill that builds architectural and remodel renders in Blender. One Python scene script builds the whole model, and Blender renders it headless with Cycles.
+A Claude Code skill that builds architectural and remodel renders in Blender. One Python scene script builds the whole model. Blender renders it headless (no window) with Cycles, its path-tracing renderer.
 
 ## Why
 
-A room or a house is easy to model by hand once and hard to change later. Here the geometry lives in a script, built from plans and measurements. A change is an edit and a re-render, and an option is a command-line flag. The owner chooses from labeled comparison pages, and the choice becomes the script's default.
+A room or a house is easy to model by hand once and hard to change later. Here the geometry lives in a script, built from plans and measurements. A change is an edit and a re-render. An option is a command-line flag.
 
-Before every render, six checks look for the geometry defects that recur in these scenes. A scene that fails a check does not render.
+The owner chooses from labeled comparison pages, and the choice becomes the script's default. Before every render, six checks look for geometry defects that recur in these scenes. A scene that fails a check does not render.
+
+## How to use it
+
+Prerequisites:
+- macOS with Blender 5.2 LTS at `/Applications/Blender.app/Contents/MacOS/Blender`.
+- uv, a Python package runner. It provides `uvx`, which runs the plain-Python scripts with Pillow, PyMuPDF, or IfcOpenShell and numpy. `uvx` needs the network on first use.
+- For IFC, sun, and scan work only: the Bonsai, Sun Position, and Point Cloud I/O extensions. Claude asks before it installs any of them. Bonsai is about 140 MB.
+
+Shortest path to a first render:
+1. Install the skill (see Developer details).
+2. Open Claude Code in a project. Ask for a render, plan view, study page, construction sheet, or IFC file of a room or house. The skill loads.
+3. Claude sets up `blender/`, `context/dimensions.md`, and `context/decisions.md`, then builds the scene script from `templates/scene_template.py`.
+4. Claude copies `scripts/` into `blender/lib/` and runs a low-resolution preview before any final render.
+
+To run one view yourself, copy the template and `scripts/` beside it as `lib/`, then run:
+
+```
+/Applications/Blender.app/Contents/MacOS/Blender --factory-startup -b --python-exit-code 1 -P scene.py -- \
+    --view persp --res 800 --samples 48 --gpu --out out/persp.png
+```
+
+The script prints `DONE <path>` when the render is written. SKILL.md ("Environment") states the app-path rule and the flags.
 
 ## How a model gets built
 
 **Inputs.**
 - Vector PDF plans. `scripts/extract_plan.py` turns the linework into walls, door swings, and door leaves. Extraction misses some walls, so the scene script keeps a dated correction layer for them ([Route A](reference/plan-input.md)).
 - Hand-entered coordinates, when the plan is a scan or the scene is small ([Route B](reference/plan-input.md)).
-- Site measurements in `context/dimensions.md`, which the skill reconciles with the plans before any geometry change.
-- Site photos, as a checklist of fixture counts, ceiling steps, and closet bays. Texture images (CC0 sets or photos) go on surfaces through the material helpers.
+- Site measurements in `context/dimensions.md`. The skill reconciles them with the plans before any geometry change.
+- Site photos, as a checklist of fixture counts, ceiling steps, and closet bays. Texture images go on surfaces through the material helpers. They are either CC0 sets (public domain, free to use) or photos.
 
-**The scene script.** `templates/scene_template.py` is the starting point: constants, a `VIEWS` table, `--view`, `--res`, `--samples`, `--gpu`, `--out`, and one flag per option study. The project copies `scripts/` into `blender/lib/` and owns that copy.
+**The scene script.** `templates/scene_template.py` is the starting point. It holds the project constants and a `VIEWS` table, which lists each named camera view: its position, lens, and plan settings. Its command-line flags are `--view`, `--res`, `--samples`, `--gpu`, `--out`, `--export-pieces`, and an option flag (`--option a|b` in the template). The project copies `scripts/` into `blender/lib/` and owns that copy.
 
-**Views.** A perspective view is a level camera with lens and shift. A plan view is an orthographic camera cut at a fixed height, with ceilings and lights removed so the cut is true. Plan overlays mark posts, walls to remove, and door swings. `scripts/annotate_plan.py` adds circled callouts afterwards.
+**Views.** A perspective view is a level camera with lens and shift. A plan view is an orthographic camera cut at a fixed height. Ceilings and lights are removed so the cut is true. Plan overlays mark posts, walls to remove, and door swings. `scripts/annotate_plan.py` adds circled callouts afterwards.
 
-**Checks.** `run_checks` runs before every render, previews included, and exits 1 on any hit.
+**Checks.** `run_checks` runs before every render, previews included. It exits 1 on any hit.
 
 | Check | Finds |
 |---|---|
-| coplanar | Same-facing faces on one plane (z-fighting, black strips) |
+| coplanar | Same-facing faces on one plane, which cause z-fighting (two surfaces flicker and show black strips) |
 | flipped | Meshes that are inside out |
 | wall_gaps | Walls that almost meet; door-sized openings with no header or no floor |
 | floor_fit | Objects floating above or sunk into the floor |
 | camera | Faces seen from behind; sky seen from an interior view |
 | clearance | Anything inside the walking box over a stair tread or path |
 
-**Studies and the scale figure.** Each owner question gets one page: every option rendered from the same view, then joined and labeled by `scripts/compose.py`. `scripts/mannequin.py` builds a clay figure at the user's real height, posed with two-bone IK. `clash_check` reports where the figure touches a fixture.
+**Studies and the scale figure.** Each owner question gets one page. Every option is rendered from the same view. `scripts/compose.py` joins the renders and labels them. `scripts/mannequin.py` builds a posable clay figure at the user's real height. `clash_check` reports where the figure touches a fixture.
 
-**Construction sheets.** `scripts/sheets.py` draws Tabloid sheets by default (`set_paper` picks A3, Letter, or ARCH sizes) for carpentry, plumbing, electrical, and tile from the same numbers as the model. It also packs tile cuts onto stock tiles. Pieces come from the scene through `--export-pieces`, so a sheet cannot drift from the render ([details](reference/construction-sheets.md)).
+**Construction sheets.** `scripts/sheets.py` draws sheets for carpentry, plumbing, electrical, and tile from the same numbers as the model. It also packs tile cuts onto stock tiles.
+- Paper sizes: `letter`, `tabloid`, `arch-c`, `arch-d`, `a4`, and `a3`. The default is `tabloid` (11 x 17 in). `set_paper` picks another.
+- Pieces come from the scene through `--export-pieces`, so a sheet cannot drift from the render ([details](reference/construction-sheets.md)).
 
-**Outputs for an architect.** `scripts/ifc_walls.py` writes the scene's walls as an IFC file, reads it back, and raises an error when an element differs from its record by more than 3 mm. Bonsai generates a plan drawing from that IFC, and `check_drawing` compares the drawing with the IFC.
+**Outputs for an architect.** IFC (Industry Foundation Classes) is an open file format for building models.
+- `scripts/ifc_walls.py` writes the scene's walls as an IFC file and reads it back. It raises an error when an element differs from its record by more than 3 mm.
+- Bonsai, a Blender add-on for IFC, generates a plan drawing from that IFC. `check_drawing` compares the drawing with the IFC.
 
-**Sun and scans.** Sun Position sets the sun from the site's latitude, longitude, date, and time, and one fixed time serves every render in a project. Point Cloud I/O brings a LiDAR scan (LAS, LAZ, E57, PLY) into the scene, to check the model against the site. All three extensions are described in [reference/extensions.md](reference/extensions.md).
-
-## How to use it
-
-Install the skill (see Developer details), then open Claude Code in a project. Ask for a render, a plan view, a study page, a construction sheet, or an IFC file for a room, house, or remodel, and the skill loads. Claude sets up `blender/`, `context/dimensions.md`, and `context/decisions.md`, builds the scene script, and runs a low-resolution preview before any final render.
-
-Prerequisites:
-- Blender 5.2 LTS at `/Applications/Blender.app/Contents/MacOS/Blender`. The `/usr/local/bin/blender` symlink crashes Blender, so the scripts use the full path.
-- uv, for the plain-Python scripts (`compose.py`, `annotate_plan.py`, `extract_plan.py`, `sheets.py`, and `ifc_walls.py`). They run through `uvx` with Pillow, PyMuPDF, or IfcOpenShell and numpy, and `uvx` needs the network on first use.
-- For IFC, sun, and scan work only: the Bonsai, Sun Position, and Point Cloud I/O extensions. Claude asks before it installs any of them. Bonsai is about 140 MB.
+**Sun and scans.** Sun Position sets the sun from the site's latitude, longitude, date, and time. One fixed time serves every render in a project. Point Cloud I/O brings a LiDAR scan into the scene, to check the model against the site. LiDAR is laser distance scanning. Point Cloud I/O reads LAS, E57, PLY, PCD, PTS, and XYZ point cloud files. [reference/extensions.md](reference/extensions.md) describes all three extensions.
 
 ## What it does not do
 
 - It does not build a model from photos. There is no photogrammetry.
 - A LiDAR scan checks the model. It does not build the model.
-- It does not read or write DXF or DWG. Plan input is a vector PDF or typed coordinates, and the architect output is IFC.
+- It does not read or write DXF or DWG. Plan input is a vector PDF or typed coordinates. The architect output is IFC.
+- The setup is macOS-only today. It uses the Metal GPU and the `/Applications` Blender path. Support for other systems is planned.
 - The checks see viewport geometry, not render geometry. They miss instances (collection, geometry-nodes, and particle instances) and modifiers shown only in render.
 - The wall gap check needs walls aligned to the axes. Rotated walls are reported as not checked, and a preview must cover them.
 - Extraction tuning is per drawing set, because offices draw walls differently.
-- Headless Bonsai output beyond walls and a plan drawing is unverified: doors and windows in openings, dimensions, labels, sheets, and rendering an IFC scene with project materials.
+- Headless Bonsai output beyond walls and a plan drawing is unverified. This covers doors and windows in openings, dimensions, labels, sheets, and rendering an IFC scene with project materials.
 
 ## Developer details
 
@@ -66,14 +84,19 @@ Install from the skill-developer project root, after the release is approved:
 python3 scripts/install_skill.py blender-for-architecture <tag>
 ```
 
-Run the tests from the skill root. The suite has 54 steps, and a full run prints `54 passed, 0 failed`.
+Only `SKILL.md`, `reference/`, `scripts/`, and `templates/` ship in the install. `.gitattributes` export-ignores `README.md`, `CHANGELOG.md`, `docs/`, `dev/`, `tests/`, `.gitignore`, and `.gitattributes`.
+
+Run the tests from the skill root. `timeout` is optional: `tests/run_tests.sh` falls back to `tests/with_timeout.py` when neither `timeout` nor `gtimeout` is on the path.
 
 ```
 timeout 2400 tests/run_tests.sh
 ```
 
-- The suite needs Blender at the default path above; set `BLENDER` to override it.
-- The extension steps skip when Bonsai, Sun Position, and Point Cloud I/O are not installed. The count of 54 was run with all three installed.
+The suite prints `PASS` or `FAIL` for each step. It ends with a summary line (`N passed, M failed`) and exits non-zero on any failure.
+
+- The suite needs Blender at the default path above. Set `BLENDER` to override it.
+- The suite needs `uvx`. It stops with a prerequisites message when `uvx` or Blender is missing.
+- The extension steps skip when Bonsai, Sun Position, and Point Cloud I/O are not installed. The summary line then notes the skip.
 - `SCRIPTS_DIR` overrides the scripts under test (default `scripts/`).
 - Output and logs go to `tests/out/`, which is gitignored.
 
@@ -81,5 +104,3 @@ The rest of the skill:
 - [SKILL.md](SKILL.md): the instructions Claude follows.
 - [reference/](reference/): `api.md` (function signatures), `plan-input.md`, `views.md`, `studies.md`, `construction-sheets.md`, and `extensions.md`.
 - [dev/features/blender-skill-contract.md](dev/features/blender-skill-contract.md): the design contract for `scripts/`.
-
-This file, `tests/`, `dev/`, and `docs/` are not part of the installed skill.
