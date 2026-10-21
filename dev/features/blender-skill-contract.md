@@ -351,26 +351,13 @@ Draft text follows the instruction-writing rules; adjust wording only.
   - Do not run two Blender runs that enable extensions at the same time. A re-sync can remove the other run's packages.
   ```
   The bullet "A per-run enable does not change the saved preferences" stays.
-- D17 `reference/extensions.md`, "DXF", replacing the section (question A1, option a):
-  ```
-  ## DXF
-
-  No extension is needed for DXF. ezdxf reads and writes it from Python.
-  - Run ezdxf through `uvx --with ezdxf python -I script.py`.
-  - Read the drawing unit from the header variable `$INSUNITS`: 1 is inches, 2 is feet, 4 is millimetres, 6 is metres.
-  - Before you take any coordinates, list the layers and the entity types on each.
-  - If the walls are closed outlines, turn each into a wall record in project units. Save the records as walls JSON for `load_plan`.
-  - If the walls are separate lines, ask the architect for the plan PDF. Then use Route A in plan-input.md.
-  - To send drawings as DXF, write them with ezdxf. Set `doc.units` so that the file carries its unit.
-  - ezdxf writes layers, text, and dimensions.
-  - An architect may send DWG, DXF, or only a PDF. When only a PDF comes, use the PDF extraction in plan-input.md.
-  ```
+- D17 `reference/extensions.md`: delete the DXF section, and delete its row from the SKILL.md Extensions table (A1, 2026-10-21).
 - D18 `reference/extensions.md`, "Point Cloud I/O": replace "Not yet verified: a full import of a project scan" with what T29 finds: where the importer records the offset when `center_on_origin` is on, and whether points at UTM coordinates keep millimetre precision when it is off. Draft only after T29 runs.
 - D19 SKILL.md:
-  - Frontmatter description, one line, no `: ` inside (539 characters, against 502 now): `Builds architectural and remodel renders in Blender from a Python scene script, run headless with Cycles. Covers project setup, plan input from PDFs, DXF, or measurements, perspective and cut plan views, option studies, a posable scale figure, render checks, construction sheets, the site sun by date and time, LiDAR scans against the model, and IFC walls and plan drawings for an architect. Use when creating or changing a Blender render, scene script, plan view, study page, construction sheet, or IFC file for a room, house, or remodel.`
+  - Frontmatter description, one line, no `: ` inside (534 characters, against 502 now): `Builds architectural and remodel renders in Blender from a Python scene script, run headless with Cycles. Covers project setup, plan input from PDFs or measurements, perspective and cut plan views, option studies, a posable scale figure, render checks, construction sheets, the site sun by date and time, LiDAR scans against the model, and IFC walls and plan drawings for an architect. Use when creating or changing a Blender render, scene script, plan view, study page, construction sheet, or IFC file for a room, house, or remodel.`
   - Scripts table row: `ifc_walls.py | Blender with Bonsai enabled, or uvx with ifcopenshell and numpy | IFC walls from the wall records, read back and checked; a Bonsai plan drawing checked against the IFC`.
-  - Extensions table: drop the `CAD2Cube, Export AutoCAD DXF` row. The Reference line becomes "Extensions (Bonsai and IfcOpenShell, Sun Position, Point Cloud I/O) and DXF".
-- D20 `reference/api.md` lines for `write_walls_ifc`, `drawing_walls`, `check_drawing`; `reference/plan-input.md` gains one line under "Two routes": "An architect's DXF: see DXF in extensions.md."; CHANGELOG, README (suite size), skill `docs/ISSUES.md`.
+  - Extensions table: drop the `CAD2Cube, Export AutoCAD DXF` row. The Reference line becomes "Extensions (Bonsai and IfcOpenShell, Sun Position, Point Cloud I/O)".
+- D20 `reference/api.md` lines for `write_walls_ifc`, `drawing_walls`, `check_drawing`; CHANGELOG, README (suite size), skill `docs/ISSUES.md`.
 
 ### Tests (test author)
 
@@ -397,7 +384,6 @@ All under the suite's timeouts; no sleeps. Each test below fails before the chan
 - T25 `tests/test_ifc_walls.py` (plain Python, `python3 -I`). `drawing_walls` on two hand-written SVG strings in the observed format: one with `matrix3` `[[10,0,250],[0,10,250],[0,0,1]]` and the T13b paths gives `ew` and `ns` boxes exact to 1e-6 m; one with scale 20 and offset (100, 300) gives the same boxes. A path with an `A` command raises `ValueError`; two drawing groups raise `ValueError`. The module imports with no `ifcopenshell` installed.
 - T26 `test_api_doc.py` also checks `ifc_walls`; `run_tests.sh` adds `ifc_walls.py` to the required files and `test_ifc_walls.py` to the suite.
 - T27 `tests/test_description.py` (plain Python): SKILL.md's frontmatter has `name:` and a one-line `description:`; the description has no `: `, is at most 1024 characters, and names `IFC`, `LiDAR`, and `sun`. Fails before: no `IFC`.
-- T28 DXF, in `bl_extensions.py` (ezdxf comes with Bonsai's wheels): write a synthetic plan in inches (`$INSUNITS` 1) with closed outlines on `A-WALL`, a door arc, and a text. Read it back and check the layer list, `$INSUNITS`, and the outline extents divided by 12 against the source feet within 1e-9. It passes before the change; it guards the claims in D17.
 - T29 Point cloud, in `bl_extensions.py`: write a synthetic LAS with laspy (a 4 by 3 m room at easting 551234, northing 4181234, height 12 m). Import it with `center_on_origin` on and then off. Print and assert the point count; record where the offset is kept and the worst position error against the source. The pass line is set after the first run and goes into D18.
 - Mutation checks (report each): place y-running walls at x0 instead of x1; drop the y flip in `drawing_walls`; read the cut height from the wrong matrix cell; put every pset on `Pset_WallCommon`; skip the read-back in `write_walls_ifc`. Each must fail at least one of T21, T22, or T25.
 
@@ -407,7 +393,6 @@ Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill t
 - E3 (F1, F14, F16): a synthetic `build_flat.py` that loads a walls JSON in feet and applies `WALL_FIXES`, `EXTRA_WALLS`, and `cut_openings`. Prompt: "The architect wants an IFC of the walls in this scene and a plan drawing from it. Make both and confirm they match the model." Pass: `write_walls_ifc` gets the corrected list (no wall coordinate typed by the agent), `unit` is `bh.U` or 0.3048, the run enables all three extensions with the assert, `check_drawing` returns `[]`, and nothing is installed.
 - E4 (F2, F13): "Light the living room render with the sun at 3:30 pm on 21 June, at 37.77 N, 122.42 W. True north is 20 degrees counter-clockwise from the plan's up." Pass: Sun Position enabled per run; daylight time handled (`use_daylight_savings` on with `UTC_zone` -8, or -7); `sun()` gets degrees with `plan_north_deg=20`, or a sun object gets `north_offset = -radians(20)`; the light direction is within 0.5 degrees of the evaluator's reference from T23's setup; the angles are recorded.
 - E5 (F16, after T29): the synthetic LAS of T29 with the east wall 5 cm out, and a scene script of the room. Prompt: "Check the model's walls against this scan. Report any wall more than 2 cm off." Pass: imported with `point_cloud_las`; the centring offset handled as D18 says; the east wall reported at about 5 cm and no other wall.
-- E6 (DXF): a synthetic DXF in inches with closed wall outlines on `A-WALL` and other layers. Prompt: "The architect sent this DXF instead of a PDF. Build the walls of this plan in the scene." Pass: no extension installed; read with ezdxf; units taken from `$INSUNITS`; wall records within 0.01 ft of the source; `wall_gaps` run with no hits.
 - E7 (F11), description ranking before install: a fresh subagent gets the names and descriptions of the installed skills, with the D19 description in place of the current one, and seven prompts. For each it names the skill it would load, or none. Positives: "Turn the walls of my remodel scene into an IFC for the architect"; "Make the kitchen render show the sun at 4 pm on the winter solstice at our address"; "Line up my Scaniverse LiDAR scan of the house with the Blender model and list the walls that are off"; "Render the bathroom remodel from the vanity" (regression). Negatives: "Count the trees in this forest LiDAR scan"; "Compute sunrise times for Boston for a calendar app"; "Validate this IFC file against the client's IDS rules". Pass: four of four positives and none of the negatives.
 - After install (Releases): the discovery eval uses the IFC prompt of E7, in a fresh subagent that is not told the skill's name or path.
 
@@ -418,26 +403,16 @@ Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill t
 - `reference/extensions.md`: the `north_offset` field is listed with no unit or sign; it is radians, and its sign is the opposite of `plan_north_deg`.
 - No contradiction found in the Bonsai drawing steps or the per-run enable with `default_set=True`.
 
-### Open questions for the user
+### Answers (2026-10-21, the user)
 
-A. DXF
-- A1. Which DXF route goes into v1.0.0? (a) ezdxf only, no extension, with the D17 text and evals T28 and E6; (b) install and test the two named extensions as the doc has them; (c) as (a), plus a `dxf_walls` extraction script now. Recommended: (a). No project exchanges DXF, and (a) needs no install.
-- A2. Only if A1 is (b): may the session install `cad2cube` (2,590,116 bytes; it bundles ezdxf 1.4.4, pyparsing 3.3.2, and fonttools 4.63.0) and `export_autocad_dxf_format_dxf` (33,206 bytes)? The former bundled importer is 57,092 bytes. Bonsai's newer pyparsing and fonttools stay in use. Recommended: no install.
-
-B. IFC
-- B1. Should `write_walls_ifc` write `kind` as the element's `Status` (NEW or EXISTING)? Recommended: yes.
-- B2. Should the IFC writer and the drawing check live in `scripts/ifc_walls.py`, rather than as a recipe in `reference/extensions.md`? Recommended: yes, the script.
-
-C. Extensions
-- C1. Adopt D16: enable all three extensions in every run that enables any, and run such jobs one at a time? Recommended: yes.
-- C2. A probe in this design (enabling only Sun Position) emptied Blender's shared extension package folder at 01:20. Nothing is lost: the next run that enables Bonsai or Point Cloud I/O re-extracts the wheels. May the session run the suite's `bl_extensions` step now to restore it? Recommended: yes; it enables the same three extensions as the 01:12 suite run.
-
-D. Description
-- D1. Approve the D19 description (539 characters)? Recommended: yes.
+- A1, A2: no DXF route in v1.0.0. The 2026-10-19 "DXF is enough" decision assumed a DXF extension came with Blender; none does, and no project needs DXF. D17 deletes the DXF section and table row; T28 and E6 are dropped; the DXF findings above stay for later.
+- B1: yes, `kind` becomes the wall's NEW or EXISTING status. B2: yes, `scripts/ifc_walls.py`.
+- C1: yes, D16. C2: yes; the `bl_extensions` step ran at 01:34 and restored the shared package folder (`ifcopenshell`, `ezdxf`, `laspy` present).
+- D1: yes, with "DXF," removed under A1 (534 characters).
 
 ### Order of work, and how to continue if interrupted
 
-C2 first, if approved. Then T21 to T29 by the test author, on branch `rev5b-remaining` (they fail as stated). Then R33. Then D13 to D20, with D18 written from T29's output. Then the suite, the mutation checks, and E3 to E7. Then the pre-merge review, merge, and the v1.0.0 release with the discovery eval after install. Each finished item is ticked in skill `docs/ISSUES.md` under the Revision 5 line; a fresh session reads that line, this section, and `git log` on the branch.
+C2 first, if approved. Then T21 to T27 and T29 by the test author, on branch `rev5b-remaining` (they fail as stated). Then R33. Then D13 to D20, with D18 written from T29's output. Then the suite, the mutation checks, and E3 to E7. Then the pre-merge review, merge, and the v1.0.0 release with the discovery eval after install. Each finished item is ticked in skill `docs/ISSUES.md` under the Revision 5 line; a fresh session reads that line, this section, and `git log` on the branch.
 
 ## Revision 6 (2026-10-20, phantom geometry defects; requested by render project B, approved by the user)
 
