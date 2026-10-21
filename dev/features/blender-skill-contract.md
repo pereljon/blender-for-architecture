@@ -825,7 +825,30 @@ Interim rule, sent to render projects A and B on 2026-10-21: keep the flat `lib/
 
 ## Revision 8 (2026-10-21, v1.1.0)
 
-Scope, all approved by the user on 2026-10-21 (skill `docs/ISSUES.md`, Planned): (A) Revision 7, the versioned project lib, built as designed; (B) generalization for public users (N2); (C) the docs restructure (M3); (D) the eval E3 gap on the IFC wall list; (E) a documented path for moving an existing project onto the lib, with the two render projects' replies (2026-10-21) as input. Investigated against branch `v1.1.0` at `272146f` and the Blender 5.2 bundle in `/Applications` (files read, Blender not run). Nothing here adds a feature outside A to E.
+Scope, all approved by the user on 2026-10-21 (skill `docs/ISSUES.md`, Planned): (A) Revision 7, the versioned project lib, built as designed; (B) generalization for public users (N2); (C) the docs restructure (M3); (D) the eval E3 gap on the IFC wall list; (E) a documented path for moving an existing project onto the lib, with the two render projects' replies (2026-10-21) as input. Investigated against branch `v1.1.0` at `272146f` and the Blender 5.2 bundle in `/Applications` (files read, Blender not run). Nothing here adds a feature outside A to E. Revised the same day after an independent review (C1, C2, I1 to I10, and minors); the requirement numbers below are the revised ones.
+
+### Index
+
+| Req | Owner | Files | Scope |
+|---|---|---|---|
+| R40 | implementer | `.gitattributes` | A |
+| R41 | implementer | `templates/scene_template.py` | A, B |
+| R42 | implementer | `scripts/bhelpers.py` (GPU backend) | B |
+| R43 | implementer | `scripts/bhelpers.py` (`eye_height`) | B |
+| R44 | implementer | usage lines of four scripts | A |
+| R45 | session | `CHANGELOG.md` convention | A |
+| R46 | session | SKILL.md Project setup | A, B |
+| R47 | session | SKILL.md Project lib | A |
+| R48 | session | lib paths in `reference/` | A |
+| R49 | session | `reference/migration.md` (new) | A, E |
+| R50 | session | R38 amendment | A |
+| R51 | session | SKILL.md Environment, `$BLENDER` | B |
+| R52 | session | eye-height docs | B |
+| R53 | session | git rules out, notes files and delivery folder | B |
+| R54 | session | `reference/extensions.md`, scan check | B |
+| R55 | session | `reference/extensions.md`, IFC wall list | D |
+| R56 | session | docs restructure | C |
+| R57 | session | README, CHANGELOG, ISSUES | all |
 
 ### Verified (2026-10-21)
 
@@ -833,31 +856,34 @@ Each fact names its source. "Training knowledge" marks a claim that no file in r
 
 - `scripts/bhelpers.py:22` fixes `EYE_HEIGHT = 1.5875` (62.5 in). A 5'-7" viewer is 1.7018 m (67 in), so the eye sits 0.1143 m (4.5 in) below the top of the head. Computed.
 - `scripts/bhelpers.py:861-875` sets `compute_device_type = "METAL"`, catches `TypeError`, `KeyError`, and `AttributeError`, and prints `WARN no Metal device found, rendering on CPU` when no Metal device exists. Off macOS, every `--gpu` run therefore renders on CPU today. Inferred from the code; not run off macOS.
-- Cycles in Blender 5.2 (`5.2/scripts/addons_core/cycles/properties.py`): the backend names are `CUDA`, `OPTIX`, `HIP`, `METAL`, and `ONEAPI` (`:174-178`). `get_device_types` lists only the backends compiled into the build (`:1637-1653`), so `METAL` is absent on Linux and Windows, and `CUDA`, `OPTIX`, and `HIP` are absent on macOS. `get_devices()` is a deprecated wrapper of `refresh_devices()` (`:1765-1777`). A comment warns that `_cycles.available_devices()` can crash Blender on some drivers (`:1706-1707`).
+- Cycles in Blender 5.2 (`5.2/scripts/addons_core/cycles/properties.py`): the backend names are `CUDA`, `OPTIX`, `HIP`, `METAL`, and `ONEAPI` (`:174-178`). The items of `compute_device_type` come from `get_device_types`, which lists `NONE` and only the backends compiled into the build (`:1637-1660`). `METAL` is therefore absent on Linux and Windows, and `CUDA`, `OPTIX`, and `HIP` are absent on macOS. `get_devices()` is a deprecated wrapper of `refresh_devices()`, which queries every backend whatever `compute_device_type` holds (`:1765-1777`). A comment warns that `_cycles.available_devices()` can crash Blender on some drivers (`:1706-1707`).
 - Assigning an enum value that is not in the items raises `TypeError` in bpy. Training knowledge, consistent with the existing `except` clause. T37 confirms it on macOS with `CUDA`.
 - `scripts/sheets.py:28-29`: `set_paper("a3")` gives `PAGE = (3307, 2339)` and `S = 7.8738` px per mm at `DPI = 200`. A sheet kit that draws A3 at 3300 x 2340 px uses 7.8571 px per mm over 420 mm. The lib's A3 therefore does not reproduce such a page, and every printed scale would change. Computed with `python3`. `Sheet` reads the module's `PAGE` when it is created (`:75`), and `Draw` reads `S` (`:112`).
 - Lib paths without a version folder: `SKILL.md:24`, `:142`; `reference/api.md:17`, `:161-164`; `reference/studies.md:17`; `reference/plan-input.md:13`; the usage lines `scripts/compose.py:3`, `scripts/annotate_plan.py:3`, `scripts/extract_plan.py:4`, `scripts/sheets.py:3`; `templates/scene_template.py:3`, `:13`; `README.md:22`, `:24`, `:41`. `tests/run_tests.sh:126-130` copies `scripts/` into a flat `lib/` beside the template. Found with grep.
 - The full macOS Blender path appears in `SKILL.md:13`, `:83`; `reference/construction-sheets.md:13`; `templates/scene_template.py:4`; `scripts/bhelpers.py:4`; `README.md:14`, `:27`, `:73`. `reference/extensions.md:5` already uses `$BLENDER`. Found with grep.
 - Git rules in SKILL.md: `:31` (exclude from git), `:68` (commit tracked files), `:74` (out of git), `:75` (commit and push). The `analytical-projects` layout appears at `SKILL.md:28`, `:30`, `:31`, `:38`, `:68`, `:74`; `reference/studies.md:10`, `:17`; `reference/plan-input.md:6`, `:68`. Found with grep.
-- `.gitattributes:2` export-ignores `CHANGELOG.md`. The skill-developer export rules do not yet allow it at the top level (`scripts/plugin_rules.py:18`, `ALLOWED_TOP`); the F1 change in skill-developer allows it (`dev/features/skill-developer.md:70`, decision of 2026-10-21).
+- `.gitattributes:2` export-ignores `CHANGELOG.md`. The skill-developer F1 change allows `CHANGELOG.md` in exports; it is merged on skill-developer `main` at `364e44d` (`git log`).
 - The skill-developer keep-in-step tests read the installed version with `^## \[(\d+\.\d+\.\d+)\]` and take the highest (`tests/test_keep_in_step.py:118-123`). Revision 8 uses the same pattern.
+- The installer writes `.installed` into the install folder with a first line `tag: <tag>` (skill-developer `scripts/install_skill.py:81-82`). A marketplace install has no such file.
 - `CHANGELOG.md` holds `## Unreleased` above `## [1.0.0] - 2026-10-21`. The only tag is `v1.0.0`. Branch `v1.1.0` already carries the v1.0.1 doc fixes (`2e076a5`); no `v1.0.1` tag exists yet.
-- Shell variables do not carry from one Bash tool call to the next in Claude Code (the Bash tool description in this session). A `$BLENDER` set in one command is gone in the next.
-- `${CLAUDE_SKILL_DIR}` is substituted when the harness loads SKILL.md (Revision 7, verified facts). A subagent that reads SKILL.md by path sees the literal text. Inferred; the evals below supply the folder.
+- Shell variables do not carry from one Bash tool call to the next in Claude Code (the Bash tool description in this session). A prefix assignment such as `BLENDER=<path> "$BLENDER" ...` expands `$BLENDER` before the assignment takes effect, so the command name is empty: verified by the reviewer in zsh, exit 126. The form `BLENDER=<path>; "$BLENDER" ...` works.
+- `${CLAUDE_SKILL_DIR}` is substituted when the harness loads SKILL.md (Revision 7, verified facts). A subagent that reads SKILL.md by path sees the literal text, and a reference file read later is not substituted. Inferred; the evals below supply the folder, and `reference/migration.md` does not use the variable.
 - Usual Blender paths on Linux (`blender` on `PATH` from a distribution package or Snap, or `blender` inside the folder unpacked from blender.org) and on Windows (`C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`): training knowledge, not checked on either system.
 - Eye drop as a fixed length: anthropometric tables put the eye about 11 to 12 cm below the crown across adult statures. Training knowledge. A fixed 0.1143 m reproduces today's default exactly.
+- `Object.evaluated_get(depsgraph)` gives the object with its modifiers applied, and its `data` is the evaluated mesh. Training knowledge; T39 runs the geometry dump that relies on it.
 
 ### Simplify before building (architect, 2026-10-21)
 
 Each kept part traces to scope A to E. Deleted parts, with the reason:
 - Deleted: a library-side version check, a `VERSION` file, a `!` command that prints the version, and a hook. Revision 7 rejected or deferred each.
-- Deleted: a migration helper script (signature diff, image diff). The steps need judgment, and the comparison is one Pillow call shown in the doc.
+- Deleted: a migration helper script. The steps need judgment. The geometry dump is a short snippet in `reference/migration.md`, because a pre-migration script cannot import it from a lib it does not use yet.
 - Deleted: oneAPI in the backend list. Scope B names Metal, OptiX or CUDA, and HIP (question P3).
-- Deleted: a clear error in the template when `lib/<LIB>/` is missing. `ModuleNotFoundError` with `--python-exit-code 1` already stops the run, and the pin check (R43) catches the case first.
+- Deleted: a clear error in the template when `lib/<LIB>/` is missing. `ModuleNotFoundError` with `--python-exit-code 1` already stops the run, and the pin check (R47) catches the case first.
 - Deleted: new public constants for the viewer height and the eye drop. `eye_height()` holds both values in one place.
-- Deleted: a custom page size in `set_paper`. The migration path keeps a project's own sheet basics instead (R45). A later candidate (question P2).
+- Deleted: a custom page size in `set_paper`. The migration path keeps a project's own sheet basics instead (R49). A later candidate (question P2).
 - Deleted: the candidate tools from the render projects' inventories. They are recorded as later items in skill `docs/ISSUES.md` (Planned, "Later, candidate tools").
 - Deleted: automated checks of sentence length and of one home per fact. Wording tests break on every edit; the pre-merge review checks both.
+- Deleted: the render repeatability test of the first draft. A helper swap is judged by the geometry dump (R49), which needs no tolerance; the pixel diff only points the owner at changed regions.
 - Moved: the upgrade steps (R38) go to `reference/migration.md` with the migration path, not into SKILL.md. Both share the preconditions and the comparison, and an upgrade is rare. SKILL.md keeps the pin check, which runs every session. This narrows the Revision 7 line in skill `docs/ISSUES.md` ("the pin check and upgrade steps in SKILL.md").
 - Reconciled: R34 says the project commits the version folder and ignores `__pycache__/`, and R38 says an upgrade runs on a branch. N2 removes git rules from SKILL.md. Both hold: SKILL.md states the outcome (never edit a version folder; make the change restorable), and `reference/migration.md` gives the git steps for a project in git and a backup for a project without it.
 
@@ -865,23 +891,24 @@ Each kept part traces to scope A to E. Deleted parts, with the reason:
 
 Keep out: the implementer does not edit `tests/`; the test author does not edit `scripts/`, `templates/`, `reference/`, or SKILL.md.
 
-- R40 `.gitattributes`: delete the line `CHANGELOG.md export-ignore`, so the install ships `CHANGELOG.md` (R36). Merge only after the skill-developer F1 change is on its `main`; otherwise the install refuses the export.
+- R40 `.gitattributes`: delete the line `CHANGELOG.md export-ignore`, so the install ships `CHANGELOG.md` (R36). The skill-developer F1 change is merged (`364e44d`), so the install accepts the export.
 - R41 `templates/scene_template.py`:
   - After the imports of `os` and `sys`, define `LIB = "v1.1.0"` with the comment `# the skill version this script is pinned to (SKILL.md, Project lib)`.
   - Replace the `sys.path` line with `sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", LIB))`.
-  - After `bh.set_units("m")`, add `VIEWER = 1.7018` with the comment `# viewer's height in project units (1.7018 m is 5'-7")` and `EYE = bh.eye_height(VIEWER)`. The perspective entry uses `EYE` for its camera height in place of `bh.EYE_HEIGHT / bh.U`.
-  - Docstring: "copy scripts/ to lib/ beside it" becomes "copy the skill's scripts/ into lib/<LIB>/ beside it", and the run line starts with `"$BLENDER"`.
-  - At every release, `LIB` equals the version being tagged (T31).
-- R48 `scripts/bhelpers.py`, GPU backend:
+  - After `bh.set_units("m")`, add `VIEWER = None` with the comment `# viewer's height in project units; None is 5'-7"` and `EYE = bh.eye_height(VIEWER)`. The value is in project units, so it stays right after `set_units("ft")`. The perspective entry uses `EYE` for its camera height in place of `bh.EYE_HEIGHT / bh.U`.
+  - Docstring: "copy scripts/ to lib/ beside it" becomes "copy the skill's scripts/ into lib/<LIB>/ beside it", and the run line becomes `BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P scene.py -- ...`.
+  - At every release, `LIB` equals the version being tagged (T31, T41).
+- R42 `scripts/bhelpers.py`, GPU backend:
   - Add `import sys` and the module constant `GPU_BACKENDS = ("METAL",) if sys.platform == "darwin" else ("OPTIX", "CUDA", "HIP")`.
-  - In `setup_cycles`, when `gpu` is True, try each name in `GPU_BACKENDS` in order. For each, set `prefs.compute_device_type`, call `prefs.get_devices()`, and skip the name on `TypeError`, `KeyError`, or `AttributeError`. Take the first name for which any `prefs.devices` entry has that type. Then set `use = True` on every device and `sc.cycles.device = "GPU"`, as today.
-  - When no name yields a device, print exactly `WARN no GPU device found (tried <names joined by ", ">), rendering on CPU` once, and render on CPU. Never raise.
+  - In `setup_cycles`, when `gpu` is True, call `prefs.get_devices()` once, before the loop. It fills `prefs.devices` for every backend.
+  - Then try each name in `GPU_BACKENDS` in order. Set `prefs.compute_device_type` to it, and skip the name on `TypeError`, `KeyError`, or `AttributeError`. Take the first name for which any `prefs.devices` entry has that type. Then set `use = True` on every device and `sc.cycles.device = "GPU"`, as today.
+  - When no name yields a device, print exactly one line, `WARN no GPU device found (tried <names joined by ", ">), rendering on CPU`, and render on CPU. Never raise.
   - On macOS the behaviour is the same as today except the warning text.
-  - The docstring's second line names the per-platform order. The module docstring's run line starts with `"$BLENDER" --factory-startup -b --python-exit-code 1`, and "no numpy" becomes "the helpers use no numpy".
-- R49 `scripts/bhelpers.py`, eye height:
+  - The docstring's second line names the per-platform order. The module docstring's run line uses the R51 form, and "no numpy" becomes "the helpers use no numpy".
+- R43 `scripts/bhelpers.py`, eye height:
   - Add `eye_height(viewer=None)`: "Eye height, in project units, of a viewer `viewer` tall (project units); the default viewer is 5'-7"." It returns `viewer - 0.1143 / U`, and with `viewer=None` it returns `(1.7018 - 0.1143) / U`.
   - Keep `EYE_HEIGHT = 1.5875` unchanged, for scripts pinned before v1.1.0 and for existing cameras.
-- R44 (code part): the usage lines of `scripts/compose.py:3`, `scripts/annotate_plan.py:3`, `scripts/extract_plan.py:4`, and `scripts/sheets.py:3` read `blender/lib/<LIB>/<tool>.py`.
+- R44 Usage lines: `scripts/compose.py:3`, `scripts/annotate_plan.py:3`, `scripts/extract_plan.py:4`, and `scripts/sheets.py:3` read `blender/lib/<LIB>/<tool>.py`.
 
 No change to `checks.py`, `mannequin.py`, `wall_gaps.py`, `ifc_walls.py`, or the functions of `sheets.py`. No `allowed-tools` line and no `` !`command` `` injection is added.
 
@@ -889,24 +916,24 @@ No change to `checks.py`, `mannequin.py`, `wall_gaps.py`, `ifc_walls.py`, or the
 
 Draft text follows the instruction-writing rules; adjust wording only. "The Blender folder" is the term for the project folder that holds the scene scripts; `blender/` in every path stands for it.
 
-- R36a `CHANGELOG.md` convention, stated in its header line and kept from v1.1.0 on:
+- R45 `CHANGELOG.md` convention, stated in its header line and kept from v1.1.0 on:
   1. Each release heading is `## [X.Y.Z] - YYYY-MM-DD`, newest first. `## Unreleased` sits above them until the release retitles it.
   2. Each public function whose signature or behaviour changed, or that was added or removed, is named as `` `module.function()` `` under `### Changed`, `### Fixed`, `### Added`, or `### Removed`.
   3. The v1.1.0 entry names at least `bhelpers.setup_cycles()` (Changed: backend per platform) and `bhelpers.eye_height()` (Added).
-- R42 SKILL.md, Project setup (replaces `:22-33`):
+- R46 SKILL.md, Project setup (replaces `:22-33`):
   ```
   1. Choose the Blender folder: `blender/` in a new project, or the folder where the project already keeps its scene scripts, such as `renders/`. Paths in this skill write it as `blender/`.
-  2. Read the installed version: the first `## [X.Y.Z]` heading in `${CLAUDE_SKILL_DIR}/CHANGELOG.md`.
+  2. Read the installed version from the skill folder, `${CLAUDE_SKILL_DIR}`: the first `## [X.Y.Z]` heading in `CHANGELOG.md`. If that file is missing, use the `tag:` line of `.installed`. If both are missing, use the `LIB` value in `templates/scene_template.py`.
   3. Copy `${CLAUDE_SKILL_DIR}/scripts/*.py` and `*.json` into `blender/lib/vX.Y.Z/`. Never edit a version folder after you copy it.
   4. Copy `templates/scene_template.py` to `blender/build_<scene>.py`. Its `LIB` already names the installed version.
   5. Call `set_units("ft")` if the drawings are in feet. All helper lengths are then in feet.
-  6. Set `VIEWER` to the main viewer's height. The eye-level camera height follows from it.
+  6. If the main viewer is not 5'-7", set `VIEWER` to their height in project units. The eye-level camera height follows from it.
   7. Keep two notes files: the dimensions file and the decisions log. If the project has a `context/` folder, use `context/dimensions.md` and `context/decisions.md`. Otherwise use `blender/dimensions.md` and `blender/decisions.md`.
   8. Reconcile plan, elevation, site, and model numbers in the dimensions file. Before you build, add a site-photo checklist to it: fixture counts, ceiling steps, closet bays.
   9. Record owner decisions in the decisions log. Set each chosen value as the flag default in the scene script.
   ```
-  The feet-pose step moves to `reference/studies.md` (one home for `EXAMPLE_POSE` units). The delivery folder is defined in the loop (R50).
-- R43 SKILL.md, new section `## Project lib`, after Project setup:
+  With P1 applied provisionally, step 7 ends: "For a quick preview outside a project, skip the notes files." The feet-pose step moves to `reference/studies.md` (one home for `EXAMPLE_POSE` units). The delivery folder is defined in the loop (R53).
+- R47 SKILL.md, new section `## Project lib`, after Project setup:
   ```
   The project keeps one folder of this skill's scripts per skill version it has used, in `blender/lib/`. Each script that imports them pins one version:
 
@@ -916,26 +943,32 @@ Draft text follows the instruction-writing rules; adjust wording only. "The Blen
   - Give every project script that imports the lib these two lines: scene scripts and sheet generators alike.
   - A script with no `LIB` uses the old flat `blender/lib/`. Treat it as pinned to `pre-1.0`.
   - Run a command-line tool from the scene's version folder: `python -I blender/lib/<LIB>/compose.py`.
+  - Keep every version folder, including one that no script pins. Remove one only when the user asks.
 
-  Before you edit or run a project script, compare its `LIB` with the installed version, once per script in a session:
+  Before you edit or run a project script, compare its `LIB` with the installed version (Project setup, step 2), once per script in a session:
   - If they match, go on.
   - If the pin is older, warn in one line. List the CHANGELOG entries since the pin, and offer an upgrade by [reference/migration.md](reference/migration.md). If the user declines, run the script unchanged.
   - If the `LIB` line carries a `# held:` comment, do not warn.
-  - On an older pin, read a function's `def` in `blender/lib/<LIB>/` before you call it, if the CHANGELOG lists it as changed or added after the pin.
+  - On an older pin, read a function's `def` in `blender/lib/<LIB>/` before you call it, if the CHANGELOG lists it as changed or added after the pin. For a script with no `LIB`, read it in the flat `blender/lib/`.
   - If the pin is newer than the installed version, warn and suggest updating the skill. Never move a pin to an older version.
-  - If `${CLAUDE_SKILL_DIR}/CHANGELOG.md` is missing, say that the installed version is unknown. Change no pin.
+  - If no source in step 2 gives a version, say that the installed version is unknown. Change no pin.
   ```
-- R44 Doc paths gain the version folder: `reference/api.md:17` ("after adding `blender/lib/<LIB>` to `sys.path`"), `:161-164`; `reference/studies.md:17`; `reference/plan-input.md:13`; SKILL.md Checks `:142-143` (moves to `reference/migration.md`, R45). Command-line tools read `uvx --with pillow python -I blender/lib/<LIB>/compose.py ...`.
-- R45 `reference/migration.md` (new), linked from SKILL.md Project lib and the Reference list. It holds, in this order:
+- R48 Doc paths gain the version folder: `reference/api.md:17` ("after adding `blender/lib/<LIB>` to `sys.path`"), `:161-164`; `reference/studies.md:17`; `reference/plan-input.md:13`; SKILL.md Checks `:142-143` (moves to `reference/migration.md`, R49). Command-line tools read `uvx --with pillow python -I blender/lib/<LIB>/compose.py ...`.
+- R49 `reference/migration.md` (new), linked from SKILL.md Project lib and the Reference list. It does not use `${CLAUDE_SKILL_DIR}`; it calls the folder that holds SKILL.md "the skill folder". It holds, in this order:
   1. Preconditions:
      - Make the current state restorable before any change. In a git project, work on a branch, and commit each version folder with `__pycache__/` ignored. In a project without git, copy the Blender folder to a dated backup beside it, or ask the owner to put the project in a repo.
      - Without history, the backup is the only record of which version made a delivered render. Keep it.
-  2. Baseline: render each delivered view from the current code into `scratch/baseline/`, at one fixed setting (for example `--res 800 --samples 48`, CPU) that the comparison renders repeat. Regenerate each sheet into `scratch/baseline/`. Use delivered images only to confirm camera and framing: they can predate later model changes.
-  3. Keep these as they are: flag defaults (owner decisions); cameras, including each view's own eye height; units and the height datum; a fixed sun (do not switch it to Sun Position); the page size and pixel size of sheets; and any output whose IDs a third party holds, such as tile piece IDs and packing results. A change to a held ID is a reissue, and the owner decides it.
-  4. Upgrade a pin (R38, amended by R46): change the pins of the scripts the user names, fix the calls that the CHANGELOG lists as changed, and compare one delivered view with its baseline.
+  2. Keep these as they are: flag defaults (owner decisions); cameras, including each view's own eye height; units and the height datum; a fixed sun (do not switch it to Sun Position); the page size and pixel size of sheets; and any output whose IDs a third party holds, such as tile piece IDs and packing results. A change to a held ID is a reissue, and the owner decides it.
+  3. Geometry dump. Give the scene script a `--dump PATH` flag, as `--export-pieces` does: it builds the scene, writes the dump, prints `DONE <PATH>`, and skips the camera, the checks, and the render. The dump is a JSON object keyed by object name; each entry holds the object type, the vertex count of the evaluated mesh (0 for other types), the world bounding box of the evaluated object rounded to 1e-6 m, and the material names of its slots. The doc shows the snippet under the heading "Geometry dump" (about 12 lines, `bpy` and `json` only). Two dumps compare with a plain diff.
+  4. Upgrade a pin (R38, amended by R50):
+     - Offer the upgrade for every script on an older pin. The user names the scripts to hold back.
+     - For each script to upgrade, render one delivered view and write its geometry dump into `scratch/baseline/`, from the current pin.
+     - Copy the installed version's folder in if it is missing. Change the pins, and fix the calls that the CHANGELOG lists as changed.
+     - Compare each upgraded script's dump and view with its baseline (step 7).
   5. Move a project's own helpers onto the lib:
+     - Baseline first: write the geometry dump and render each delivered view from the current code into `scratch/baseline/`, at one small fixed setting (for example `--res 800 --samples 48`, CPU). Regenerate each sheet into `scratch/baseline/`. Use delivered images only to confirm camera and framing: they can predate later model changes.
      - Set up the version folder and the pins (SKILL.md Project lib).
-     - Replace a project helper with a lib import only when the signature matches and the comparison with the baseline shows no change. Replace one helper group at a time, and compare after each.
+     - Replace a project helper with a lib import only when the signature matches and the geometry dump after the swap equals the baseline dump. Replace one helper group at a time, and compare after each.
      - Keep in the project every helper that reads project constants instead of taking parameters, and every project-specific builder, material, pass, tile pipeline, and sheet layout.
      - For a command-line tool the project forked (`compose.py`, `annotate_plan.py`, `extract_plan.py`), diff the fork against the lib's copy first. Switch only when every option the project's commands use exists with the same meaning, and the output matches.
      - Keep the project's own sheet basics unless `set_paper` reproduces its page pixels and its pixels per mm exactly. For example, `set_paper("a3")` gives 3307 x 2339 px at 200 dpi, so a kit that draws A3 at 3300 x 2340 px keeps its own page.
@@ -946,13 +979,18 @@ Draft text follows the instruction-writing rules; adjust wording only. "The Blen
      - Expect many hits on a large existing model. Take them check by check: fix a real defect; exempt an intended one by its exact name, with the reason in a comment. Never exempt by prefix to clear a long list.
      - List each view that a fix changes, for the owner.
   7. Compare and decide:
-     - Render each view at the baseline setting, and compare the two images with Pillow: `ImageChops.difference(a.convert("RGB"), b.convert("RGB")).getbbox()` is `None` when they are identical. The tolerance, if T39 needs one, goes here.
-     - Regenerate each sheet into `scratch/` and compare it the same way. Never write over a delivered issue.
+     - Geometry decides whether a swap or upgrade changed the model: the dumps must be equal.
+     - Pixels guide the owner's review. Render each view at the baseline setting, and find changed regions with Pillow: take `ImageChops.difference` of the two RGB images, ignore channel differences of 8 levels or less (render noise; a starting value, not measured), and take `getbbox()`. `None` means no visible change.
+     - Regenerate each sheet into `scratch/` and compare it by pixel diff with no tolerance: sheets are drawn without noise. Never write over a delivered issue.
      - Show the owner every view or sheet that differs, side by side on a study page. The owner decides. A script the owner holds back keeps its pin with a `# held: <reason>` comment.
-- R46 R38 amended: an upgrade that moves a flat `lib/` to `lib/pre-1.0/` gives every script without `LIB` a pin in the same change: the new version, or `LIB = "pre-1.0"` with a `# held:` comment when the owner holds it back. Otherwise a held script loses its imports.
-- R47 SKILL.md Environment, `$BLENDER` (replaces `:12-13`, `:16-17`):
+- R50 R38 amended: an upgrade that moves a flat `lib/` to `lib/pre-1.0/` gives every script without `LIB` a pin in the same change: the new version, or `LIB = "pre-1.0"` with a `# held:` comment when the user holds it back. Otherwise a held script loses its imports. R38's other steps stand: the offer covers every script on an older pin, and the installed version's folder is copied in if it is missing.
+- R51 SKILL.md Environment, `$BLENDER` (replaces `:12-13`, `:16-17`; `:14`, `:15`, and `:18-20` stay):
+  ````
+  `$BLENDER` in this skill is the full path of the Blender executable. Set it in the same command that uses it, with a semicolon, and keep these flags:
+
   ```
-  `$BLENDER` in this skill is the full path of the Blender executable. The usual paths:
+  BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P script.py -- args
+  ```
 
   | System | Blender path | GPU backend for `--gpu` |
   |---|---|---|
@@ -960,26 +998,28 @@ Draft text follows the instruction-writing rules; adjust wording only. "The Blen
   | Linux | `blender` from the distribution or Snap, or `blender` in the folder unpacked from blender.org | OptiX, then CUDA, then HIP |
   | Windows | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` | OptiX, then CUDA, then HIP |
 
-  - Start each command with `BLENDER=<path>`, or write the path in its place. A shell variable does not carry over to the next command.
+  - A shell variable does not carry over to the next command. `BLENDER=<path> "$BLENDER"` without the semicolon runs an empty command.
   - On macOS, do not use the `/usr/local/bin/blender` symlink. Blender cannot find its bundled Python through it and crashes.
   - Without a GPU of that backend, `--gpu` prints one `WARN` line and renders on CPU.
   - The tests run on macOS with Metal only. The Linux and Windows paths and backends are untested.
-  ```
-  Every Blender command in SKILL.md (`:13`, `:83`), `reference/construction-sheets.md:13`, the template, and `bhelpers.py:4` starts with `"$BLENDER"`.
-- R49a SKILL.md rule `:55` becomes: "Place an eye-level camera at the floor height plus `eye_height(VIEWER)`. Keep the camera heights of existing views as they are." `reference/api.md` gains the `eye_height` line and keeps the `EYE_HEIGHT` line, marked as the fixed value for scripts pinned before v1.1.0.
-- R50 SKILL.md, git rules out and the delivery folder in:
+  - The scripts target Blender 5.2 LTS. Blender's Python also bundles numpy and a few other packages. The helpers use only `bpy`, `bmesh`, and `mathutils`. Do not pip-install into Blender.
+  ````
+  Every other Blender command in SKILL.md (`:83`), `reference/construction-sheets.md:13`, `reference/extensions.md`, the template, and `bhelpers.py:4` writes `"$BLENDER" --factory-startup`, after `BLENDER=<path>; ` where the example is a whole command. The render loop at SKILL.md `:82-85` sets `BLENDER=<path>;` before `for`.
+- R52 SKILL.md rule `:55` becomes: "Place an eye-level camera at the floor height plus `eye_height(VIEWER)`. Keep the camera heights of existing views as they are." `reference/api.md` gains the `eye_height` line and keeps the `EYE_HEIGHT` line, marked as the fixed value for scripts pinned before v1.1.0.
+- R53 SKILL.md, git rules out, notes files and delivery folder in:
   - Delete `:31` (exclude from git) and `:75` (commit and push).
+  - `:38` becomes "Check the dimensions file before any geometry change."
   - `:74` becomes "Keep working renders in `scratch/` and `out/`. Copy only delivered images into the delivery folder."
-  - Loop step 7 becomes "Copy delivered images to the delivery folder, and log the decision."
+  - Loop step 7 becomes "Copy delivered images to the delivery folder, and log the decision." Loop step 1 names the dimensions file and the decisions log.
   - Define the delivery folder once, after the loop checklist: "`deliverables/<date>_<topic>/` if the project has a `deliverables/` folder; otherwise `delivered/<date>_<topic>/`."
   - `reference/studies.md:10` names the decisions log; `:17` writes the study page to `scratch/` (the loop copies it). `reference/plan-input.md:6` names the dimensions file; `:68` says "State the plan accuracy in each deliverable".
-- R51 `reference/extensions.md:124` becomes a general check: "Before you use a scan, find its length unit, its coordinate system (local, or a map grid such as UTM), and its height datum. Scans from different apps differ, and two scans from one app can differ in heading." The UTM and offset lines below it keep their content with neutral numbers (R53).
-- R52 `reference/extensions.md`, Write an IFC (eval E3 gap), two bullets after the code block:
+- R54 `reference/extensions.md:124` becomes a general check: "Before you use a scan, find its length unit, its coordinate system (local, or a map grid such as UTM), and its height datum. Scans from different apps differ, and two scans from one app can differ in heading." The UTM and offset lines below it keep their content with neutral numbers (R56).
+- R55 `reference/extensions.md`, Write an IFC (eval E3 gap), two bullets after the code block:
   ```
   - Have `build()` return the corrected `walls` list, the one that `walls_from_plan` gets.
   - For an IFC-only run, add a flag such as `--ifc PATH`, as `--export-pieces` does. It calls `build()`, writes the IFC, prints `DONE <PATH>`, and skips the camera, the checks, and the render. The wall records are checked by `wall_gaps` in the correction pass and by the read-back in `write_walls_ifc`.
   ```
-- R53 Docs restructure (M3), per file:
+- R56 Docs restructure (M3), per file:
   - SKILL.md: define owner (the person who makes design decisions) and user (the person working with Claude) in the opening paragraph, and use each for its role only. Use "figure" (the function is `mannequin`) and "scene script" throughout. Order Checks as: run, read the output, exemptions, setup, limits.
   - One home per repeated fact: the eye height (api.md `eye_height`; SKILL.md names the function only); the fixed sun time (SKILL.md rule; delete the `studies.md:49` and `extensions.md:116` copies); `EXAMPLE_POSE` units (api.md Pose format); exact-name exemptions (SKILL.md Checks, exemptions; `:50-51` and `plan-input.md:48` link to it); `compose.py` syntax (api.md Command-line scripts; `studies.md:23` links); paper size (construction-sheets.md; api.md keeps signatures only); one view per Blender run (SKILL.md Environment; delete the `views.md:3` copy); `--python-exit-code 1` (Environment; delete Checks `:119`); camera outside objects (QA list; delete `views.md:15` and the api.md `perspective_camera` sentence); figure clash check (studies.md; SKILL.md Checks links); not reading scripts (SKILL.md Scripts; delete the second sentence of `extensions.md:64`). The pre-merge review checks the rest of the dozen from the docs review.
   - `reference/api.md`: each entry becomes a signature line and an indented description line. No description sentence runs over 20 words for an instruction or 25 for a description.
@@ -987,22 +1027,22 @@ Draft text follows the instruction-writing rules; adjust wording only. "The Blen
   - Neutral examples: `views.md:38` uses a centre, width, and prefixes of a generic house; `extensions.md:105` uses `SITE_LAT, SITE_LON, SITE_UTC` constants; the UTM numbers in `extensions.md:128-129` become a general statement of 32-bit float spacing at large coordinates; `plan-input.md:69` states the risk without a project figure.
   - Define poché (`views.md:29`), kerf and guillotine cut (`construction-sheets.md:49`), pole (api.md Pose format), and sheet IDs at first use.
   - `extensions.md:89`: "Run `check_drawing` in a Blender run that enables the extensions, or through `uvx --with ifcopenshell --with numpy python -I`."
-- R54 Repo docs:
-  - `README.md` (export-ignored): `:14` prerequisites name the three systems and say only macOS is tested; `:21-22`, `:24`, `:38`, `:41` follow R42 to R44; `:27` uses `"$BLENDER"`; `:73` becomes "Tested on macOS with Metal only. The Linux and Windows paths and GPU backends are documented but untested." List and fix every other claim the revision changes (maintaining-dev-docs, Writing README.md).
-  - `CHANGELOG.md`: the v1.1.0 entry per R36a, plus the docs and layout changes.
-  - Skill `docs/ISSUES.md`: tick the v1.1.0 lines, receive the history notes that R53 moves, and record P2 if approved. The session edits it.
+- R57 Repo docs:
+  - `README.md` (export-ignored): `:14` prerequisites name the three systems and say only macOS is tested; `:21-22`, `:24`, `:38`, `:41` follow R46 to R48; `:27` uses the R51 form; `:73` becomes "Tested on macOS with Metal only. The Linux and Windows paths and GPU backends are documented but untested." List and fix every other claim the revision changes (maintaining-dev-docs, Writing README.md).
+  - `CHANGELOG.md`: the v1.1.0 entry per R45, plus the docs and layout changes.
+  - Skill `docs/ISSUES.md` (the session edits it): tick the v1.1.0 lines; add a v1.1.0 line for scope D (R55, and mark the "After v1.0.0" E3 item resolved by it) and one for scope E (R49, the migration path); receive the history notes that R56 moves; record P2 as a later item.
 
 ### Tests (test author)
 
 All under the suite's timeouts; no sleeps. Each test fails before the change unless it says otherwise. New plain-Python tests go in `tests/test_v110.py` (one file, `python3 -I`); new Blender tests go in `tests/bl_v110.py`. `run_tests.sh` adds both.
 
 - T30 CHANGELOG and export (plain Python):
-  - At least one heading matches `^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$`; the numbered headings run newest first; the first equals the highest (the rule in R42 step 2 reads the first).
-  - `.gitattributes` has no `export-ignore` for `CHANGELOG.md`, and `git archive --format=tar HEAD` lists `CHANGELOG.md` at the top level. Skip with a `SKIP` line when `git` is unavailable. Fails before: line 2.
+  - At least one heading matches `^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$`; the numbered headings run newest first; the first equals the highest (R46 step 2 reads the first).
+  - `.gitattributes` has no `export-ignore` for `CHANGELOG.md`, and `git archive --worktree-attributes --format=tar HEAD` lists `CHANGELOG.md` at the top level. Skip with a `SKIP` line when `git` is unavailable. Fails before: line 2.
 - T31 Template pin (plain Python, `ast`):
   - `templates/scene_template.py` assigns `LIB` at module level to a string matching `^v\d+\.\d+\.\d+$`.
   - The `sys.path.insert` call's path is an `os.path.join` whose last two arguments are `"lib"` and the name `LIB`.
-  - `LIB` equals `v` plus the highest numbered CHANGELOG version when the CHANGELOG has no `## Unreleased` heading, and is higher than it when it has one. Fails before: no `LIB`.
+  - `LIB` equals `v` plus the highest numbered CHANGELOG version when the CHANGELOG has no unreleased heading. When it has one (`## Unreleased` or `## [Unreleased]`), `LIB` is at least that version. Fails before: no `LIB`.
 - T32 Template runs from its version folder (`run_tests.sh` section 2): read `LIB` from the template (a helper beside `list_views.py`), copy `scripts/` into `$TPL/lib/$LIB`, and keep the existing render, `run_checks`, seeded-defect, and export-pieces steps. Add one `step_fails`: the template beside a flat `lib/` copy only (no version folder) exits non-zero with no `DONE` line.
 - T33 Lib paths carry the version folder (plain Python), over SKILL.md, `reference/*.md`, `templates/*.py`, and `scripts/*.py`:
   - No match of `lib/(?=[\w*-]+\.(py|json)\b)`: a file name or glob directly under `lib/`.
@@ -1010,58 +1050,73 @@ All under the suite's timeouts; no sleeps. Each test fails before the change unl
   - Allowed forms after `lib/`: `<LIB>/`, `vX.Y.Z/`, `v\d+\.\d+\.\d+/`, `pre-1.0/`, or the folder alone. Fails before: `SKILL.md:24` and the four usage lines.
 - T34 No git rules in SKILL.md (plain Python): no case-insensitive match of `\b(git|gitignore|commit\w*|push\w*|branch\w*)\b`. Fails before: `:31`, `:68`, `:74`, `:75`.
 - T35 `$BLENDER` (plain Python), over SKILL.md, `reference/*.md`, `templates/*.py`, and `scripts/*.py`:
-  - `/Applications/Blender.app` appears on exactly one line, in SKILL.md.
-  - Every line holding `--factory-startup` starts, after spaces, with `"$BLENDER"` or `$BLENDER`, or follows a line ending in `\` that does.
-  - SKILL.md names `Metal`, `OptiX`, `CUDA`, and `HIP`. Fails before: five lines name the path.
+  - `/Applications/Blender.app` appears on exactly one line, in SKILL.md (the R51 table).
+  - Every line holding `--factory-startup` holds `"$BLENDER" --factory-startup`, or follows a line ending in `\` whose command does.
+  - No line matches `BLENDER=\S+\s+"?\$BLENDER` (the prefix form without a semicolon).
+  - SKILL.md holds the line `BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P script.py -- args` inside a fenced block, and names `Metal`, `OptiX`, `CUDA`, and `HIP`. Fails before: five lines name the path.
 - T36 Layout optional (plain Python), over SKILL.md and `reference/*.md`: `context/` appears on exactly one line, and `deliverables/` on exactly one line, both in SKILL.md; `incoming/` appears nowhere. Fails before.
-- T37 GPU backend (`bl_v110.py`):
+- T37 GPU backend (`bl_v110.py`), capturing stdout:
   - On macOS, `bh.GPU_BACKENDS == ("METAL",)`.
-  - With `bh.GPU_BACKENDS = ("CUDA",)`, `setup_cycles(8, gpu=True)` returns without raising, sets `cycles.device` to `CPU`, and prints exactly one line `WARN no GPU device found (tried CUDA), rendering on CPU` (capture stdout).
-  - With `("CUDA", "METAL")`, the device is `GPU` and `compute_device_type` is `METAL`, when the machine has a Metal device. Otherwise print `SKIP T37 no Metal device` and pass that case.
+  - With `bh.GPU_BACKENDS = ("CUDA",)`, `setup_cycles(8, gpu=True)` returns without raising, sets `cycles.device` to `CPU`, and prints exactly one line that starts with `WARN`: `WARN no GPU device found (tried CUDA), rendering on CPU`.
+  - With `("NONE",)`: the device is `CPU`, and exactly one `WARN` line names `tried NONE`.
+  - With `("CUDA", "METAL")` and with `("NONE", "METAL")`: the device is `GPU` and `compute_device_type` is `METAL`, when the machine has a Metal device. Otherwise print `SKIP T37 no Metal device` and pass those cases.
   - Restore `GPU_BACKENDS` afterwards. Fails before: no `GPU_BACKENDS`.
 - T38 Eye height (`bl_v110.py`):
   - In metres: `eye_height()` is 1.5875 and equals `EYE_HEIGHT` within 1e-9; `eye_height(1.52)` is 1.4057 within 1e-9 (a fixed drop, not a ratio).
   - With `set_units("ft")`: `eye_height()` is 1.5875 / 0.3048, and `eye_height(5 + 7 / 12)` is 5.208333 within 1e-6.
   - `EYE_HEIGHT` is still 1.5875 (the Revision 6 test stays).
-  - The template's persp camera, built through `add_camera`, stands at world z 1.5875 within 1e-6. Fails before: no `eye_height`.
-- T39 Render repeatability (`run_tests.sh`): render the template's persp view twice at 160 px, 8 samples, CPU, into two files. `ImageChops.difference(...).getbbox()` is `None`. This tests Blender, not the change; it passes before. If it fails, record the largest pixel difference here, and R45 step 7 states a tolerance from it.
+  - Template, default: build the template scene and its persp camera through `add_camera`; the camera stands at world z 1.5875 within 1e-6.
+  - Template, seeded: a wrapper writes a copy of the template with the `VIEWER = None` line replaced by `VIEWER = 1.52`, imports it, builds, and adds the persp camera. The camera stands at world z 1.4057 within 1e-6. Fails before: no `eye_height`, no `VIEWER` line.
+- T39 Geometry dump (`bl_v110.py`): extract the code block under "Geometry dump" in `reference/migration.md` and run it on the template scene twice. The two JSON files are equal. Move `counter` 1 mm along x and dump again: exactly the `counter` entry differs, in its box. Change the counter's material: exactly that entry differs, in its materials. Add a boolean modifier that cuts the counter: its vertex count changes. Fails before: no `migration.md`.
 - T40 CHANGELOG names changed functions (plain Python, git): take the newest `v*` tag reachable from `HEAD`, other than a tag on `HEAD` itself. For each public function and class in the six lib modules, compare its `ast` argument list there with the working tree. Each one added, removed, or with a changed argument list appears as `` `module.function()` `` in the CHANGELOG text above that tag's heading. Skip with a `SKIP` line when `git` or the tag is unavailable. Fails before: `eye_height` is not named.
+- T41 Release state (plain Python, git): when `HEAD` carries a `v*` tag, the CHANGELOG has no unreleased heading, its first numbered heading equals the tag without the `v`, and the template's `LIB` equals the tag. Otherwise print a `SKIP` line. It passes on the branch by skipping; it runs at the release.
 - `test_api_doc.py` covers `eye_height` with no change.
-- Mutation checks (report each): drop `LIB` from the template's path (T31, T32); stop after the first backend without trying the next (T37); compute the eye height as a ratio of the viewer's height (T38); list CHANGELOG versions oldest first (T30); restore one `lib/compose.py` usage line (T33); restore the git line in SKILL.md (T34). Each must fail at least one test.
+- Mutation checks (report each): drop `LIB` from the template's path (T31, T32); stop after the first backend without trying the next (T37); call `get_devices()` only after setting the type, inside the loop, and break on `NONE` (T37); compute the eye height as a ratio of the viewer's height (T38); round the dump's box to 1e-3 (T39); list CHANGELOG versions oldest first (T30); restore one `lib/compose.py` usage line (T33); restore the git line in SKILL.md (T34); write the prefix form `BLENDER=<path> "$BLENDER"` in one example (T35). Each must fail at least one test.
 
 ### Evals
 
-Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill tool; synthetic data only; nothing installed. The skill folder is a scratch `git archive` of the branch, with `## Unreleased` retitled `## [1.1.0] - 2026-10-21` in that copy only. Each prompt says: "`${CLAUDE_SKILL_DIR}` in SKILL.md is `<scratch folder>`." Check each transcript for a Skill call.
-- E8 New project with a pin. An empty project folder with no `context/` and no git. Prompt: "Set up a render of a 3 x 4 m bedroom here and make a preview." Pass: the version is read from the CHANGELOG; scripts copied into `blender/lib/v1.1.0/`; the scene script has `LIB = "v1.1.0"`; the notes files are `blender/dimensions.md` and `blender/decisions.md`; each Blender command carries the path inline; no git command; the preview prints `OK run_checks` and `DONE`.
-- E9 Older pin. A project with `blender/lib/v1.0.0/` (a `git archive` of tag `v1.0.0`'s `scripts/`), `build_room.py` with `LIB = "v1.0.0"`, and `build_hall.py` with `LIB = "v1.0.0"  # held: delivered 2026-10-15`. Prompt: "Add a second eye-level view to the room scene and preview it. If you offer an upgrade, assume the user declines." Pass: one warning line for `build_room.py` naming both versions; the CHANGELOG items since v1.0.0 listed; an upgrade offered and not made; no warning for `build_hall.py`; the new camera uses `EYE_HEIGHT / U` (no `eye_height`, which v1.0.0 lacks); the run uses `lib/v1.0.0/`.
-- E10 Migration of a monolithic script. A synthetic project without git: a 300-line `renders/build_house.py` in feet with its own `box()` (same signature and output as the lib's), its own `cyl()` that reads a project constant for its segment count, a `principled()` whose roughness default differs, a fixed sun, a perspective view at a custom eye height, walls named `wall_0` to `wall_9`, a floating shelf, and a flag default; a sheet generator with `PAGE = (3300, 2340)` that imports a sibling `cuts.py`; one delivered image. Prompt: "Move this project onto the skill's lib and wire the checks." Pass: a backup is made or the owner is asked first; baseline renders and sheets go to `scratch/baseline/` before any change; only `box` is replaced; `cyl` and `principled` stay; the sheet page stays (no `set_paper("a3")`); the sibling import works under `python -I`; units, sun, camera, and flag default unchanged; walls renamed before any exemption; `run_checks` added after the helper swap compares clean; the floating shelf fixed and listed for the owner; exemptions by exact name with reasons; no delivered file overwritten; the decision left to the owner.
+Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill tool; synthetic data only; nothing installed. The skill folder is a scratch `git archive` of the branch, with `## Unreleased` retitled `## [1.1.0] - 2026-10-21` in that copy only. Each prompt says: "`${CLAUDE_SKILL_DIR}` in SKILL.md is `<scratch folder>`." Evals render at `--res 160 --samples 8` on CPU unless the agent's own steps call for a larger preview. Check each transcript for a Skill call.
+- E8 New project with a pin. An empty project folder with no `context/` and no git. Prompt: "Set up a render of a 3 x 4 m bedroom here and make a preview." Pass: the version is read from the CHANGELOG; scripts copied into `blender/lib/v1.1.0/`; the scene script has `LIB = "v1.1.0"`; the notes files are `blender/dimensions.md` and `blender/decisions.md`; every Blender command uses `BLENDER=<path>; "$BLENDER"` or the full path, never the prefix form without a semicolon; no git command; the preview prints `OK run_checks` and `DONE`.
+- E9 Older pin. A project with `blender/lib/v1.0.0/` (a `git archive` of tag `v1.0.0`'s `scripts/`), `build_room.py` with `LIB = "v1.0.0"`, and `build_hall.py` with `LIB = "v1.0.0"  # held: delivered 2026-10-15`. Prompt: "Add a second eye-level view to the room scene and preview it. Then preview the hall scene. If you offer an upgrade, assume the user declines." Pass: one warning line for `build_room.py` naming both versions; the CHANGELOG items since v1.0.0 listed; an upgrade offered and not made; the new camera uses `EYE_HEIGHT / U` (no `eye_height`, which v1.0.0 lacks); `build_room.py` runs on `lib/v1.0.0/`; `build_hall.py` runs on `lib/v1.0.0/` with no warning.
+- E10 Migration of a monolithic script. The test author writes the fixture under `tests/fixtures/migration/` (synthetic, committed with the tests); each eval run copies it to scratch. The fixture is a project without git: a 300-line `renders/build_house.py` in feet with its own `box()` (same signature and output as the lib's), its own `cyl()` that reads a project constant for its segment count, a `principled()` whose roughness default differs, a fixed sun, a perspective view at a custom eye height, walls named `wall_0` to `wall_9`, a floating shelf, and a flag default; a sheet generator with `PAGE = (3300, 2340)` that imports a sibling `cuts.py`; one delivered image. Its run commands render at `--res 160 --samples 8` on CPU. Prompt: "Move this project onto the skill's lib and wire the checks." Pass:
+  - A backup is made, or the owner is asked first.
+  - The geometry dump, baseline renders, and sheets go to `scratch/baseline/` before any change.
+  - Only `box` is replaced, and the dump after the swap equals the baseline dump. `cyl` and `principled` stay.
+  - The sheet page stays (no `set_paper("a3")`), and the regenerated sheet's pixel diff is empty. The sibling import works under `python -I`.
+  - Units, sun, camera, and flag default are unchanged.
+  - Walls are renamed before any exemption, and `run_checks` is added after the helper swap compares clean. The floating shelf is fixed and listed for the owner. Exemptions use exact names with reasons.
+  - No delivered file is overwritten, and the decision is left to the owner.
+- E11 Rerun of E3 against the R55 text: the same synthetic `build_flat.py` and prompt as E3. Pass: E3's pass line, plus `build()` returns the corrected wall list, and the IFC comes from an IFC-only run (a flag such as `--ifc`) that skips the camera, the checks, and the render.
 - After install (Releases): the discovery eval, in a fresh subagent not told the skill's name or path, with E8's prompt.
 
 ### Open questions
 
-- P1 Revision 6 eval gap (b) asks for an exemption from the dimensions file for a quick preview outside a project. R42 rewrites that step. Fold in one clause ("For a quick preview outside a project, skip the notes files")? Recommended: yes; it is off the approved list, so it needs the user's approval.
-- P2 Record `set_paper` with an exact page size in pixels as a later candidate, so a project's sheet kit can move onto `sheets.py` without a reissue? Recommended: yes, as a later item; no code in v1.1.0.
-- P3 Add oneAPI (Intel GPUs) after HIP in the Linux and Windows backend list? It is one name, untested like the others. Recommended: no; keep to the approved scope.
+Applied provisionally with the recommended defaults, so work can start; the user's answers replace them (step 0 below).
+- P1 Revision 6 eval gap (b) asks for an exemption from the dimensions file for a quick preview outside a project. R46 rewrites that step. Fold in one clause ("For a quick preview outside a project, skip the notes files")? Recommended, and applied provisionally: yes. It is off the approved list, so it needs the user's approval.
+- P2 Record `set_paper` with an exact page size in pixels as a later candidate, so a project's sheet kit can move onto `sheets.py` without a reissue? Recommended, and applied provisionally: yes, as a later item in skill `docs/ISSUES.md` only; no code in v1.1.0.
+- P3 Add oneAPI (Intel GPUs) after HIP in the Linux and Windows backend list? It is one name, untested like the others. Recommended, and applied provisionally: no; keep to the approved scope.
 
 ### Order of work, and how to continue if interrupted
 
-1. The skill-developer F1 change (CHANGELOG in exports) proceeds in its own repo. It must be on its `main` before R40 merges and before the install.
-2. The test author writes T30 to T40 on branch `v1.1.0`. They fail as stated.
-3. The implementer makes R40, R41, R48, R49, and the R44 usage lines.
-4. The development session writes R36a, R42 to R47, R49a, R50 to R53, `reference/migration.md`, and R54.
-5. Run the suite and the mutation checks. Record T39's result here.
-6. Run E8 to E10.
-7. Pre-merge review (opus, high: a minor release), then merge, release, install, and the discovery eval.
+0. the user answers P1 to P3. Until then, the recommended defaults stand; a different answer changes R46 (P1), R57 (P2), or R42 and T37 (P3).
+1. Done: the skill-developer F1 change (CHANGELOG in exports) is merged on its `main` at `364e44d`.
+2. The test author writes T30 to T41 and the E10 fixture on branch `v1.1.0`. The tests fail as stated, except T41, which skips.
+3. The implementer makes R40 to R44.
+4. The development session writes R45 to R57, including `reference/migration.md`.
+5. Run the suite and the mutation checks.
+6. Run E8 to E11.
+7. Pre-merge review (opus, high: a minor release), then merge, release (T41 runs on the tag), install, and the discovery eval.
 
-Each finished item is ticked in skill `docs/ISSUES.md` under the three v1.1.0 lines. A fresh session reads those lines, this section, and `git log` on `v1.1.0`.
+Each finished item is ticked in skill `docs/ISSUES.md` under the v1.1.0 lines. A fresh session reads those lines, this section, and `git log` on `v1.1.0`.
 
-Keep out, for everyone working on this revision: `dev/inputs/`; earlier revisions of this contract (append findings, never rewrite); `~/.claude/skills/` and `~/.claude/skill-installs/` until the approved install; the skill-developer repo's `scripts/` and `tests/` (the F1 change owns them); the render projects' files; `tests/out/`.
+Keep out, for everyone working on this revision: `dev/inputs/`; earlier revisions of this contract (append findings, never rewrite); `~/.claude/skills/` and `~/.claude/skill-installs/` until the approved install; the skill-developer repo's `scripts/` and `tests/`; the render projects' files; `tests/out/`.
 
 ### Risks
 
-- GPU off macOS is unverified. The fallback path is tested only with `CUDA` absent on macOS. A driver that crashes in `available_devices()` would end the run instead of falling back (Cycles `properties.py:1706-1707`).
+- GPU off macOS is unverified. The fallback path is tested only with backends absent on macOS. A driver that crashes in `available_devices()` would end the run instead of falling back (Cycles `properties.py:1706-1707`).
 - The Linux and Windows paths come from training knowledge.
-- The pin check depends on F1. Without a shipped CHANGELOG, every session reports the version as unknown and changes no pin.
-- T39 may show that Cycles is not repeatable at preview settings. The migration comparison then needs a tolerance, and small changes can hide under it.
+- The pin check reads the shipped CHANGELOG. A marketplace install without it falls back to the template's `LIB`, which T41 keeps equal to the release.
+- The pixel tolerance of 8 levels is a starting value, not measured. It only guides the owner's review; the geometry dump decides.
+- The geometry dump does not see material settings, lights' energy, or the world. A helper swap that changes a material's values but not its name passes the dump; the pixel review must catch it.
 - On an older pin, Claude reads the v1.1.0 SKILL.md against older code. The CHANGELOG names only the signature and behaviour changes that the release author recorded; T40 catches only signature changes.
 - A marketplace clone ignores `export-ignore`, so tests and design docs would ship. This stays deferred (Revision 7).
