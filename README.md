@@ -33,7 +33,7 @@ Before every render, six checks look for the geometry defects that recur in thes
 
 **Studies and the scale figure.** Each owner question gets one page: every option rendered from the same view, then joined and labeled by `scripts/compose.py`. `scripts/mannequin.py` builds a clay figure at the user's real height, posed with two-bone IK. `clash_check` reports where the figure touches a fixture.
 
-**Construction sheets.** `scripts/sheets.py` draws A3 sheets for carpentry, plumbing, electrical, and tile from the same numbers as the model. It also packs tile cuts onto stock tiles. Pieces come from the scene through `--export-pieces`, so a sheet cannot drift from the render ([details](reference/construction-sheets.md)).
+**Construction sheets.** `scripts/sheets.py` draws Tabloid sheets by default (`set_paper` picks A3, Letter, or ARCH sizes) for carpentry, plumbing, electrical, and tile from the same numbers as the model. It also packs tile cuts onto stock tiles. Pieces come from the scene through `--export-pieces`, so a sheet cannot drift from the render ([details](reference/construction-sheets.md)).
 
 **Outputs for an architect.** `scripts/ifc_walls.py` writes the scene's walls as an IFC file, reads it back, and raises an error when an element differs from its record by more than 3 mm. Bonsai generates a plan drawing from that IFC, and `check_drawing` compares the drawing with the IFC.
 
