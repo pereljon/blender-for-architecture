@@ -10,8 +10,6 @@ import bpy
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
-from wall_gaps import wall_gaps, wall_openings
-
 _RAY = Vector((0.5773, 0.3011, 0.7561)).normalized()    # skewed so a ray rarely grazes an edge or vertex
 
 
@@ -80,10 +78,17 @@ def _volume(vs, polys):
     return sum(vs[p[0]].dot(vs[p[i]].cross(vs[p[i + 1]])) for p in polys for i in range(1, len(p) - 1)) / 6
 
 
-def _outward(ob, vs, polys):
-    """polys wound so that a closed mesh faces outward; an open mesh follows the object's mirroring."""
-    flip = _volume(vs, polys) < 0 if _closed(polys) else ob.matrix_world.determinant() < 0
-    return [p[::-1] for p in polys] if flip else polys
+def _nz(vs, p):
+    """z component of the area normal of polygon p of vs."""
+    pts = [vs[i] for i in p]
+    return sum(a.x * b.y - b.x * a.y for a, b in zip(pts, pts[1:] + pts[:1]))
+
+
+def _outward(vs, polys):
+    """polys wound so that a closed mesh faces outward and each face of an open mesh faces up or sideways."""
+    if _closed(polys):
+        return [p[::-1] for p in polys] if _volume(vs, polys) < 0 else polys
+    return [p[::-1] if _nz(vs, p) < 0 else p for p in polys]
 
 
 def _bvh(parts):
@@ -259,10 +264,15 @@ def wall_gap_check(prefixes=("wall_",), floors=(), gap=0.3, opening=2.5, touch=0
     kind "gap" or "corner": see wall_gaps.wall_gaps. "no-header": the ray up from the middle of an opening
     between in-line walls hits nothing, or first hits at the wall top (a ceiling on the walls). "no-floor": with
     floors given, the ray down hits nothing in floors, or hits more than tol below the wall bottom.
+    Openings are probed only where the lower wall is at least 2.0 m tall, and "no-header" is not probed when the
+    scene camera is orthographic (a plan view hides what is above its cut).
     full_height holds pairs of wall names whose opening is meant to run to the ceiling. Angled walls are not
     checked and are named in a NOTE line. Sorted. Lengths are world metres.
     """
+    from wall_gaps import wall_gaps, wall_openings
     dg = _depsgraph()
+    cam = bpy.context.scene.camera
+    plan = cam is not None and cam.type == "CAMERA" and cam.data.type == "ORTHO"
     pre, pairs = _prefixes(prefixes), {frozenset(p) for p in full_height}
     names, rects, angled = [], [], []
     for ob in _objects(("MESH",), skip):
@@ -278,23 +288,24 @@ def wall_gap_check(prefixes=("wall_",), floors=(), gap=0.3, opening=2.5, touch=0
     if angled:
         print(f"NOTE wall_gaps: not axis-aligned, not checked: {', '.join(sorted(angled))}")
     hits = [(*sorted((names[i], names[j])), kind, d) for i, j, kind, d in wall_gaps(rects, 1.0, gap, touch)]
-    scene_tree = floor_tree = None
+    trees = None
     for i, j, w, (x0, x1, y0, y1) in wall_openings(rects, 1.0, gap, opening, touch):
         pair = sorted((names[i], names[j]))
         z = max(rects[i][4], rects[j][4]) + 1.0
         top, bottom = min(rects[i][5], rects[j][5]), min(rects[i][4], rects[j][4])
-        if frozenset(pair) in pairs or z >= top - tol:
+        if frozenset(pair) in pairs or top < 2.0 or z >= top - tol:
             continue
-        if scene_tree is None:
+        if trees is None:
             meshes = (_mesh(o, dg) for o in _objects(("MESH", "CURVE")))
-            scene_tree = _bvh([m for m in meshes if m])[0]
             fl = (_mesh(o, dg) for o in _objects(("MESH",)) if o.name in floors)
             fl = [m for m in fl if m]
-            floor_tree = _bvh(fl)[0] if fl else None
+            trees = (None if plan else _bvh([m for m in meshes if m])[0], _bvh(fl)[0] if fl else None)
+        scene_tree, floor_tree = trees
         at = Vector(((x0 + x1) / 2, (y0 + y1) / 2, z))
-        up = scene_tree.ray_cast(at, Vector((0, 0, 1)))[0]
-        if up is None or up.z >= top - tol:
-            hits.append((*pair, "no-header", w))
+        if scene_tree is not None:
+            up = scene_tree.ray_cast(at, Vector((0, 0, 1)))[0]
+            if up is None or up.z >= top - tol:
+                hits.append((*pair, "no-header", w))
         if floor_tree:
             down = floor_tree.ray_cast(at, Vector((0, 0, -1)))[0]
             if down is None or down.z < bottom - tol:
@@ -323,7 +334,7 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
     for n in floors:
         if n in data:
             ob, vs, ps = data[n][:3]
-            fl.append((vs, _outward(ob, vs, ps)))
+            fl.append((vs, _outward(vs, ps)))
     if not fl:
         return []
     tree = _bvh(fl)[0]
@@ -334,7 +345,7 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
         if n in floors or n in skip:
             continue
         cx, cy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
-        loc, normal = tree.ray_cast(Vector((cx, cy, lo.z + hang)), down)[:2]
+        loc, normal = tree.ray_cast(Vector((cx, cy, min(lo.z + hang, hi.z - 1e-4))), down)[:2]
         if loc is None:
             continue
         d = None if normal.z < 0 else lo.z - loc.z
@@ -348,7 +359,7 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
                 if (o is ob or not olo.x <= cx <= ohi.x or not olo.y <= cy <= ohi.y or ohi.z < lo.z - tol):
                     continue
                 if o.name not in support:
-                    support[o.name] = BVHTree.FromPolygons(ovs, _outward(o, ovs, ops))
+                    support[o.name] = BVHTree.FromPolygons(ovs, _outward(ovs, ops))
                 hit = support[o.name].ray_cast(at, down, 2 * tol)
                 if hit[0] is not None and hit[1].z > 0:
                     rests = True
@@ -368,7 +379,7 @@ def camera_check(interior=None, rays=160, skip=()):
     """
     sc = bpy.context.scene
     cam = sc.camera
-    if cam is None or cam.data.type != "PERSP":
+    if cam is None or cam.type != "CAMERA" or cam.data.type != "PERSP":
         return []
     dg = _depsgraph()
     names, parts = [], []
@@ -490,7 +501,7 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
     {"openings": [(wall, wall)]} for openings meant to run to the ceiling. interior and rays go to camera_check;
     unit (metres per project unit, None for bhelpers.U) goes to clearance_check.
     """
-    exempt = exempt or {}
+    exempt = {k: v if k == "openings" else _prefixes(v) for k, v in (exempt or {}).items()}
     bad = [k for k in exempt if k not in _NAMES + ("openings",)]
     if bad:
         raise ValueError(f"unknown exempt key {bad[0]!r}; use one of {', '.join(_NAMES + ('openings',))}")
@@ -500,11 +511,12 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
         for n in (n for item in names for n in ((item,) if isinstance(item, str) else item)):
             if n not in have:
                 print(f"WARN exempt {key}: no object named {n}")
+    floors, rendered = _prefixes(floors), {o.name for o in _objects(("MESH",))}
     for n in floors:
-        if n not in have:
-            print(f"WARN floors: no object named {n}")
+        if n not in rendered:
+            print(f"WARN floors: no {'rendered mesh' if n in have else 'object'} named {n}")
     fig = tuple(n for n in have if n.startswith(_prefixes(figure))) if figure else ()
-    given, floors = bool(floors), tuple(n for n in floors if n in have)
+    given, floors = bool(floors), tuple(n for n in floors if n in rendered)
     cam = bpy.context.scene.camera
 
     def skip(check, extra=()):
@@ -518,6 +530,7 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
         ("floor_fit", None if floors else "none of the floors exists" if given else "no floors given",
          lambda: floor_fit_check(floors, walls=walls, skip=skip("floor_fit", fig))),
         ("camera", "no scene camera" if cam is None else
+         "scene camera is not a camera object" if cam.type != "CAMERA" else
          None if cam.data.type == "PERSP" else
          f"{'orthographic' if cam.data.type == 'ORTHO' else 'panoramic'} camera",
          lambda: camera_check(interior=interior, rays=rays, skip=skip("camera"))),

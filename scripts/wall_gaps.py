@@ -56,6 +56,10 @@ def _left_over(region, fills):
     return sum((p[1] - p[0]) * (p[3] - p[2]) for p in parts)
 
 
+def _fills(rs, a, b, touch):
+    return [c for c in rs if _same_level(c, a, touch) and _same_level(c, b, touch)]
+
+
 def _overlaps(a, b):
     return min(a[1], b[1]) - max(a[0], b[0]), min(a[3], b[3]) - max(a[2], b[2])
 
@@ -77,14 +81,13 @@ def wall_gaps(rects, unit=1.0, gap=0.3, touch=0.001):
                 continue
             ox, oy = _overlaps(a[:4], b[:4])
             d = math.hypot(max(0.0, -ox), max(0.0, -oy))
-            fills = [c for c in rs if _same_level(c, a, touch) and _same_level(c, b, touch)]
             if touch < d <= gap:
                 spans = []
                 for lo0, lo1, hi0, hi1, o in ((a[0], b[0], a[1], b[1], ox), (a[2], b[2], a[3], b[3], oy)):
                     spans.append((max(lo0, lo1), min(hi0, hi1)) if o >= 0 else (min(hi0, hi1), max(lo0, lo1)))
                 region = (*spans[0], *spans[1])
                 thin = region[1] - region[0] <= touch or region[3] - region[2] <= touch
-                if thin or _left_over(region, fills) >= touch * touch:
+                if thin or _left_over(region, _fills(rs, a, b, touch)) >= touch * touch:
                     hits.append((i, j, "gap", d))
             elif d <= touch and not (ox > touch and oy > touch):
                 c = max(0.0, ox, oy)
@@ -102,7 +105,7 @@ def wall_gaps(rects, unit=1.0, gap=0.3, touch=0.001):
                     line = (min(a[2 * t + 1], b[2 * t + 1]) + max(a[2 * t], b[2 * t])) / 2
                     span_u = (min(a[2 * u], b[2 * u]), max(a[2 * u + 1], b[2 * u + 1]))
                     region = (line - half, line + half, *span_u) if t == 0 else (*span_u, line - half, line + half)
-                if _left_over(region, fills) >= touch * touch:
+                if _left_over(region, _fills(rs, a, b, touch)) >= touch * touch:
                     hits.append((i, j, "corner", c))
     return hits
 
