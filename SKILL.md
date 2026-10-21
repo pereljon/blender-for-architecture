@@ -36,6 +36,9 @@ The project owns its copy of the scripts. To upgrade, copy a newer script delibe
 
 - Build the scene from the script only. Never hand-edit a `.blend` file.
 - Check `context/dimensions.md` before any geometry change.
+- If a dimension on a plan or photo is unreadable, mark it unread in the dimensions file. Ask for a clearer copy.
+- Never fill an unreadable dimension with a plausible value.
+- When a plan and a site measurement disagree, record both with their sources. Ask the owner which one governs.
 - Model each product from the manufacturer's dimensioned drawing, never from a look-alike. Record the drawing in the dimensions file.
 - Name objects with a prefix per element group (`wic_`, `vanity_`, `stair1_`). Plan views and checks select objects by prefix.
 - Give colors as hex through `srgb()`. sRGB numbers typed as linear values come out too light and washed out.
