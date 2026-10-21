@@ -48,7 +48,7 @@ State of the blender-for-architecture skill: open bugs, planned work, next steps
 
 ## Open questions
 
-- T39 (bl_v110): the material-change step expects exactly the `counter` entry to differ when the counter takes a fresh material, while FX-T1 requires an entry per used material. A fresh material carries a Principled BSDF in Blender 5.2, so any dump with material entries gains a key and fails `T39 material change: exactly the counter entry differs, got ['_materials', 'counter']`. The test author decides how to relax the step.
+- [x] T39 (bl_v110): the material-change step expects exactly the `counter` entry to differ when the counter takes a fresh material, while FX-T1 requires an entry per used material. A fresh material carries a Principled BSDF in Blender 5.2, so any dump with material entries gains a key and fails `T39 material change: exactly the counter entry differs, got ['_materials', 'counter']`. The test author decides how to relax the step. (resolved 2026-10-21): the test author relaxed the step in `ef85fe0` to allow exactly the counter entry plus one added material entry; the suite passes 67 of 67.
 
 ## Decisions
 
