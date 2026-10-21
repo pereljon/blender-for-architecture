@@ -92,7 +92,7 @@ step syntax:python 60 python3 -I -m py_compile "$HERE"/tcommon.py "$HERE"/bl_*.p
 rm -rf "$HERE/__pycache__"
 
 missing=0
-for f in bhelpers.py mannequin.py checks.py wall_gaps.py sheets.py compose.py annotate_plan.py extract_plan.py; do
+for f in bhelpers.py mannequin.py checks.py wall_gaps.py ifc_walls.py sheets.py compose.py annotate_plan.py extract_plan.py; do
     [ -f "$SCRIPTS_DIR/$f" ] || { echo "MISSING $SCRIPTS_DIR/$f"; missing=1; }
 done
 [ -f "$SKILL/templates/scene_template.py" ] || { echo "MISSING $SKILL/templates/scene_template.py"; missing=1; }
@@ -170,6 +170,10 @@ step test_wall_gaps 60 python3 -I "$HERE/test_wall_gaps.py"
 expect_line test_wall_gaps:finished "$OUT/test_wall_gaps.log" "^TESTPASS test_wall_gaps\$"
 step test_api_doc 60 python3 -I "$HERE/test_api_doc.py"
 expect_line test_api_doc:finished "$OUT/test_api_doc.log" "^TESTPASS test_api_doc\$"
+step test_ifc_walls 60 python3 -I "$HERE/test_ifc_walls.py"
+expect_line test_ifc_walls:finished "$OUT/test_ifc_walls.log" "^TESTPASS test_ifc_walls\$"
+step test_description 60 python3 -I "$HERE/test_description.py"
+expect_line test_description:finished "$OUT/test_description.log" "^TESTPASS test_description\$"
 step test_extensions_doc 60 python3 -I "$HERE/test_extensions_doc.py"
 expect_line test_extensions_doc:finished "$OUT/test_extensions_doc.log" "^TESTPASS test_extensions_doc\$"
 
