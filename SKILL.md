@@ -1,6 +1,6 @@
 ---
 name: blender-architectural-renders
-description: Builds architectural and remodel renders in Blender from a Python scene script, run headless with Cycles. Covers project setup, plan input from PDFs or measurements, perspective and cut plan views, option studies with comparison pages, a posable scale figure with clash checks, QA for recurring render bugs, and optional construction sheets and tile cutting plans. Use when creating or changing a Blender render, scene script, plan view, study page, or construction sheet for a room, house, or remodel.
+description: Builds architectural and remodel renders in Blender from a Python scene script, run headless with Cycles. Covers project setup, plan input from PDFs or measurements, perspective and cut plan views, option studies, a posable scale figure, render checks, construction sheets, the site sun by date and time, LiDAR scans against the model, and IFC walls and plan drawings for an architect. Use when creating or changing a Blender render, scene script, plan view, study page, construction sheet, or IFC file for a room, house, or remodel.
 ---
 
 # Architectural renders in Blender
@@ -36,6 +36,9 @@ The project owns its copy of the scripts. To upgrade, copy a newer script delibe
 
 - Build the scene from the script only. Never hand-edit a `.blend` file.
 - Check `context/dimensions.md` before any geometry change.
+- If a dimension on a plan or photo is unreadable, mark it unread in the dimensions file. Ask for a clearer copy.
+- Never fill an unreadable dimension with a plausible value.
+- When a plan and a site measurement disagree, record both with their sources. Ask the owner which one governs.
 - Model each product from the manufacturer's dimensioned drawing, never from a look-alike. Record the drawing in the dimensions file.
 - Name objects with a prefix per element group (`wic_`, `vanity_`, `stair1_`). Plan views and checks select objects by prefix.
 - Give colors as hex through `srgb()`. sRGB numbers typed as linear values come out too light and washed out.
@@ -174,6 +177,7 @@ Run these; do not read them into context. Look up signatures in [reference/api.m
 | `annotate_plan.py` | uvx pillow | Circled callouts on a plan render |
 | `extract_plan.py` | uvx pymupdf | Walls, door swings, and leaves from a plan PDF's vector linework |
 | `sheets.py` | uvx pillow | Construction sheets, dimension lines, tile packing, rounding check |
+| `ifc_walls.py` | Blender with Bonsai enabled, or uvx with ifcopenshell and numpy | IFC walls from the wall records, read back and checked; a Bonsai plan drawing checked against the IFC |
 
 ## Extensions
 
@@ -184,11 +188,10 @@ Read [reference/extensions.md](reference/extensions.md) before you install or us
 | Bonsai (includes IfcOpenShell) | Walls as IFC objects, plan drawings from the model, and IFC files for architects |
 | Sun Position | The sun from the site's latitude, longitude, date, and time |
 | Point Cloud I/O | LiDAR scans (LAS, LAZ, E57, PLY) in the scene, to check the model against the site |
-| CAD2Cube, Export AutoCAD DXF | DXF from or to an architect's CAD files (install only when needed) |
 
 - Before you install or sync an extension, ask the user. Name each extension and its download size.
 - Install an extension once per machine. Do not enable it in the user's preferences.
-- Enable the extension inside each run that needs it.
+- Enable every installed extension of the three inside each run that needs any, the same set in every run.
 
 ## Reference
 
@@ -196,4 +199,4 @@ Read [reference/extensions.md](reference/extensions.md) before you install or us
 - Perspective views, plan cuts, overlays, labels: [reference/views.md](reference/views.md)
 - Option studies, study pages, the figure, textures: [reference/studies.md](reference/studies.md)
 - Construction sheets and tile cutting plans: [reference/construction-sheets.md](reference/construction-sheets.md)
-- Extensions (Bonsai and IfcOpenShell, Sun Position, Point Cloud I/O, DXF): [reference/extensions.md](reference/extensions.md)
+- Extensions (Bonsai and IfcOpenShell, Sun Position, Point Cloud I/O): [reference/extensions.md](reference/extensions.md)

@@ -6,7 +6,7 @@ One line per public function, from the scripts' signatures and docstrings. Check
 - Conventions
 - VIEWS entries
 - Pose format
-- bhelpers.py, mannequin.py, checks.py, wall_gaps.py, sheets.py
+- bhelpers.py, mannequin.py, checks.py, wall_gaps.py, ifc_walls.py, sheets.py
 - Command-line scripts
 
 ## Conventions
@@ -129,15 +129,26 @@ Plain Python (no Blender). Rects are `(x0, x1, y0, y1)`, `(x0, x1, y0, y1, z0, z
 - `wall_gaps(rects, unit=1.0, gap=0.3, touch=0.001)`: Hits (i, j, kind, length_m) between rects i < j that almost meet: kind "gap" (apart by up to gap) or "corner" (touching, with the junction left unfilled). A third rect that fills the space clears the hit.
 - `wall_openings(rects, unit=1.0, gap=0.3, opening=2.5, touch=0.001)`: Door-sized openings (i, j, width_m, (x0, x1, y0, y1)) between in-line rects i < j; the box is in metres.
 
+## ifc_walls.py
+
+`write_walls_ifc` and `check_drawing` need ifcopenshell and numpy. `drawing_walls` runs in plain Python. Wall records are `load_plan` wall dicts or `(x0, x1, y0, y1)` tuples; a dict may add `kind`, `z0`, `z1`, and `ifc_class` (default "IfcWall").
+
+- `write_walls_ifc(walls, path, z0, z1, unit=1.0, prefix='wall_', storey='Level 1', tol=0.003)`: Write the wall records to an IFC4 file in metres; record k becomes an element named prefix + k. unit is metres per record unit. A kind of "new" or "existing" sets Status. The file is read back, and ValueError names the elements more than tol metres off. Returns {name: GlobalId}.
+- `drawing_walls(svg)`: Read the cut outlines of a Bonsai plan drawing. Returns (cut_z, groups): cut_z in metres, and groups a list of (ids, (x0, x1, y0, y1)) in metres, sorted by ids. ValueError for other than one drawing group, or a path command other than absolute M, L, Z.
+- `check_drawing(svg, ifc_path, tol=0.003)`: Compare the drawing's cut outlines with the IFC. Returns a sorted list, [] when they match: ("missing", name, None), ("extra", GlobalId, None), or ("off", names, d) with d in metres.
+
 ## sheets.py
 
 - `FONTS` = `('/System/Library/Fonts/Supplemental/Arial.ttf', '/System/Li`
-- `PAGE` = `(3300, 2340)`
-- `S` = `PAGE[0] / 420`
+- `DPI` = `200`
+- `PAPERS` = landscape sizes in mm: letter, tabloid, arch-c, arch-d, a4, a3
+- `PAGE` = `(3400, 2200)` (Tabloid; `set_paper` changes it)
+- `S` = `PAGE[0] / 431.8` (px per mm; `set_paper` changes it)
+- `set_paper(name)`: Set the sheet size by name from PAPERS (case-insensitive); returns PAGE. Call before creating a Sheet.
 - `font(size, bold=False)`: Cached font: Arial (Arial Bold when bold), then Helvetica, then the Pillow default; never raises.
 - `fmt(v, decimal=',')`: Number to a string with one decimal and no trailing zero decimal; decimal is the separator.
 - `check_rounding(values, step)`: Values that are not multiples of step (relative tolerance 1e-9). Sheet generators assert this is empty.
-- `Sheet(title, subtitle, page_no, total, footer, page_label='Sheet {} of {}')`; methods: text, paragraph, save: A3 sheet with title, subtitle, page number and footer. Labels are parameters so any language works.
+- `Sheet(title, subtitle, page_no, total, footer, page_label='Sheet {} of {}')`; methods: text, paragraph, save: Sheet of the current paper size (PAGE) with title, subtitle, page number and footer. Labels are parameters so any language works.
 - `Draw(sh, ox, oy, scale)`; methods: P, rect, line, text, hdim, vdim: A scaled drawing on a Sheet: origin at sheet pixel (ox, oy), coordinates in mm, y up. scale 20 = 1:20.
 - `save_pdf(images, path, resolution=200)`: Join page images, PIL images or PNG file paths, into one multi-page PDF.
 - `items_from_pieces(path, unit=1.0)`: Pieces from an export_pieces JSON as pack() items dict(id, w, h) in metres; unit is metres per project unit.

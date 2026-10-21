@@ -217,6 +217,265 @@ Architect review (opus, read-only) and code review (opus; suite 41/41 on an expo
 - F4 resolved 2026-10-19: the user enabled Bonsai in their Blender preferences themselves, and it stays enabled.
 - DWG decided 2026-10-19 by the user: DXF is enough; DWG is out of scope for now. Rejected for now: a DWG route through the ODA File Converter or LibreDWG. The DXF extensions in the doc (`cad2cube`, `export_autocad_dxf_format_dxf`) were picked from the extension listing and are untested.
 
+## Revision 5b (2026-10-21, remaining items)
+
+Source: "Revision 5 review findings" above (F1, F2, F11, F13 to F16, the DXF line), skill `docs/ISSUES.md` Planned, `../inputs/2026-10-19-wall-records.md`. Investigated against this repo at `ad71f03` and Blender 5.2.0 LTS (build hash `fbe6228777e7`, 2026-07-14), with scratch probes outside the repo. Nothing was installed. One probe changed shared extension state; see Verified, wheels, and question C2.
+
+Upstream versions read (extensions.blender.org API v1 index, fetched 2026-10-21; archives read, never run):
+
+| Extension | Version | Archive bytes | Licence | Blender min | Archive sha256 (first 12) | Source |
+|---|---|---|---|---|---|---|
+| `bonsai` (installed) | 0.9.0-post1 | 140,915,735 | GPL-3.0-or-later | 5.1.0 | `5ee3033932f5` | IfcOpenShell |
+| `sun_position` (installed) | 4.4.0 | 26,592 | GPL-3.0-or-later | 4.2.0 | `b8a83c2ff04f` | maintainer pioverfour |
+| `point_cloud_io` (installed) | 0.6.0 | 6,458,674 | GPL-3.0-or-later | 5.1.0 | `262fbc68732f` | StudioMedio |
+| `cad2cube` | 1.5.1 | 2,590,116 | GPL-3.0-or-later | 4.2.0 | `b2f2cb3105da` | github.com/lylongfts/CAD2CUBE |
+| `export_autocad_dxf_format_dxf` | 2.2.4 | 33,206 | GPL-2.0-or-later | 4.2.0 | `eb49707876bc` | projects.blender.org/extensions/io_export_dxf |
+| `import_autocad_dxf_format_dxf` | 0.9.10 | 57,092 | GPL-2.0-or-later | 4.2.0 | `bc82f6498e92` | projects.blender.org/extensions/io_import_dxf |
+
+Libraries: IfcOpenShell 0.9.0.post1 (Bonsai wheel, and uvx from the local cache with numpy 2.4.6); ezdxf 1.4.4 (Bonsai wheel) and 1.4.5 (uvx cache); laspy 2.7.0 (Point Cloud I/O wheel).
+
+### Verified (2026-10-21)
+
+DXF:
+- Blender 5.2 has no DXF route of its own. A `--factory-startup` run lists no `bpy.ops` name containing `dxf` or `dwg`. Its bundled add-ons are `io_anim_bvh`, `io_scene_fbx`, `io_scene_gltf2`, `io_curve_svg`, `io_mesh_uv_layout`, and non-IO add-ons. The two DXF add-ons left the bundle after 4.1 (both extension pages say so).
+- The listing has three DXF add-ons, not two: `cad2cube`, `import_autocad_dxf_format_dxf` (the former bundled importer), and `export_autocad_dxf_format_dxf` (the former bundled exporter). The doc names only the first and the third.
+- `cad2cube` 1.5.1 (source read): operator `import_scene.cad2cube_dxf`. It reads DXF through ezdxf 1.4.4, bundled as a wheel with pyparsing 3.3.2 and fonttools 4.63.0. Defaults that matter for this skill: `recenter_mode="BBOX"` moves the drawing off the CAD origin; `units_mode="AUTO"` reads `$INSUNITS`, and a unitless file falls back to millimetres (scale 0.001). Bug: `$INSUNITS` 21 (US survey feet) maps to 0.9144, a yard (`core/reader.py`, `_INSUNITS_TO_METERS`). DWG support was removed in 1.5.0. One maintainer, three reviews, first published 2026-06-28. No network, subprocess, or exec calls in its own code.
+- `export_autocad_dxf_format_dxf` 2.2.4 (source read): operator `export.dxf`. It writes DXF R12 (`AC1009`), meshes as `3DFACE` by default, and only selected objects by default (`onlySelected=True`); one review reports "0 objects exported". R12 has no `$INSUNITS`, so the file carries Blender metres with no unit. It is a 3D mesh export, not a drawing.
+- `import_autocad_dxf_format_dxf` 0.9.10: operator `import_scene.dxf`, based on dxfgrabber; the page says "offered as it is, with limited support". One review reports a `faces.new` error on a CadMapper file.
+- Wheels shared by extensions: Blender keeps the newest version of each wheel name across all enabled extensions (`_bpy_internal/extensions/wheel_manager.py`, `wheel_list_deduplicate_as_skip_set`). Installing `cad2cube` would not downgrade Bonsai's fonttools 4.67.0 or pyparsing 3.3.3; both ship ezdxf 1.4.4.
+- ezdxf without any DXF extension: in a Blender run whose wheels include Bonsai's, and through `uvx --with ezdxf python -I`, a probe wrote an R2010 DXF in feet ($INSUNITS 2) with two layers of closed wall outlines, a TEXT, and a rendered linear DIMENSION. Reading it back gave every entity on its layer and each outline's extents exactly.
+
+Extension wheels (from the probes, and `addon_utils.py` in the app bundle):
+- Blender keeps extension wheels in one shared folder, `extensions/.local/lib/python3.13/site-packages`, on `sys.path` in every run.
+- When a run enables a set of extensions that differs from the last run's set, Blender syncs that folder to the new set (`addon_utils.py`, `_initialize_extensions_compat_ensure_up_to_date` and the wheel sync after it). A run that enables nothing skips the sync.
+- Observed: a probe that enabled only `sun_position` (with `default_set=True`, `--factory-startup`) emptied the folder at 01:20. Before it, `ifcopenshell`, `ezdxf`, `laspy`, and `shapely` imported in a run that enabled nothing, from wheels left by the 01:12 suite run. After it, none of them imported. The wheels themselves stay in each extension's `wheels/` folder, so the next run that enables Bonsai or Point Cloud I/O extracts them again.
+- Consequences: `import ifcopenshell` works without enabling Bonsai only by accident of the last sync, so the doc's rule stays right. Two Blender runs that enable different sets at the same time can remove each other's packages mid-run. Switching sets re-extracts Bonsai's 92 wheels (136 MB on disk) each time.
+
+IFC from wall records (prototype `ifc_walls.py`, plain Python through uvx, outside the repo):
+- Six records in feet with `unit=0.3048`: dicts with `kind`, a bare tuple, walls along x and along y, and a column with its own `z0`, `z1`, and `ifc_class`. Every element read back with `use-world-coords` matched its record's box exactly (worst 0.0 m). `ifcopenshell.validate` reported nothing. Run time 0.26 s.
+- `ifcopenshell.api.run("pset.add_pset", ...)` and `run("pset.edit_pset", ...)` set `Status` to `NEW` or `EXISTING`. The IFC4 templates for `Pset_WallCommon`, `Pset_ColumnCommon`, and `Pset_BeamCommon` each have `Status`, with values NEW, EXISTING, DEMOLISH, TEMPORARY, OTHER, NOTKNOWN, UNSET.
+- `ifcopenshell.api.project` and the other submodules are not attributes of `ifcopenshell.api` until imported; `ifcopenshell.api.run("module.function", ...)` works with no extra import and gives no DeprecationWarning in 0.9.0.post1.
+- With a y-running rect placed at (x1, y0) and rotated 90 degrees counter-clockwise, the thickness runs west to x0. The records need no corner or centreline rule, because they are already the boxes the scene builds.
+
+Bonsai plan SVG (the suite's own `tests/out/drawings/LEVEL 1 PLAN.svg` from 01:12, two walls):
+- One `<g>` carries `ifc:plane` (cut plane; its z is 1.6 m) and `ifc:matrix3` (`[[10,0,250],[0,10,250],[0,0,1]]` at 1:100). Each cut element is a `<g class="IfcWall <GlobalId> cut material-null">` holding one path of absolute `M`, `L`, and `Z` commands.
+- Model metres from SVG millimetres: x = (x_svg - 250) / 10, y = (250 - y_svg) / 10. The y axis is flipped, unlike what `matrix3` alone suggests. Both walls of T13b came back exact to 5e-7 m: `ew` 0 to 10 by 0 to 0.5 ft, `ns` 19.5 to 20 by 0 to 10 ft.
+
+Sun Position 4.4.0 (source read; probe with only `sun_position` enabled per run):
+- `north_offset` is a FloatProperty with unit ROTATION, so it is in radians. The extension adds it to the azimuth (`sun_calc.py`, `azimuth += sun_props.north_offset`). The sun object gets `(elevation - pi/2, 0, -azimuth)`.
+- `sun_elevation` and `sun_azimuth` are read-only radians. `sun_azimuth` returns the true azimuth (it subtracts `north_offset`). They update on every property set, with or without `sun_object`.
+- Mapping to `bhelpers.sun(elevation_deg, azimuth_deg, plan_north_deg)`: `north_offset = -math.radians(plan_north_deg)`. For plan north 0, 30, and -75 degrees at 09:00, 12:00, and 15:30, the light direction of `bh.sun(degrees(sun_elevation), degrees(sun_azimuth), plan_north_deg=N)` matched the Sun Position object's to 0.00000 degrees.
+- Solar noon at 37.77 N, 122.42 W, UTC -8, 2026-06-21, searched minute by minute: 12:12, elevation 75.667 degrees, azimuth 180.39 degrees. Independent checks: 90 - 37.77 + 23.44 = 75.67 degrees; the NOAA noon formula gives about 12:11.5 (computed by hand, not run). Without refraction the elevation is 75.663.
+- `UTC_zone` is the standard-time offset; `use_daylight_savings` subtracts one more hour (`move_sun`).
+
+Not verified: a Point Cloud I/O import (probing it would have synced the wheels again); a real architect's DXF; any DXF extension at run time; the Bonsai drawing for more than two walls or with a column.
+
+### Simplify before building (architect, 2026-10-21)
+
+Each kept part traces to a finding or decision; each deleted part, with the reason:
+- Deleted (question A1): both DXF extension rows. No project exchanges DXF (render project B has only PDFs), and neither extension feeds the skill's pipeline. `cad2cube` brings DXF linework into Blender as curves, not wall records. The exporter writes 3D faces in unitless metres, not a drawing. ezdxf, already present, reads and writes DXF with layers and units (verified). The 2026-10-19 decision ("DXF is enough") sets scope; it does not name an extension.
+- Deleted: merging collinear wall pieces. The input accepts one IfcWall per piece, and project B's trial wrote 36.
+- Deleted: the hand recipe's placement rules in `reference/extensions.md` (rotation, east face, centreline, corner rule, feet-to-metres division, the compare step). R33 does them and checks itself.
+- Deleted: the `ifcopenshell.api` half of F15 as a doc test. Once the recipe goes, the doc names no API calls; T24 instead checks that every `run("...")` name in `scripts/ifc_walls.py` resolves in the installed IfcOpenShell.
+- Deleted: a solar-position calculator in `bhelpers` and a `bhelpers` wrapper around Sun Position. Sun Position gives the angles; three documented lines pass them to `sun()`. `bhelpers` stays free of extension imports.
+- Deleted: a discovery eval through the harness before install. The harness reads the installed description, so it cannot see the draft. E7 ranks descriptions instead; the real discovery eval runs after install, as `AGENTS.md` Releases already requires.
+- Deleted: re-running Revision 5 evals 1 and 2 as written. The rules they tested are replaced by R33; E3 tests the new route.
+- Kept: `Status` from `kind` (question B1). It is two API calls, and existing versus new is what an architect reads first in a remodel model.
+- Kept: the drawing check as code (`check_drawing`), not as a review by eye (F14).
+- Added from a verified finding: one extension set for every run that enables any (D16). Without it, parallel runs can lose packages, and each switch re-extracts 136 MB.
+
+### Code (implementer)
+
+Keep out: the implementer does not edit `tests/`; the test author does not edit `scripts/`, `templates/`, or `reference/`.
+
+- R33 `scripts/ifc_walls.py` (new). The module imports only `json`, `re`, and `xml.etree.ElementTree` at the top. `ifcopenshell` and `numpy` are imported inside the functions that need them, so `drawing_walls` runs in plain Python. It runs in Blender in a run that enables Bonsai, or through `uvx --with ifcopenshell --with numpy python -I`.
+  - `write_walls_ifc(walls, path, z0, z1, unit=1.0, prefix="wall_", storey="Level 1", tol=0.003)`:
+    - `walls` items are the wall records of `load_plan`, `fix_walls`, `extra_walls`, and `cut_openings`: dicts with `x0`, `x1`, `y0`, `y1`, and optional `kind`, `z0`, `z1`, `ifc_class` (default `"IfcWall"`); or tuples `(x0, x1, y0, y1)`. Normalise so lows come first. A record's own `z0`, `z1` override the arguments.
+    - `unit` is metres per record unit and applies to every length. Pass `bh.U` from a scene script.
+    - Write IFC4 through `ifcopenshell.api.run`: project; metre units by `run("unit.assign_unit", f, units=[run("unit.add_si_unit", f, unit_type="LENGTHUNIT")])` (with no `units`, `assign_unit` writes millimetres); Model and Body contexts, `IfcSite`, `IfcBuilding`, and one `IfcBuildingStorey` named `storey`.
+    - Per record k: one element of its `ifc_class`, named `f"{prefix}{k}"` (the name `walls_from_plan` gives the box). The record runs along x when its x length is at least its y length. Along x: placement at (x0, y0, z0), length x1 - x0, thickness y1 - y0. Along y: placement at (x1, y0, z0), rotated 90 degrees counter-clockwise, length y1 - y0, thickness x1 - x0. Height z1 - z0.
+    - When `kind` is `"new"` or `"existing"`, add `Pset_<class without Ifc>Common` with `Status` `NEW` or `EXISTING`. Other kinds get no pset.
+    - Write the file, open it again, and take each element's world box with `use-world-coords`. Raise `ValueError` naming up to five elements when any box differs from its record by more than `tol` metres. Return `{name: GlobalId}` in record order.
+  - `drawing_walls(svg)` (amended after the tests, see "Revision after the tests"): read the Bonsai drawing SVG.
+    - Raise `ValueError` unless exactly one `<g>` has `ifc:matrix3`. Its `ifc:plane` gives the cut height: row 3, column 4.
+    - A cut group is a `<g>` inside that group whose class list has the word `cut`. Its GlobalIds are every class word of 22 characters from `0-9A-Za-z_$`, plus its `ifc:guid` attribute when present. Bonsai puts the GlobalIds of merged walls in the class and gives an element it does not merge (a column) an `ifc:guid` attribute.
+    - Read every point of every path in the group, outer rings and holes alike. Raise `ValueError` on any letter other than `M`, `L`, `Z`, or an exponent `e` or `E`; lowercase (relative) commands are refused too.
+    - Map with x = (x_svg - tx) / sx and y = (ty - y_svg) / sy from `matrix3`.
+    - Return `(cut_z, groups)`: cut_z in metres, and `groups` a list of `(ids, (x0, x1, y0, y1))`, where ids is the sorted tuple of the group's GlobalIds and the box bounds every point of the group, in metres. The list is sorted by ids. A group with no GlobalId or no point is left out.
+  - `check_drawing(svg, ifc_path, tol=0.003)`: compare the drawing with the IFC, cut group by cut group.
+    - The elements to find are the `IfcElement`s with a body whose world z range contains the cut height. Each one's footprint is its world plan box.
+    - Report `("missing", name, None)` for each such element whose GlobalId is in no cut group.
+    - Report `("extra", GlobalId, None)` for each GlobalId in a cut group that is not such an element: an element no longer in the IFC, or a stale drawing.
+    - For each cut group, take the box that bounds the footprints of its known elements. Report `("off", names, d)` when any side of the group's box differs from it by d > `tol` metres. `names` joins the elements' names, sorted, with `+`.
+    - Return the items sorted by kind, then name. `[]` means every cut element is drawn, nothing else is, and every outline's extent matches.
+    - Not caught: a piece moved inside the box of its merged outline. The read-back in `write_walls_ifc` covers each element's own geometry, and each write gives new GlobalIds, so a drawing older than the IFC reports every element as missing and extra.
+- No change to `bhelpers.py` or the template. The Sun Position mapping is documentation (D15), verified by T23.
+
+### Docs (development session)
+
+Draft text follows the instruction-writing rules; adjust wording only.
+
+- D13 `reference/extensions.md`, "Write an IFC", replacing the numbered recipe and the rules under it:
+  ```
+  Write the IFC from the scene script's own wall list, after the correction passes. Never retype the coordinates.
+
+  from ifc_walls import write_walls_ifc
+  ids = write_walls_ifc(walls, "out/walls.ifc", 0.0, CEIL, unit=bh.U)
+
+  - Run it in a Blender run that enables the extensions, or through `uvx --with ifcopenshell --with numpy python -I`.
+  - Pass the same `walls` list that `walls_from_plan` gets. The IFC names match the scene's box names.
+  - Give each record a `kind` of `new` or `existing`. The IFC then carries it as the element's status.
+  - For a post or a beam, add a record with its own `z0`, `z1`, and `ifc_class`, such as `IfcColumn`.
+  - `write_walls_ifc` reads the file back and raises an error when an element differs from its record by over 3 mm.
+  - For other elements, read `scripts/ifc_walls.py` as the recipe.
+  ```
+- D14 `reference/extensions.md`, "Generate a drawing headless", added after the snippet's bullets:
+  ```
+  - After you create the drawing, run `check_drawing(svg, ifc)` from `ifc_walls`. It must return `[]`.
+  - A `missing` item names an element that the drawing does not show. Check the cut height and the storey.
+  - An `extra` item names an outline with no element in the IFC. Generate the drawing again from the current IFC.
+  - An `off` item names the walls of one outline whose extent is more than 3 mm off.
+  - Bonsai joins touching walls of one class, material, and status into one outline. The check compares each joined outline as a whole.
+  - Review the image only for appearance. The check covers the geometry.
+  ```
+- D15 `reference/extensions.md`, "Sun Position", replacing its bullets:
+  ```
+  - Use Sun Position to get the sun's angles for the site, date, and time. Then build the sun with `sun()`.
+
+  p = bpy.context.scene.sun_pos_properties
+  p.latitude, p.longitude, p.UTC_zone = 37.77, -122.42, -8
+  p.use_daylight_savings = True
+  p.year, p.month, p.day, p.time = 2026, 6, 21, 15.5
+  sun(math.degrees(p.sun_elevation), math.degrees(p.sun_azimuth), plan_north_deg=PLAN_NORTH)
+
+  - The fields are `latitude`, `longitude`, `UTC_zone`, `use_daylight_savings`, `year`, `month`, `day`, `time`, `north_offset`, and `sun_object`.
+  - Set `UTC_zone` to the site's standard-time offset.
+  - If the date falls in daylight saving time, set `use_daylight_savings`.
+  - `sun_elevation` and `sun_azimuth` are in radians. Convert them to degrees for `sun()`.
+  - If you let Sun Position turn a sun object instead, set `north_offset` to `-math.radians(PLAN_NORTH)`. It is in radians.
+  - Keep one fixed date and time for every render in a project. Record the angles in the dimensions file.
+  ```
+- D16 `reference/extensions.md`, "Install and enable": the enable command enables all three, and two bullets are added.
+  ```
+  "$BLENDER" --factory-startup -b --python-exit-code 1 \
+    --python-expr "import addon_utils; assert all(addon_utils.enable('bl_ext.blender_org.' + x, default_set=True) for x in ('bonsai', 'sun_position', 'point_cloud_io'))" \
+    -P script.py -- args
+
+  - Enable the same three extensions in every run that enables any. Blender re-syncs their shared packages whenever the set changes.
+  - Do not run two Blender runs that enable extensions at the same time. A re-sync can remove the other run's packages.
+  ```
+  The bullet "A per-run enable does not change the saved preferences" stays.
+- D17 `reference/extensions.md`: delete the DXF section, and delete its row from the SKILL.md Extensions table (A1, 2026-10-21).
+- D18 `reference/extensions.md`, "Point Cloud I/O": replace "Not yet verified: a full import of a project scan" with what T29 finds: where the importer records the offset when `center_on_origin` is on, and whether points at UTM coordinates keep millimetre precision when it is off. Draft only after T29 runs.
+- D19 SKILL.md:
+  - Frontmatter description, one line, no `: ` inside (534 characters, against 502 now): `Builds architectural and remodel renders in Blender from a Python scene script, run headless with Cycles. Covers project setup, plan input from PDFs or measurements, perspective and cut plan views, option studies, a posable scale figure, render checks, construction sheets, the site sun by date and time, LiDAR scans against the model, and IFC walls and plan drawings for an architect. Use when creating or changing a Blender render, scene script, plan view, study page, construction sheet, or IFC file for a room, house, or remodel.`
+  - Scripts table row: `ifc_walls.py | Blender with Bonsai enabled, or uvx with ifcopenshell and numpy | IFC walls from the wall records, read back and checked; a Bonsai plan drawing checked against the IFC`.
+  - Extensions table: drop the `CAD2Cube, Export AutoCAD DXF` row. The Reference line becomes "Extensions (Bonsai and IfcOpenShell, Sun Position, Point Cloud I/O)".
+- D20 `reference/api.md` lines for `write_walls_ifc`, `drawing_walls`, `check_drawing`; CHANGELOG, README (suite size), skill `docs/ISSUES.md`.
+
+### Tests (test author)
+
+All under the suite's timeouts; no sleeps. Each test below fails before the change unless it says otherwise.
+
+- T21 `tests/bl_extensions.py`, T13b rewritten around R33 (fails before: no `ifc_walls` module). Records in feet, `unit=0.3048`, `z0=0`, `z1=9`: `dict(kind="existing", x0=0, x1=24, y0=0, y1=0.5)`, `dict(kind="new", x0=23.5, x1=24, y0=0.5, y1=14)`, `dict(kind="existing", x0=0.5, x1=0, y0=0.5, y1=14)` (reversed x), `dict(kind="new", x0=0, x1=24, y0=14, y1=14.5)`, the tuple `(10, 10.5, 0.5, 6)`, and `dict(kind="new", x0=12, x1=12.5, y0=6, y1=6.5, ifc_class="IfcColumn", z0=0, z1=8)`.
+  - The return has six names `wall_0` to `wall_5`, in order, each with a GlobalId found in the file.
+  - Five `IfcWall` and one `IfcColumn`; each element's world box equals its normalised record times 0.3048 within 1e-6 m; all in storey `Level 1`.
+  - `Status` is `EXISTING`, `NEW`, `EXISTING`, `NEW`, none, `NEW`; the column's is in `Pset_ColumnCommon`.
+  - `tol=-1.0` raises `ValueError` (the read-back path runs).
+- T22 Drawing check, in `bl_extensions.py` T13c (fails before: no `check_drawing`; revised after the tests). Generate the plan drawing from T21's IFC as T13c does now.
+  - `check_drawing(svg, ifc)` returns `[]`.
+  - Grouping, pinned from Bonsai 0.9.0 (it joins by class, material, and status): `drawing_walls(svg)` has one group holding `wall_0` and `wall_2`, one holding `wall_1` and `wall_3`, one holding `wall_4` alone, and one holding `wall_5` (the column) alone. A failure here means Bonsai changed how it joins outlines; read the new SVG before changing the check.
+  - Closed room: `write_walls_ifc` into `out/room/room.ifc` (its own folder, so its drawing does not replace T21's) with five records in feet, all `kind="existing"`, `z0=0`, `z1=9`: south `(0, 12, 0, 0.5)`, north `(0, 12, 9.5, 10)`, west `(0, 0.5, 0.5, 9.5)`, east `(11.5, 12, 0.5, 9.5)`, and a partition `(6, 6.5, 0.5, 5)`. Generate its plan drawing. `drawing_walls` gives the two groups Bonsai 0.9.0 makes: south, west, east, and partition in one, and north alone (Bonsai does not join a ring that would enclose a hole; observed by the test author, 2026-10-21). Together they hold all five ids and span (0, 12, 0, 10) ft within 1e-4 m. `check_drawing` returns `[]`, and with both groups removed it reports five `missing` items.
+  - Moved: copy T21's IFC, move `wall_1` 0.1 m east by its placement, and save. `check_drawing(svg, copy)` returns exactly `[("off", "wall_1+wall_3", d)]` with d within 1e-3 of 0.1.
+  - Missing: copy T21's SVG without `wall_4`'s cut group: the result is `[("missing", "wall_4", None)]`. Copy the room's SVG without its one cut group: the result is five `missing` items, `wall_0` to `wall_4`. The test removes a group whose class or `ifc:guid` holds the GlobalId.
+  - Stale: `check_drawing(room_svg, t21_ifc)` returns six `missing` items and five `extra` items.
+  - Above the cut: T21's IFC with an added wall at z 2.0 to 2.6 m returns `[]`.
+- T23 Sun Position mapping, in `bl_extensions.py` T14. It passes before the doc change, because it tests Blender's behaviour behind D15; flipping the sign of `north_offset` in the test must fail it.
+  - At 37.77, -122.42, `UTC_zone` -8, 2026-06-21, for plan north 0, 30, and -75 degrees and times 9.0, 12.0, and 15.5: the light direction of `bh.sun(degrees(sun_elevation), degrees(sun_azimuth), plan_north_deg=N)` is within 0.01 degrees of the Sun Position object's with `north_offset = -radians(N)`.
+  - Solar noon: with `north_offset` 0, search 11:00 to 13:30 in one-minute steps for the highest elevation. It falls between 12:09 and 12:15, at 75.67 plus or minus 0.1 degrees, with azimuth 180 plus or minus 1 degree.
+  - Daylight time: `time` 15.5 with `use_daylight_savings` on gives the angles of `time` 14.5 with it off, within 1e-9.
+- T24 `tests/test_extensions_doc.py` and `bl_extensions.py`, keep-in-step (F15):
+  - Extension ids: the ids in the doc's `extension install` line, and the ids in its `addon_utils.enable` command, each equal `EXTENSIONS` as sets. Fails before: the current enable command names only `bonsai`.
+  - The doc names no extension id outside `EXTENSIONS` (a `-c extension install` id or a backticked `bl_ext.blender_org.<id>`).
+  - API names: `tests/extensions_names.py` gains `API_NAMES`, read with `ast` from the `run("...")` strings in `scripts/ifc_walls.py`. `bl_extensions.py` T13a imports `ifcopenshell.api.<module>` for each and checks the function exists. Fails before: no `ifc_walls.py`.
+- T25 `tests/test_ifc_walls.py` (plain Python, `python3 -I`; revised after the tests). `drawing_walls` on hand-written SVG strings in the observed format, with `matrix3` `[[10,0,250],[0,10,250],[0,0,1]]` and `ifc:plane` z 1.6 unless stated. Boxes compare within 1e-6 m.
+  - Two separate wall groups (`class="IfcWall <id> cut material-null"`, the T13b paths): cut_z 1.6, and two groups with one id each and the `ew` and `ns` boxes.
+  - The same with scale 20 and offset (100, 300) in `matrix3`: the same boxes.
+  - A merged group, `class="IfcWall <id_a> material-null <id_b> cut"`, holding the L-shaped path `M251.524,207.328 L250.0,207.328 L250.0,250.0 L323.152,250.0 L323.152,248.476 L251.524,248.476 Z`: one group with ids `(id_a, id_b)` sorted, box (0, 7.3152, 0, 4.2672).
+  - A column group, `<g ifc:guid="<id_c>" ifc:name="wall_5" class="IfcColumn material-null cut">`: one group with ids `(id_c,)`.
+  - A closed room as one group whose path has an outer ring and a hole (`M... Z M... Z`): the box is the outer ring's.
+  - A `projection` group (class without `cut`) is left out.
+  - A path with an `A` command raises `ValueError`; a path with a lowercase `l` raises `ValueError`; two drawing groups raise `ValueError`.
+  - The module imports with no `ifcopenshell` installed.
+- T26 `test_api_doc.py` also checks `ifc_walls`; `run_tests.sh` adds `ifc_walls.py` to the required files and `test_ifc_walls.py` to the suite.
+- T27 `tests/test_description.py` (plain Python): SKILL.md's frontmatter has `name:` and a one-line `description:`; the description has no `: `, is at most 1024 characters, and names `IFC`, `LiDAR`, and `sun`. Fails before: no `IFC`.
+- T29 Point cloud, in `bl_extensions.py`: write a synthetic LAS with laspy (a 4 by 3 m room at easting 551234, northing 4181234, height 12 m). Import it with `center_on_origin` on and then off. Print and assert the point count; record where the offset is kept and the worst position error against the source. The pass line is set after the first run and goes into D18.
+- Mutation checks (report each): place y-running walls at x0 instead of x1; drop the y flip in `drawing_walls`; read the cut height from the wrong matrix cell; read GlobalIds from the class only (column) or only the first id of a class (merged group); compare each element's own box instead of the group's; leave out the `unit.add_si_unit` length unit; put every pset on `Pset_WallCommon`; skip the read-back in `write_walls_ifc`. Each must fail at least one of T21, T22, or T25.
+
+### Evals
+
+Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill tool; synthetic data only. Each prompt allows installed extensions per run and forbids installs.
+- E3 (F1, F14, F16): a synthetic `build_flat.py` that loads a walls JSON in feet and applies `WALL_FIXES`, `EXTRA_WALLS`, and `cut_openings`. Prompt: "The architect wants an IFC of the walls in this scene and a plan drawing from it. Make both and confirm they match the model." Pass: `write_walls_ifc` gets the corrected list (no wall coordinate typed by the agent), `unit` is `bh.U` or 0.3048, the run enables all three extensions with the assert, `check_drawing` returns `[]`, and nothing is installed.
+- E4 (F2, F13): "Light the living room render with the sun at 3:30 pm on 21 June, at 37.77 N, 122.42 W. True north is 20 degrees counter-clockwise from the plan's up." Pass: Sun Position enabled per run; daylight time handled (`use_daylight_savings` on with `UTC_zone` -8, or -7); `sun()` gets degrees with `plan_north_deg=20`, or a sun object gets `north_offset = -radians(20)`; the light direction is within 0.5 degrees of the evaluator's reference from T23's setup; the angles are recorded.
+- E5 (F16, after T29): the synthetic LAS of T29 with the east wall 5 cm out, and a scene script of the room. Prompt: "Check the model's walls against this scan. Report any wall more than 2 cm off." Pass: imported with `point_cloud_las`; the centring offset handled as D18 says; the east wall reported at about 5 cm and no other wall.
+- E7 (F11), description ranking before install: a fresh subagent gets the names and descriptions of the installed skills, with the D19 description in place of the current one, and seven prompts. For each it names the skill it would load, or none. Positives: "Turn the walls of my remodel scene into an IFC for the architect"; "Make the kitchen render show the sun at 4 pm on the winter solstice at our address"; "Line up my Scaniverse LiDAR scan of the house with the Blender model and list the walls that are off"; "Render the bathroom remodel from the vanity" (regression). Negatives: "Count the trees in this forest LiDAR scan"; "Compute sunrise times for Boston for a calendar app"; "Validate this IFC file against the client's IDS rules". Pass: four of four positives and none of the negatives.
+- After install (Releases): the discovery eval uses the IFC prompt of E7, in a fresh subagent that is not told the skill's name or path.
+
+### Contradictions with the current doc
+
+- SKILL.md Extensions table and `reference/extensions.md` DXF: `cad2cube` "imports an architect's DXF with layers, units, and blocks" is true of the extension, but nothing in the skill uses its curves, and it recentres the drawing by default. The exporter writes 3D faces in R12 with no unit, which does not serve "to an architect's CAD files". The former bundled importer, `import_autocad_dxf_format_dxf`, is not mentioned.
+- `reference/extensions.md`: "A per-run enable does not change the saved preferences" is true, but every change of the enabled set re-syncs the shared package folder (Verified, wheels). The current per-run command enables Bonsai alone, so a later Sun Position or Point Cloud I/O run removes IfcOpenShell from the folder.
+- `reference/extensions.md`: the `north_offset` field is listed with no unit or sign; it is radians, and its sign is the opposite of `plan_north_deg`.
+- No contradiction found in the Bonsai drawing steps or the per-run enable with `default_set=True`.
+
+### Answers (2026-10-21, the user)
+
+- A1, A2: no DXF route in v1.0.0. The 2026-10-19 "DXF is enough" decision assumed a DXF extension came with Blender; none does, and no project needs DXF. D17 deletes the DXF section and table row; T28 and E6 are dropped; the DXF findings above stay for later.
+- B1: yes, `kind` becomes the wall's NEW or EXISTING status. B2: yes, `scripts/ifc_walls.py`.
+- C1: yes, D16. C2: yes; the `bl_extensions` step ran at 01:34 and restored the shared package folder (`ifcopenshell`, `ezdxf`, `laspy` present).
+- D1: yes, with "DXF," removed under A1 (534 characters).
+
+### Revision after the tests (2026-10-21)
+
+The test author ran Bonsai 0.9.0 on T21's six records (tests at `7af0c10`) and found three errors in R33. The architect confirmed each against the run's files and Bonsai's source, and revised R33, D14, T22, T25, and the mutation list above.
+- Bonsai joins cut outlines. `bonsai/bim/module/drawing/operator.py`, `merge_linework_and_add_metadata`, unions the cut polygons of `IfcWall` and `IfcSlab` elements that share class, material name, and `Pset_*Common.Status`, whenever the union is one polygon. The joined `<g>` lists every GlobalId in its class. In T21's drawing, `wall_0`+`wall_2` (EXISTING) and `wall_1`+`wall_3` (NEW) each became one L-shaped outline; `wall_4` (no status) stayed alone, though it touches `wall_0`. A closed room of one status is one outline with a hole. The per-element box comparison of the first R33 therefore reported correct drawings as wrong.
+- Elements outside the join classes keep an `ifc:guid` attribute and carry no GlobalId in the class (the column).
+- `unit.assign_unit` with no `units` writes millimetres (unit scale 0.001), not metres; verified again through uvx. `reference/extensions.md` line 50 ("The default units are metres") is wrong for the same reason; D13 already removes that recipe.
+
+Simplify, on the revised check: the comparison is per cut group, by extent. Rejected: comparing each outline's polygon with the union of its walls' footprints (symmetric difference by coordinate compression, about 50 lines). It catches only a piece moved inside its own outline's box, which needs a hand edit of the IFC after the drawing: `write_walls_ifc` checks each element on write, and every write gives new GlobalIds, so a stale drawing already shows as `missing` and `extra`. Kept: `missing`, `extra`, and the per-group extent, which catch a wrong cut height or storey, a stale drawing, and a scale, origin, or flip error.
+
+Verified with a prototype of the revised functions (uvx, outside the repo) on the test run's files: T21's IFC and drawing give `[]`; the IFC with `wall_1` moved 0.1 m gives `[("off", "wall_1+wall_3", 0.09999950)]`; the drawing without `wall_4`'s group gives `[("missing", "wall_4", None)]`; the IFC with an element above the cut gives `[]`; T21's drawing against T13b's two-wall IFC gives two `missing` and six `extra` items. The closed room case has not been run; T22 runs it.
+
+### Order of work, and how to continue if interrupted
+
+C2 first, if approved. Then T21 to T27 and T29 by the test author, on branch `rev5b` (they fail as stated). Then R33. Then D13 to D20, with D18 written from T29's output. Then the suite, the mutation checks, and E3 to E7. Then the pre-merge review, merge, and the v1.0.0 release with the discovery eval after install. Each finished item is ticked in skill `docs/ISSUES.md` under the Revision 5 line; a fresh session reads that line, this section, and `git log` on the branch.
+
+### Revision 5b pre-merge review (2026-10-21, opus, at `2009477`)
+
+Suite 54 of 54 with all three extensions. All nine mutants killed (the missing-unit mutant only by T21's unit check, not the read-back). SVG parsing refused a billion-laughs file and an external entity (expat 2.7.4 and 2.7.5). DXF fully removed from shipped files. Verdict: merge after I1; M1 to M3 worth fixing before v1.0.0. Resolutions wait for the user.
+
+- I1 Important. `extensions.md:57` says to pass the scene's `walls` list, and `:60` says to add posts and beams as records in it; `walls_from_plan` ignores `z0`, `z1`, and `ifc_class` (`bhelpers.py:753-755`), so a beam renders as a full-height wall, and a record placed before the walls shifts every `wall_k` name. Proposed: append post and beam records after the wall records, in a list passed only to `write_walls_ifc`, and build them in the scene with `box()`.
+- M1. The GlobalId pattern also matches 22-character class names (`IfcBuildingElementPart`, probe). Proposed: `[0-3][0-9A-Za-z_$]{21}`.
+- M2. `check_drawing` raises `TypeError` for an element with no name (probe). Proposed: `el.Name or el.GlobalId`.
+- M3. A rotated drawing camera gives `ZeroDivisionError` in `drawing_walls` (probe). Proposed: `ValueError` unless the matrix has no rotation.
+- M4. Zero-thickness records write silently; zero length or height raise `RuntimeError`; `kind="New"` gets no Status. Proposed: `ValueError` naming the record for any extent of 0 or less.
+- M5. `check_drawing` expects every `IfcElement` with a body to be cut, so added openings would read as missing. Proposed: a doc line that the check covers what `write_walls_ifc` writes.
+- M6. `extensions.md:125` names the easting for the 0.125 m error; it comes from the northing (float32 spacing 0.25 m there).
+- M7. `extensions.md:124`: adding `las_origin_offset` back holds only at `scale_factor` 1.
+- M8. `extensions.md:3` versions line omits Sun Position 4.4.0 and Point Cloud I/O 0.6.0.
+- M9. `SKILL.md:165` says not to read scripts into context; `extensions.md:62` says to read `ifc_walls.py` as the recipe.
+- M10. If one extension is declined at install, the "all three" assert fails every extension run; the doc gives no way out. Needs a decision.
+- M11. `CHANGELOG.md:11` still describes the old two-wall test; a blank line at `:19` splits the Added list.
+- M12. The Revision 5 items in `docs/ISSUES.md` are not ticked; `README.md:48` omits `ifc_walls.py` from the uvx scripts.
+- Unverified, for information: the storey has no placement or elevation (no Revit or ArchiCAD import tested); drawing scales other than 1:100 are checked only by hand-written SVG.
+
+### Revision 5b eval results (2026-10-21, fresh sonnet subagents, SKILL.md read by path, synthetic data, nothing installed)
+
+- E7 pass: 4 of 4 positives chose this skill; 0 of 3 negatives (forest scan, sunrise app, IDS validation) chose any skill.
+- E4 pass: Sun Position per run, `UTC_zone` -8 with daylight saving on, `sun(..., plan_north_deg=20)`. Elevation 57.21, azimuth 254.12; the light direction is within 0.01 degrees of an independent NOAA-formula reference (57.20, 254.12). A view through an unglazed window failed `camera` until `interior=False`, as the doc says.
+- E3 pass: `write_walls_ifc` got the scene's corrected list (`build()` changed to return it; no coordinate typed), `unit=bh.U`, the three-extension assert, `check_drawing` returned `[]`, and all 10 IFC walls matched the scene boxes. Gap: the doc does not say how a scene script exposes its wall list, or whether an IFC-only run calls `run_checks`.
+- E5 pass: `point_cloud_las` with `center_on_origin` on and `scale_factor` 1, offset read from `las_origin_offset`; walls fitted as planes; the room is 50 mm wider in the scan, and every other surface is within 1 mm. The agent reported that the scan alone cannot say whether the east or the west wall carries the error. Gaps: no method or helper for aligning a scan to the model or choosing an anchor; the bounding-box offset carries the scan noise (about 8 mm here).
+
 ## Revision 6 (2026-10-20, phantom geometry defects; requested by render project B, approved by the user)
 
 Source: `../inputs/2026-10-20-phantom-defects.md`. Decision: skill `docs/ISSUES.md`, Decisions, 2026-10-20. Investigated against this repo at `6cf8009` and Blender 5.2.0 LTS, and against render project B's build script and README (read-only, the two files the user named).

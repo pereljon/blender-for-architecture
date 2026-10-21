@@ -6,7 +6,7 @@ import sys
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 doc = open(os.path.join(ROOT, "reference", "api.md")).read()
 missing = []
-for mod in ("bhelpers", "mannequin", "checks", "sheets", "wall_gaps"):
+for mod in ("bhelpers", "mannequin", "checks", "sheets", "wall_gaps", "ifc_walls"):
     path = os.path.join(ROOT, "scripts", f"{mod}.py")
     if not os.path.exists(path):
         missing.append(f"{mod}.py (file not found)")
