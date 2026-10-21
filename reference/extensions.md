@@ -11,11 +11,11 @@ In the commands below, `$BLENDER` is the full Blender path from SKILL.md Environ
 - After the user agrees, install from the command line: `"$BLENDER" -c extension install bonsai,sun_position,point_cloud_io`.
 - If the install cannot find a package, run `"$BLENDER" -c extension sync` first.
 - Install without `-e`. An enabled extension loads in every Blender session, including the user's own.
-- Enable the extension per run, before the scene script:
+- Enable the extensions per run, before the scene script:
 
 ```
 "$BLENDER" --factory-startup -b --python-exit-code 1 \
-  --python-expr "import addon_utils; assert addon_utils.enable('bl_ext.blender_org.bonsai', default_set=True)" \
+  --python-expr "import addon_utils; assert all(addon_utils.enable('bl_ext.blender_org.' + x, default_set=True) for x in ('bonsai', 'sun_position', 'point_cloud_io'))" \
   -P script.py -- args
 ```
 
@@ -23,6 +23,8 @@ In the commands below, `$BLENDER` is the full Blender path from SKILL.md Environ
 - Pass `default_set=True`. Without it, Bonsai fails with a KeyError when it reads its own preferences.
 - Keep the `assert`. A failed enable only prints an error, and the scene script would run without the extension.
 - A per-run enable does not change the saved preferences. Bonsai still adds each IFC it opens to its recent-projects list.
+- Enable the same three extensions in every run that enables any. Blender re-syncs their shared packages whenever the set changes.
+- Do not run two Blender runs that enable extensions at the same time. A re-sync can remove the other run's packages.
 
 ## Bonsai and IfcOpenShell
 
@@ -44,25 +46,20 @@ IfcOpenShell is the library that reads and writes IFC files. Bonsai is the Blend
 
 ### Write an IFC
 
-Use `ifcopenshell.api.run`, in this order:
+Write the IFC from the scene script's own wall list, after the correction passes. Never retype the coordinates.
 
-1. `project.create_file` with `version="IFC4"`, then `root.create_entity` for the `IfcProject`.
-2. `unit.assign_unit`. The default units are metres.
-3. `context.add_context` for the Model context, then a `Body` subcontext with `target_view="MODEL_VIEW"`.
-4. Create `IfcSite`, `IfcBuilding`, and `IfcBuildingStorey`, and nest them with `aggregate.assign_object`.
-5. For each element: `root.create_entity`, `geometry.add_wall_representation`, `geometry.assign_representation`, `geometry.edit_object_placement`, and `spatial.assign_container`.
+```python
+from ifc_walls import write_walls_ifc
+ids = write_walls_ifc(walls, "out/walls.ifc", 0.0, CEIL, unit=bh.U)
+```
 
-- Convert feet to metres (multiply by 0.3048) before you pass a length.
-- Pass `is_si=True` to `geometry.edit_object_placement`.
-- `add_wall_representation` draws the profile along local +x, with the thickness along local +y.
-- For a wall that runs north-south, rotate the placement 90 degrees counter-clockwise, and place it at the wall's east face. The thickness then runs west from the placement.
-- When a wall is given by its centreline, offset the placement by half its thickness.
-- At a corner, run the east-west walls the full outer length. Run the north-south walls between their inside faces, so no two walls overlap.
-- Use `add_wall_representation` for posts and beams too, as a box.
-- After you write the file, compare each element's world bounding box with the source.
-- Use `ifcopenshell.geom.create_shape` with the `use-world-coords` setting.
-- The shape's vertices are in metres. Divide by 0.3048 before you compare them with feet.
-- Expect no difference over 0.01 ft.
+- Run it in a Blender run that enables the extensions, or through `uvx --with ifcopenshell --with numpy python -I`.
+- Pass the same `walls` list that `walls_from_plan` gets. The IFC names match the scene's box names.
+- Pass `z0` and `z1` in the records' units. `unit` converts them to metres with the other lengths.
+- Give each record a `kind` of `new` or `existing`. The IFC then carries it as the element's status.
+- For a post or a beam, add a record with its own `z0`, `z1`, and `ifc_class`, such as `IfcColumn`.
+- `write_walls_ifc` reads the file back and raises an error when an element differs from its record by over 3 mm.
+- For other elements, read `scripts/ifc_walls.py` as the recipe.
 
 ### Generate a drawing headless
 
@@ -86,16 +83,34 @@ bpy.ops.bim.save_project(filepath=ifc)
 - To review an SVG, rasterise it with PyMuPDF (`pymupdf.open(svg)`).
 - PyMuPDF ignores the SVG's CSS, so line weights and fills do not show.
 - The model origin sits at the sheet centre, so the plan fills only part of the sheet. Crop the raster to the drawn area before you review it.
+- After you create the drawing, run `check_drawing(svg, ifc)` from `ifc_walls`. It must return `[]`.
+- Run `check_drawing` the same way as `write_walls_ifc`.
+- A `missing` item names an element that the drawing does not show. Check the cut height and the storey.
+- An `extra` item names an outline with no element in the IFC. Generate the drawing again from the current IFC.
+- An `off` item names the walls of one outline whose extent is more than 3 mm off.
+- Bonsai joins touching walls of one class, material, and status into one outline. The check compares each joined outline as a whole.
+- Review the image only for appearance. The check covers the geometry.
 
 Not yet verified headless: doors and windows in openings, dimensions and labels, sheets, and rendering an IFC scene with project materials.
 
 ## Sun Position
 
-- Use Sun Position to set the sun from the site, date, and time, instead of a hand-placed sun.
-- Set the values on `scene.sun_pos_properties`.
+- Use Sun Position to get the sun's angles for the site, date, and time. Then build the sun with `sun()`.
+
+```python
+p = bpy.context.scene.sun_pos_properties
+p.latitude, p.longitude, p.UTC_zone = 37.77, -122.42, -8
+p.use_daylight_savings = True
+p.year, p.month, p.day, p.time = 2026, 6, 21, 15.5
+sun(math.degrees(p.sun_elevation), math.degrees(p.sun_azimuth), plan_north_deg=PLAN_NORTH)
+```
+
 - The fields are `latitude`, `longitude`, `UTC_zone`, `use_daylight_savings`, `year`, `month`, `day`, `time`, `north_offset`, and `sun_object`.
-- Keep one fixed date and time for every render in a project.
-- In a background run, the sun object turns as soon as you set the time.
+- Set `UTC_zone` to the site's standard-time offset.
+- If the date falls in daylight saving time, set `use_daylight_savings`.
+- `sun_elevation` and `sun_azimuth` are in radians. Convert them to degrees for `sun()`.
+- If you let Sun Position turn a sun object instead, set `north_offset` to `-math.radians(PLAN_NORTH)`. It is in radians. In a background run, the sun object turns as soon as you set the time.
+- Keep one fixed date and time for every render in a project. Record the angles in the dimensions file.
 
 ## Point Cloud I/O
 
@@ -104,18 +119,11 @@ Not yet verified headless: doors and windows in openings, dimensions and labels,
 - The other importers are `bpy.ops.import_scene.point_cloud_e57`, `bpy.ops.import_scene.point_cloud_ply`, `bpy.ops.import_scene.point_cloud_pcd`, `bpy.ops.import_scene.point_cloud_pts`, and `bpy.ops.import_scene.point_cloud_xyz`.
 - The LAS importer takes `import_colors`, `import_intensity`, `import_classification`, `center_on_origin`, `scale_factor`, and `point_radius`.
 - Phone scans (Scaniverse) come in metres, in UTM coordinates, each with its own heading and height datum.
-- The LAS importer centers each scan on the origin by default (`center_on_origin`). Record each scan's offset, or turn it off, before you align scans with each other.
+- Leave `center_on_origin` on for scans in UTM coordinates. The importer then moves the points to the origin, and the object's `location` stays (0, 0, 0).
+- The importer keeps the offset in the object's custom property `las_origin_offset`, three floats. It is the bounding-box minimum of the points, not the LAS header offset.
+- To get a point's scan coordinates, add `las_origin_offset` to its position. In the test scan, the worst error after adding it back was 1.2e-7 m.
+- With `center_on_origin` off, the points keep their UTM coordinates and Blender stores them as 32-bit floats. They lose millimetre precision. In the test scan, at easting 551234, the worst error was 0.125 m.
+- The scan is a `POINTCLOUD` object. Read its positions from `obj.data.attributes["position"]`.
+- Record each scan's `las_origin_offset` before you align scans with each other.
 - Rotate and offset each scan onto the model before you compare.
 - For flat slices and measured profiles, use laspy outside Blender: `uvx --with laspy --with numpy`.
-
-Not yet verified: a full import of a project scan.
-
-## DXF
-
-DXF extensions are not installed by default. Install one only when a project exchanges DXF.
-
-- To import an architect's DXF with layers, units, and blocks, install `cad2cube`.
-- To export Blender geometry as DXF R12, install `export_autocad_dxf_format_dxf`.
-- To send drawings as DXF, prefer writing them with ezdxf from Python: `uvx --with ezdxf`.
-- ezdxf writes layers, text, and dimensions.
-- An architect may send DWG, DXF, or only a PDF. When only a PDF comes, use the PDF extraction in [plan-input.md](plan-input.md).

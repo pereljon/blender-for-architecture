@@ -14,7 +14,7 @@ State of the blender-architectural-renders skill: open bugs, planned work, next 
 - [ ] Release and install v1.0.0 (skill-developer migration step 5).
 - [x] Revision 6 (resolved 2026-10-21): merged at `aeb257b`; suite 50 of 50 on main. Next: Revision 5, then the v1.0.0 release. Was: before Revision 5's remaining items and before release: catch phantom geometry defects (one check gate run before every render, five new checks, loop rules, default eye height). Source: `dev/inputs/2026-10-20-phantom-defects.md`. Design: contract, "Revision 6", revised after the architecture review (G1 to G13). Branch `rev6-phantom-checks`. Tests at `022f22d`, implementation at `352a14b`. P1 and P2 fixed at `0ce6203`.
 - [ ] After v1.0.0: SKILL.md step 5 of the setup list requires `context/dimensions.md` with no exemption for a quick preview outside a project (Revision 6 eval gap b). Add the exemption.
-- [ ] Revision 5, before release: the remaining items, designed as Revision 5b (contract, "Revision 5b"); branch `rev5b`. Next: tests T21 to T27 and T29, then R33, then docs D13 to D20, then evals E3 to E5 and E7.
+- [ ] Revision 5, before release: the remaining items, designed as Revision 5b (contract, "Revision 5b"); branch `rev5b`. Next: pre-merge review, then evals E3 to E5 and E7, then merge approval.
 - [ ] If a CAD file (DXF or DWG) ever arrives: read it with ezdxf, which comes with Bonsai, and build a wall extractor against that file. Findings: contract, "Revision 5b", Verified.
 - [ ] After v1.0.0: HDRI environment lighting for exterior views and views through windows, from a fixed, reviewed source (for example a Poly Haven CC0 file kept in the project). Idea from reviewing two public Blender skills on 2026-10-21; their code is not reused (one has no licence).
 
