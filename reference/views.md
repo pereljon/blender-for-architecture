@@ -23,7 +23,9 @@ Every plan entry does these steps:
 
 The clip alone is not enough. `clip_start` removes geometry only from camera rays, so a ceiling above the cut still blocks light and casts shadows.
 
-The clip shows each object that crosses the cut as a dark section, because the inside of the object is unlit. Walls then read as poché, the solid fill that a plan drawing gives to cut walls. When an item must read from above, add its prefix to `drop`: a door leaf, a mirror, a fixture, or walls that should render grey.
+The clip shows each object that crosses the cut as a dark section, because the inside of the object is unlit. Walls then read as poché: the solid fill that a plan drawing gives to cut walls.
+
+When an item must read from above, add its prefix to `drop`. Items that need this include a door leaf, a mirror, a fixture, and walls that should render grey.
 
 | Entry key | Does | Use when |
 |---|---|---|

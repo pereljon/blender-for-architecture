@@ -14,7 +14,7 @@ To study one element at several sites, model it around the origin in a function.
 ## Study pages
 
 ```
-uvx --with pillow python -I blender/lib/<LIB>/compose.py scratch/kitchen.jpg \
+uvx --with pillow python -I blender/lib/<LIB>/compose.py scratch/vanity.jpg \
   --title="Vanity options" --width=2400 \
   "#Front view" "A=scratch/v_a.png" "B=scratch/v_b.png" "|" \
   "#Plan" "A=scratch/p_a.png" "B=scratch/p_b.png" "C=-"

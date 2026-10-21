@@ -34,7 +34,7 @@ BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P script.p
 
 ## Project setup
 
-1. Choose the Blender folder: `blender/` in a new project, or the folder where the project already keeps its scene scripts, such as `renders/`. Paths in this skill write it as `blender/`.
+1. Choose the Blender folder. Use `blender/` in a new project. Use the folder where the project already keeps its scene scripts, such as `renders/`, in an existing project. Paths in this skill write it as `blender/`.
 2. Read the installed version from the skill folder, `${CLAUDE_SKILL_DIR}`: the first `## [X.Y.Z]` heading in `CHANGELOG.md`. If that file is missing, use the `tag:` line of `.installed`. If both are missing, use the `LIB` value in `templates/scene_template.py`.
 3. Copy `${CLAUDE_SKILL_DIR}/scripts/*.py` and `*.json` into `blender/lib/vX.Y.Z/`. Never edit a version folder after you copy it.
 4. Copy `templates/scene_template.py` to `blender/build_<scene>.py`. Its `LIB` already names the installed version.
@@ -60,9 +60,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib
 
 Before you edit or run a project script, compare its `LIB` with the installed version (Project setup, step 2). Do this once per script in a session.
 - If they match, go on.
-- If the pin is older, warn in one line. List the CHANGELOG entries since the pin, and offer an upgrade by [reference/migration.md](reference/migration.md). If the user declines, run the script unchanged.
+- If the pin is older, show the user a warning before you run the script. The warning is one line, followed by a short list of the headline CHANGELOG items since the pin.
+- After the warning, offer an upgrade by [reference/migration.md](reference/migration.md). If the user declines, run the script unchanged.
 - If the `LIB` line carries a `# held:` comment, do not warn.
 - On an older pin, a function can differ from this skill's text. If the CHANGELOG lists it as changed or added after the pin, read its `def` in `blender/lib/<LIB>/` first. For a script with no `LIB`, read the flat `blender/lib/`.
+- When a script stays on an older pin, use that version's equivalent for a missing feature. For example, use `EYE_HEIGHT / U` in place of `eye_height()`.
 - If the pin is newer than the installed version, warn and suggest updating the skill. Never move a pin to an older version.
 - If no source in step 2 gives a version, say that the installed version is unknown. Change no pin.
 
@@ -83,7 +85,7 @@ To move a project's own helpers onto the lib, follow [reference/migration.md](re
 - Model a floor as one slab, and cut openings with `cut_holes`. A floor pieced from rectangles leaves gaps at thresholds.
 - Use one fixed sun time for every render in a project, so options compare fairly. Record its angles in the dimensions file.
 - Before you read `matrix_world` or any world position, call `bpy.context.view_layer.update()`. Until then, positions are stale.
-- Exempt a check hit only as the Exemptions part of Checks says.
+- Exempt a check hit (a check result that reports a defect) only as the Exemptions part of Checks says.
 - Build each stair step as one box from its riser to the next riser, butted to its neighbours.
 - Set an emissive strip into its recess, so that only its front face shows.
 - After a floor or wall level changes, look at every threshold and wall base in a preview.
@@ -96,7 +98,7 @@ Copy this checklist into the response and track it:
 ```
 - [ ] 1. Check the dimensions file and the decisions log; edit constants or geometry in the scene script
 - [ ] 2. Preview at --res 800 --samples 48 --gpu into scratch/; the checks run first
-- [ ] 3. Fix every check hit (a check result that reports a defect), then read the preview image
+- [ ] 3. Fix every check hit, then read the preview image
 - [ ] 4. Check the preview against the QA list below
 - [ ] 5. Studies: render each option, compose one labeled page per question
 - [ ] 6. Final: --res 1600..2400 --samples 128..256, in the background, into out/
@@ -143,7 +145,7 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 | Line | Meaning |
 |---|---|
 | `NOTE wall_gaps: not axis-aligned, not checked: ...` | Walls rotated off the axes are not checked. Check those walls in the preview. |
-| `NOTE camera: exterior view, escapes not checked` | No object is above the camera, so sky is not reported. Set `interior=True` to check it. |
+| `NOTE camera: exterior view, escapes not checked` | No object is above the camera, so sky is not reported. A scene with no ceiling reads as exterior. Setup says how to set `interior`. |
 | `WARN exempt <check>: no object named X` | An exemption names no object, so it does nothing. Correct the name. |
 | `WARN floors: no rendered mesh named X` or `no object named X` | The floor is hidden from render, is not a mesh, or does not exist. `floor_fit` leaves it out. |
 | `SKIP <check>: ...` | The check did not run. Reasons: `no floors given`, `none of the floors exists`, `no paths given`, `no scene camera`, `scene camera is not a camera object`, or an orthographic or panoramic camera. |
@@ -175,6 +177,7 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 - Add a walking box to `paths` for each stair tread and landing.
 - Write each walking box as `(x0, x1, y0, y1, z)`, with z at the tread top.
 - Draw each walking box between the handrails, from its nosing to the next nosing.
+- To check for sky in a scene with no ceiling, pass `interior=True` in the `run_checks` call, or set it in the view's entry.
 - If a view looks out through an opening without glass, set `interior=False` in its entry.
 - In a script without a VIEWS table, leave out `interior` unless the view looks out through an opening without glass. The default detects an interior view from an object above the camera.
 

@@ -1,6 +1,6 @@
 """Starting scene for a scripted render: a 3 x 4 m room with a door opening, a counter and one study option.
 
-Copy this file into the project's render folder and copy the skill's scripts/ into lib/<LIB>/ beside it. Run:
+Copy this file into the Blender folder and copy the skill's scripts/ into lib/<LIB>/ beside it. Run:
   BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P scene.py -- \
       --view persp --res 800 --samples 48 --gpu --out out/persp.png
 Prints DONE <path> when the render is written. Views: persp, plan. Iterate at 800 px / 48 samples.
