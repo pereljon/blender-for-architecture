@@ -358,12 +358,13 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), fi
     """Pairs (name, d) of mesh objects that float above or sink into the floor under their centre.
 
     floors holds exact object names. d is the base height above the floor in metres: positive is floating
-    (more than tol, with nothing holding the object up), negative is sunk (more than tol); None is sunk more than
-    hang. An object at hang or higher is hung (lights, upper cabinets) and passes, and so does one supported by
-    contact, through a chain that starts at a floor, or at a wall or finish when its base is at least 0.1 m up
-    (see SKILL.md, Checks, Limits). An object that hangs from the underside of a floor above it is measured against
-    the floor below, and one that pierces that floor is sunk. Objects named with walls prefixes are reported only
-    when floating. finishes holds prefixes of wall finish objects, such as tile pieces; here they count as walls.
+    (more than tol, with nothing holding the object up), negative is sunk (more than tol); None is buried in the
+    floor, at a depth not measured. An object at hang or higher is hung (lights, upper cabinets) and passes, and so
+    does one supported by contact, through a chain that starts at a floor, or at a wall or finish when its base is at
+    least 0.1 m up (see SKILL.md, Checks, Limits). An object that hangs from the underside of a floor above it is
+    measured against the floor below, and one that pierces that floor is sunk. Objects named with walls prefixes are
+    reported only when floating. finishes holds prefixes of wall finish objects, such as tile pieces; here they count
+    as walls.
     figure holds exact names of the scale figure's objects: they are never reported and never hold anything up,
     whereas a skip object is not reported but still holds up what touches it. Sorted by name.
     """
@@ -643,7 +644,7 @@ def _line(check, h):
         return f"{h[0]} {h[1]} {h[2]} {h[3]:.3f} m"
     if check == "floor_fit":
         if h[1] is None:
-            return f"{h[0]} sunk more than {_HANG:.3f} m"
+            return f"{h[0]} buried in the floor"
         return f"{h[0]} floating {h[1]:.3f} m" if h[1] > 0 else f"{h[0]} sunk {-h[1]:.3f} m"
     if check == "camera":
         kind, name, n, (x0, y0, x1, y1) = h
