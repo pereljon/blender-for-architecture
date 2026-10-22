@@ -10,6 +10,8 @@ State of the blender-for-architecture skill: open bugs, planned work, next steps
 
 ## Planned
 
+- [x] v1.1.1 released (resolved 2026-10-21): tag `v1.1.1` at `fbf2e63`, GitHub release, installed, drift check `ok v1.1.1`; suite 72 of 72 on the tag; eval E12 pass; pre-merge review (opus, high) and fix-round review found no open Critical or Important; discovery eval in a fresh headless session loaded the skill unprompted and pinned `lib/v1.1.1`.
+
 - [x] v1.1.0 released (resolved 2026-10-21): tag `v1.1.0` at `41b4026`, GitHub release, installed, drift check `ok v1.1.0`; suite 67 of 67 on the tag (T41 ran); evals E8, E9 (rerun), E10 (rerun), E11 pass; pre-merge review (opus, high) and fix-round review found no Critical. Discovery eval in a fresh headless session: listed, loaded unprompted, copied into `blender/lib/v1.1.0/`, pinned `LIB`, used the `$BLENDER` form, preview rendered. Next: the two render projects migrate (their sessions, on branches, the user approves each merge).
 
 - [x] Receive the design contract (`dev/features/`) and review inputs (`dev/inputs/`) from the development session (resolved 2026-10-17): moved in unedited; three stale paths fixed.
