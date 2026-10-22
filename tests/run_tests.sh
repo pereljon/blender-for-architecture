@@ -114,6 +114,7 @@ blender_test bl_rev3
 blender_test bl_rev4
 blender_test bl_rev6
 blender_test bl_v110
+blender_test bl_v111
 blender_test bl_extensions
 SKIPS=""
 SKIP_LINE="$(grep -m1 '^SKIP' "$OUT/bl_extensions.log")"
@@ -207,6 +208,8 @@ step test_extensions_doc 60 python3 -I "$HERE/test_extensions_doc.py"
 expect_line test_extensions_doc:finished "$OUT/test_extensions_doc.log" "^TESTPASS test_extensions_doc\$"
 step test_v110 120 python3 -I "$HERE/test_v110.py"
 expect_line test_v110:finished "$OUT/test_v110.log" "^TESTPASS test_v110\$"
+step test_v111 60 python3 -I "$HERE/test_v111.py"
+expect_line test_v111:finished "$OUT/test_v111.log" "^TESTPASS test_v111\$"
 SKIP_LINES="$(grep -h '^SKIP' "$OUT/test_v110.log" "$OUT/bl_v110.log" 2>/dev/null)"
 if [ -n "$SKIP_LINES" ]; then
     echo "$SKIP_LINES"

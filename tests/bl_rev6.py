@@ -635,7 +635,7 @@ def t_run_float():
 
 def t_run_formats():
     clean_room(thick_floor=0.5)
-    bh.box("float_011", 0.3, 0.6, 1.5, 1.8, 0.11, 0.5)
+    bh.box("float_011", 1.8, 2.1, 3.0, 3.3, 0.11, 0.5)
     bh.box("sunk_a", 2.0, 2.2, 2.0, 2.2, -0.05, 0.3)
     bh.box("sunk_deep", 2.4, 2.6, 2.0, 2.2, -0.4, 0.3)
     bh.box("cp_a", 0.3, 1.0, 1.0, 2.0, 0, 1)
