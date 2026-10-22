@@ -150,8 +150,15 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 | `WARN floors: no rendered mesh named X` or `no object named X` | The floor is hidden from render, is not a mesh, or does not exist. `floor_fit` leaves it out. |
 | `SKIP <check>: ...` | The check did not run. Reasons: `no floors given`, `none of the floors exists`, `no paths given`, `no scene camera`, `scene camera is not a camera object`, or an orthographic or panoramic camera. |
 | `FAIL <check>: error ...` | The check raised an exception. Treat it as a failure. |
+| `NOTE coplanar: pairs inside collection X not checked (k of n objects)` | `overlaps` names collection X. Pairs of its members are not compared. Each member is still checked against every other object. |
+| `WARN overlaps: no collection named X` | No collection has that name, so it skips nothing. Correct the name. |
+| `WARN overlaps: collection X holds no rendered mesh` | The collection is empty, or its objects are hidden from render. It skips nothing. |
+| `WARN overlaps: Y in collection X is a floor or wall` | A floor or wall is in the overlap collection. Take it out. |
+| `NOTE full hit list: <path>` | The file at that path holds every hit line, not only the first 20 per check. |
 
 - Fix every hit.
+- If a check prints `... and k more`, pass `hits_file` and run again to see every hit.
+- A tile or panel layer inside the wall volume gives coplanar hits and near-miss wall gaps where it meets walls and jambs. Read each such overlap in the file that `hits_file` writes before you fix or exempt it. List the layer prefix in `finishes`.
 - A camera hit gives a pixel box in the view's image at the run's `--res`. A failing run writes no image.
 - To see a camera hit, exempt its object for one preview run at the same `--res`. Then look inside the pixel box.
 
@@ -163,6 +170,10 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 - If an opening is meant to run to the ceiling, exempt it by its two wall names: `exempt={"openings": [("wall_hall_w", "wall_hall_e")]}`.
 - Give `openings` a list of pairs. One bare pair is read as two names, and the hit stays.
 - Give the reason for each exemption in a comment.
+- If many objects overlap on one plane by design, such as leaf cards, put them in one collection.
+- Pass that collection's exact name in `overlaps`: `run_checks(..., overlaps=("tree_leaves",))`. Give the reason in a comment.
+- Put only those overlapping objects in the collection. Never put a floor or wall in it.
+- Pairs inside the collection skip the coplanar check only. Each member is still checked against other objects and by the other checks.
 
 ### Setup
 
@@ -174,6 +185,8 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 
 - Name every floor, slab, deck, and paving object in `floors`. Without floors, `floor_fit` does not run, and openings are not checked for a floor.
 - Name every wall with the `wall_` prefix, or pass your wall prefixes in `walls`.
+- If wall finishes such as tile pieces are separate objects, pass their prefixes in `finishes`: `finishes=("wt_",)`. Use a prefix that names only finishes.
+- To write every hit to a file, pass `hits_file=f"scratch/checks_{args.view}.txt"`. Each run overwrites the file. The file gives a detail line under each coplanar hit: the shared plane, the overlap box, and its area.
 - Add a walking box to `paths` for each stair tread and landing.
 - Write each walking box as `(x0, x1, y0, y1, z)`, with z at the tread top.
 - Draw each walking box between the handrails, from its nosing to the next nosing.
@@ -186,6 +199,13 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 - A plan (orthographic) view checks openings for a floor only, not for a header.
 - The header check runs only where the opening's walls stand at least 2.0 m above the higher wall bottom. Half walls get no header check.
 - A wall pair that stands about 1 m or less above the higher wall bottom gets no opening check.
+- `floor_fit` passes an object below the hang limit if contact supports it. Contact means within 25 mm, or running into the other object.
+- Support that starts at a floor passes at any height: a chain of objects that rest on each other down to the floor.
+- A panel mounted flat against its support, such as a door or a drawer front, passes on the same terms as its support. A door on a floor-standing carcass passes at any height.
+- A panel counts when its touching face is at least twice the area of each other face of its bounding box. A panel turned off the world axes does not count.
+- Support that starts at a wall or finish needs a base at least 0.1 m above the floor. So does any other side contact, such as a box against a cabinet side.
+- An object below 0.1 m that touches only a wall, a finish, or another object with a narrow side is reported. A bed a few cm up against a wall or a nightstand is a defect.
+- Objects at or above the hang limit give no support. An item recessed more than 25 mm into a wall is reported.
 - An object buried entirely inside a floor reports as sunk more than the hang limit (0.3 m), whatever its depth.
 - The checks do not see instances (collection, geometry-nodes, or particle instances). Check those in the preview.
 - The checks see viewport geometry, not render geometry. A modifier shown in render but hidden in the viewport, such as a boolean with `show_viewport` off, is not seen.
