@@ -44,6 +44,10 @@ State of the blender-for-architecture skill: open bugs, planned work, next steps
 
 - [ ] v1.1.1, migration doc gaps from the E10 rerun (2026-10-21): give a float tolerance for comparing geometry dumps (a lib camera differs by 1e-6 rad); show how to compare dumps across a wall rename (a name map); say when an open-top scene's `NOTE camera: exterior view` is a defect to raise; say the backup comes before any edit, including the `--dump` flag.
 
+- [ ] Watch, not adopt (2026-10-21, the user S1): Blender MCP servers (Blender Lab `blender_mcp` 1.0.3; community `ahujasid/mcp-for-blender`). They drive a live GUI session, which conflicts with scripted, rebuilt-from-code renders; they run model-written code without guards (the community one over an unauthenticated localhost port, with telemetry on by default); and they add no capability that headless Python lacks. Revisit only for interactive inspection of a large scene, as a viewer beside the scripted workflow.
+- [ ] Later: a headless multi-angle review sheet (several fixed cameras composed into one image with `compose.py`) to catch a wrong wall or a floating object before a full render. Idea from the community MCP's multi-angle capture.
+- [ ] Later, with the HDRI item: fetch CC0 HDRIs and textures from Poly Haven's free API (no key), with the user's consent and the download size per fetch, as for extensions.
+
 ## Next steps
 
 - Measurements moved out of the reference docs on the v1.1.0 docs restructure. Point Cloud I/O test scan: the worst error after adding `las_origin_offset` back was 1.2e-7 m; with `center_on_origin` off it was 0.125 m, from a northing of 4181234 (32-bit spacing 0.25 m) against an easting of 551234 (0.0625 m). Walkthrough video: 40 to 66 s of video took 1 h 50 min to 3.5 h to render. Plan extraction: in one project, posts scaled from a 2016 sheet were about 6 in off, and a uniform offset between sources misplaced items.
