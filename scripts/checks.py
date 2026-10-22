@@ -347,6 +347,7 @@ def wall_gap_check(prefixes=("wall_",), floors=(), gap=0.3, opening=2.5, touch=0
 
 _HANG = 0.3
 _LIFT = 0.1    # the lowest base for support that starts at a wall or finish
+_BROAD = 2    # a panel's box is at most 1/_BROAD as thick along the contact axis as along each other axis
 
 
 def _within(pts, lo, hi):
@@ -432,11 +433,11 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), fi
                 or bool(tn.overlap(tc)))
 
     def broad(n, c):
-        """True when n touches c with its largest face: its box is at most half as thick along the contact axis."""
+        """True when n touches c with its largest face: its box is clearly thinnest along the contact axis."""
         lo, hi = data[n][3:]
         olo, ohi = data[c][3:]
         k = min((0, 1), key=lambda a: min(hi[a], ohi[a]) - max(lo[a], olo[a]))
-        return all(hi[k] - lo[k] <= 0.5 * (hi[j] - lo[j]) + 1e-9 for j in range(3) if j != k)
+        return all((hi[k] - lo[k]) * _BROAD <= hi[j] - lo[j] + 1e-9 for j in range(3) if j != k)
 
     def link(n, c):
         lo, hi = data[n][3:]
