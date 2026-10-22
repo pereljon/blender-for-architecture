@@ -1784,3 +1784,11 @@ Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill t
 Each finished item is ticked in skill `docs/ISSUES.md` under the v1.1.2 line. A fresh session reads that line, this section, and `git log` on `release-1.1.2`.
 
 Keep out, for everyone working on this revision: `dev/inputs/`; earlier revisions of this contract (append findings, never rewrite); `~/.claude/skills/` and `~/.claude/skill-installs/` until the approved install; the skill-developer repo's `scripts/` and `tests/`; the render projects' files; `tests/out/`; `scripts/` other than `checks.py`; `templates/` until the release's `LIB` line; existing tests other than the T50 and T48 amendments; function docstrings other than `run_checks` (R69).
+
+### Test author findings (2026-10-22, tests at `d32292f`)
+
+- T56 does not reproduce: `p_in` and `p_above` both give d = -0.25 on the unchanged scripts. T56 is deleted; R81 records "not reproduced".
+- R71 needs a second change. Besides the up-ray condition at `scripts/checks.py:481`, the `d < -tol` test at `:483` drops a depth of 0.015 m, so the object falls to `roots.setdefault(n, 2)` and passes. The R71 behaviour (report the depth even when it is `tol` or less) covers both lines.
+- T55 "an object 0.4 m deep gives None" cannot be built in the 0.1 m floor: its probe starts at `lo.z + hang`, on the floor's bottom face. T55 uses a 0.35 m object in that floor, plus a second scene with a 0.5 m floor and a 0.4 m object (`deep_40`). Both expect None.
+- T54 adds `lamp.12` and `pad.0012` as names that must not match, to pin `\.\d{3}$`.
+- The E13 fixture commits no `blender/lib/v1.1.2/`; the eval copies `scripts/` there after R69 to R73, as for the v1.1.1 fixture. On the unchanged scripts it gives exactly the six named coplanar hits and no other failure.
