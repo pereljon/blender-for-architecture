@@ -65,6 +65,8 @@ State of the blender-for-architecture skill: open bugs, planned work, next steps
 
 ## Next steps
 
+- Next step (2026-10-21): v1.1.2 on branch `release-1.1.2`. The design is contract Revision 10 (R69 to R81, T52 to T58, eval E13). Next: the test author writes T52 to T58 (T56 first; delete it if it does not reproduce), then the implementer, an opus high pre-merge review, E13, and the release. Open question Q1: "The scripts" goes after "What it does not do" in the README (recommended yes).
+
 - Measurements moved out of the reference docs on the v1.1.0 docs restructure. Point Cloud I/O test scan: the worst error after adding `las_origin_offset` back was 1.2e-7 m; with `center_on_origin` off it was 0.125 m, from a northing of 4181234 (32-bit spacing 0.25 m) against an easting of 551234 (0.0625 m). Walkthrough video: 40 to 66 s of video took 1 h 50 min to 3.5 h to render. Plan extraction: in one project, posts scaled from a 2016 sheet were about 6 in off, and a uniform offset between sources misplaced items.
 - v1.1.0 order of work (contract, Revision 8): the branch is `release-1.1.0`. Evals E8 to E11 and the pre-merge review are done (contract, "Revision 8 review and eval findings"). FX-I1 to FX-I7 are implemented. Next: the full suite on this branch, a re-run of E10, then merge approval, release, install, and the discovery eval.
 - Import check (2026-10-17): suite 37 of 37 in this repo. With `set_units("ft")` broken to 0.3 in a copy of `scripts/`, 8 of 37 steps fail (`bl_helpers`, `bl_mannequin`, `bl_rev2`, `bl_rev3`).
