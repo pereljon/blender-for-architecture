@@ -64,6 +64,7 @@ State of the blender-for-architecture skill: open bugs, planned work, next steps
 
 ## Decisions
 
+- 2026-10-21, the user: v1.1.1 floor_fit support (contract Revision 9). V1: the version stays v1.1.1 although the new optional arguments are a minor change under SemVer. W1: support spreads by contact from floors, walls, and finish prefixes, and a chain that starts only at a wall needs a base 0.1 m up. X1: a side contact on a panel's broad face takes its support's origin. F1: a panel is at most half as thick along the contact axis as in each other direction (factor 2, a named constant). Rejected: accepting every wall contact; an opt-in wall-hung collection now (filed for later); side contact always needing 0.1 m; factor 1 (a chest passes) and factors 3 to 5 (thick drawer fronts fail).
 - 2026-10-21, the user, on P1 (Revision 8): a quick preview outside a project may skip the notes files (SKILL.md, Project setup step 7). Answers yes. Rejected: removing the exemption.
 - 2026-10-21, the user, on P3 (Revision 8): oneAPI stays out of the Linux and Windows backend list (OptiX, CUDA, HIP). Answers no. Rejected: adding it.
 - 2026-10-21, the user: projects keep one lib folder per skill version they have used, and each script pins its version; the details and the rejected options are in the contract, Revision 7. Answers F1 to F6 accept the architect's defaults, with F3 revised: an upgrade offers to move every script, and a scene the user holds back keeps its pin with a comment.
