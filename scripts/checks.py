@@ -354,7 +354,7 @@ def _within(pts, lo, hi):
     return [p for p in pts if lo.x <= p.x <= hi.x and lo.y <= p.y <= hi.y and lo.z <= p.z <= hi.z]
 
 
-def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), finishes=()):
+def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), finishes=(), figure=()):
     """Pairs (name, d) of mesh objects that float above or sink into the floor under their centre.
 
     floors holds exact object names. d is the base height above the floor in metres: positive is floating
@@ -364,12 +364,13 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), fi
     (see SKILL.md, Checks, Limits). An object that hangs from the underside of a floor above it is measured against
     the floor below, and one that pierces that floor is sunk. Objects named with walls prefixes are reported only
     when floating. finishes holds prefixes of wall finish objects, such as tile pieces; here they count as walls.
-    Sorted by name.
+    figure holds exact names of the scale figure's objects: they are never reported and never hold anything up,
+    whereas a skip object is not reported but still holds up what touches it. Sorted by name.
     """
     dg = _depsgraph()
     wpre = _prefixes(walls) + _prefixes(finishes)
     data, fl = {}, []
-    for ob in _objects(("MESH",)):
+    for ob in _objects(("MESH",), skip=figure):
         m = _mesh(ob, dg)
         if m:
             data[ob.name] = (ob, *m, *_box(m[0]))
@@ -402,7 +403,7 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), fi
         lo, hi = data[n][3:]
         olo, ohi = data[c][3:]
         cx, cy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
-        if not olo.x <= cx <= ohi.x or not olo.y <= cy <= ohi.y or ohi.z < lo.z - tol:
+        if not olo.x <= cx <= ohi.x or not olo.y <= cy <= ohi.y or ohi.z < lo.z - tol or olo.z > lo.z + 1e-6:
             return False
         hit = geom(c).ray_cast(Vector((cx, cy, lo.z + tol)), down, 2 * tol)
         return hit[0] is not None and hit[1].z > 0
@@ -436,7 +437,9 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), fi
         """True when n touches c with its largest face: its box is clearly thinnest along the contact axis."""
         lo, hi = data[n][3:]
         olo, ohi = data[c][3:]
-        k = min((0, 1), key=lambda a: min(hi[a], ohi[a]) - max(lo[a], olo[a]))
+        # The contact axis is the one on which the smallest share of n's extent lies inside c. A thin panel whose end
+        # runs into c is mostly outside c along its long axis, so that axis wins and the panel is not thin along it.
+        k = min((0, 1), key=lambda a: (min(hi[a], ohi[a]) - max(lo[a], olo[a])) / max(hi[a] - lo[a], 1e-9))
         return all((hi[k] - lo[k]) * _BROAD <= hi[j] - lo[j] + 1e-9 for j in range(3) if j != k)
 
     def link(n, c):
@@ -737,7 +740,7 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
         ("wall_gaps", None, lambda: wall_gap_check(prefixes=walls, floors=floors, skip=skip("wall_gaps"),
                                                    full_height=exempt.get("openings", ()))),
         ("floor_fit", None if floors else "none of the floors exists" if given else "no floors given",
-         lambda: floor_fit_check(floors, walls=walls, skip=skip("floor_fit", fig), finishes=finishes)),
+         lambda: floor_fit_check(floors, walls=walls, skip=skip("floor_fit"), finishes=finishes, figure=fig)),
         ("camera", "no scene camera" if cam is None else
          "scene camera is not a camera object" if cam.type != "CAMERA" else
          None if cam.data.type == "PERSP" else
