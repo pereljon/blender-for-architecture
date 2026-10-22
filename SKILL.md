@@ -5,7 +5,7 @@ description: Builds architectural and remodel renders in Blender from a Python s
 
 # Architectural renders in Blender
 
-One Python file, the scene script, builds the whole scene, and Blender renders it headless. Options are command-line flags. The owner is the person who makes the design decisions. The user is the person working with Claude. The owner decides from labeled study pages, and the chosen option becomes the scene script's default.
+One Python file, the scene script, builds the whole scene, and Blender renders it headless. Options are command-line flags. The owner is the person who makes the design decisions. The user is the person working with the agent. The owner decides from labeled study pages, and the chosen option becomes the scene script's default.
 
 ## Environment
 
@@ -35,8 +35,8 @@ BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P script.p
 ## Project setup
 
 1. Choose the Blender folder. Use `blender/` in a new project. Use the folder where the project already keeps its scene scripts, such as `renders/`, in an existing project. Paths in this skill write it as `blender/`.
-2. Read the installed version from the skill folder, `${CLAUDE_SKILL_DIR}`: the first `## [X.Y.Z]` heading in `CHANGELOG.md`. If that file is missing, use the `tag:` line of `.installed`. If both are missing, use the `LIB` value in `templates/scene_template.py`.
-3. Copy `${CLAUDE_SKILL_DIR}/scripts/*.py` and `*.json` into `blender/lib/vX.Y.Z/`. Never edit a version folder after you copy it.
+2. Read the installed version from the skill folder, the folder that holds this SKILL.md (`${CLAUDE_SKILL_DIR}` in Claude Code): the first `## [X.Y.Z]` heading in `CHANGELOG.md`. If that file is missing, use the `tag:` line of `.installed`. If both are missing, use the `LIB` value in `templates/scene_template.py`.
+3. Copy the skill folder's `scripts/*.py` and `*.json` into `blender/lib/vX.Y.Z/`. Never edit a version folder after you copy it.
 4. Copy `templates/scene_template.py` to `blender/build_<scene>.py`. Its `LIB` already names the installed version.
 5. Call `set_units("ft")` if the drawings are in feet. All helper lengths are then in feet.
 6. If the main viewer is not 5'-7", set `VIEWER` to their height in project units. The eye-level camera height follows from it.
@@ -150,8 +150,16 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 | `WARN floors: no rendered mesh named X` or `no object named X` | The floor is hidden from render, is not a mesh, or does not exist. `floor_fit` leaves it out. |
 | `SKIP <check>: ...` | The check did not run. Reasons: `no floors given`, `none of the floors exists`, `no paths given`, `no scene camera`, `scene camera is not a camera object`, or an orthographic or panoramic camera. |
 | `FAIL <check>: error ...` | The check raised an exception. Treat it as a failure. |
+| `NOTE coplanar: pairs inside collection X not checked (k of n objects)` | `overlaps` names collection X. Pairs of its members are not compared. Each member is still checked against every other object. |
+| `WARN overlaps: no collection named X` | No collection has that name, so it skips nothing. Correct the name. |
+| `WARN overlaps: collection X holds no rendered mesh` | The collection is empty, or its objects are hidden from render. It skips nothing. |
+| `WARN overlaps: Y in collection X is a floor or wall` | A floor or wall is in the overlap collection. Take it out. |
+| `NOTE full hit list: <path>` | The file at that path holds every hit line, not only the first 20 per check. |
 
 - Fix every hit.
+- One cause can give hits in two checks. A slab sunk into the floor and coplanar with it gives a coplanar hit and a floor_fit hit. Fix the slab, then run again.
+- If a check prints `... and k more`, pass `hits_file` and run again to see every hit.
+- A tile or panel layer inside the wall volume gives coplanar hits and near-miss wall gaps where it meets walls and jambs. Read each such overlap in the file that `hits_file` writes before you fix or exempt it. List the layer prefix in `finishes`.
 - A camera hit gives a pixel box in the view's image at the run's `--res`. A failing run writes no image.
 - To see a camera hit, exempt its object for one preview run at the same `--res`. Then look inside the pixel box.
 
@@ -163,6 +171,10 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 - If an opening is meant to run to the ceiling, exempt it by its two wall names: `exempt={"openings": [("wall_hall_w", "wall_hall_e")]}`.
 - Give `openings` a list of pairs. One bare pair is read as two names, and the hit stays.
 - Give the reason for each exemption in a comment.
+- If many objects overlap on one plane by design, such as leaf cards, put them in one collection.
+- Pass that collection's exact name in `overlaps`: `run_checks(..., overlaps=("tree_leaves",))`. Give the reason in a comment.
+- Put only those overlapping objects in the collection. Never put a floor or wall in it.
+- Pairs inside the collection skip the coplanar check only. Each member is still checked against other objects and by the other checks.
 
 ### Setup
 
@@ -174,11 +186,14 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 
 - Name every floor, slab, deck, and paving object in `floors`. Without floors, `floor_fit` does not run, and openings are not checked for a floor.
 - Name every wall with the `wall_` prefix, or pass your wall prefixes in `walls`.
+- If wall finishes such as tile pieces are separate objects, pass their prefixes in `finishes`: `finishes=("wt_",)`. Use a prefix that names only finishes.
+- To write every hit to a file, pass `hits_file=f"scratch/checks_{args.view}.txt"`. Each run overwrites the file. The file gives a detail line under each coplanar hit: the shared plane, the overlap box, and its area.
 - Add a walking box to `paths` for each stair tread and landing.
 - Write each walking box as `(x0, x1, y0, y1, z)`, with z at the tread top.
 - Draw each walking box between the handrails, from its nosing to the next nosing.
 - To check for sky in a scene with no ceiling, pass `interior=True` in the `run_checks` call, or set it in the view's entry.
 - If a view looks out through an opening without glass, set `interior=False` in its entry.
+- If a view is meant to show sky, such as a cutaway, set `interior=False` in its entry. Tell the owner that the view's sky is not checked.
 - In a script without a VIEWS table, leave out `interior` unless the view looks out through an opening without glass. The default detects an interior view from an object above the camera.
 
 ### Limits
@@ -186,10 +201,19 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 - A plan (orthographic) view checks openings for a floor only, not for a header.
 - The header check runs only where the opening's walls stand at least 2.0 m above the higher wall bottom. Half walls get no header check.
 - A wall pair that stands about 1 m or less above the higher wall bottom gets no opening check.
-- An object buried entirely inside a floor reports as sunk more than the hang limit (0.3 m), whatever its depth.
+- `floor_fit` passes an object below the hang limit if contact supports it. Contact means within 25 mm, or running into the other object.
+- Support that starts at a floor passes at any height: a chain of objects that rest on each other down to the floor.
+- A panel mounted flat against its support, such as a door or a drawer front, passes on the same terms as its support. A door on a floor-standing carcass passes at any height.
+- A panel counts when its touching face is at least twice the area of each other face of its bounding box. A panel turned off the world axes does not count.
+- Support that starts at a wall or finish needs a base at least 0.1 m above the floor. So does any other side contact, such as a box against a cabinet side.
+- An object below 0.1 m that touches only a wall, a finish, or another object with a narrow side is reported. A bed a few cm up against a wall or a nightstand is a defect.
+- Objects at or above the hang limit give no support. An item recessed more than 25 mm into a wall is reported.
+- An object buried inside a floor reports its depth below the floor's top face. One sunk more than the hang limit (0.3 m) reports `sunk more than 0.300 m`, whatever its depth.
+- A panel end or edge that runs into another object is not a touching face, so it does not take that object's origin.
+- An object exempt from `floor_fit` is not reported, but it still supports what touches it.
 - The checks do not see instances (collection, geometry-nodes, or particle instances). Check those in the preview.
 - The checks see viewport geometry, not render geometry. A modifier shown in render but hidden in the viewport, such as a boolean with `show_viewport` off, is not seen.
-- `run_checks` leaves the figure out of the coplanar, floor_fit, and clearance checks. Run `clash_check` for the figure, as [reference/studies.md](reference/studies.md) says.
+- `run_checks` leaves the figure out of the coplanar, floor_fit, and clearance checks. The figure is never reported and never supports an object. Run `clash_check` for the figure, as [reference/studies.md](reference/studies.md) says.
 
 ## QA checklist
 

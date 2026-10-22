@@ -180,22 +180,22 @@ Lengths in the checks are world metres, except `paths` in `run_checks` and `clea
 
 - `clash_check(a_prefixes=('man_',), b_prefixes=None, ignore=())`
   Pairs (a_name, b_name) where an a* object overlaps a b* object, or has a vertex inside it.
-- `coplanar_check(prefixes=None, tol=0.0005, min_area=1e-06, skip=())`
-  Pairs (name1, name2) of mesh objects with faces on one plane, within tol metres, whose in-plane extents overlap. skip holds exact object names to leave out.
+- `coplanar_check(prefixes=None, tol=0.0005, min_area=1e-06, skip=(), overlaps=())`
+  Pairs (name1, name2) of mesh objects with faces on one plane, within tol metres, whose in-plane extents overlap. skip holds exact object names to leave out. overlaps holds exact collection names; a pair of objects in one of them is not compared.
 - `flipped_check(skip=())`
   Pairs (name, "inside-out" or "mixed") of closed mesh objects whose faces turn the wrong way. Sorted by name.
 - `wall_gap_check(prefixes=('wall_',), floors=(), gap=0.3, opening=2.5, touch=0.001, tol=0.025, skip=(), full_height=())`
   Hits (name_i, name_j, kind, length_m). Kind "gap" or "corner" marks walls that almost meet. Kind "no-header" or "no-floor" marks a door-sized opening between two walls. full_height holds wall-name pairs whose opening runs to the ceiling.
-- `floor_fit_check(floors, walls=('wall_',), tol=0.025, hang=0.3, skip=())`
-  Pairs (name, d) of mesh objects that float above (d > 0) or sink into (d < 0) the floor under their centre. d is None for more than hang. floors holds exact object names. An object whose base is at least `hang` above the floor counts as hung (lights, upper cabinets) and passes. The default hang limit is 0.3 m.
+- `floor_fit_check(floors, walls=('wall_',), tol=0.025, hang=0.3, skip=(), finishes=(), figure=())`
+  Pairs (name, d) of mesh objects that float above (d > 0) or sink into (d < 0) the floor under their centre. d is None for more than hang. floors holds exact object names. An object whose base is at least `hang` above the floor counts as hung (lights, upper cabinets) and passes. An object below that passes when contact supports it. Support is a chain from a floor at any height, or from a wall or finish when the base is at least 0.1 m up. A panel touching with its largest face passes on the same terms as its support; other side contact needs 0.1 m. finishes holds prefixes of finish objects, treated as walls here only. figure holds exact names of the scale figure's objects, which are never reported and never support anything; a skip object is not reported but still supports. The default hang limit is 0.3 m.
 - `camera_check(interior=None, rays=160, skip=())`
   Items (kind, name, count, (x0, y0, x1, y1)). Kind "backface" marks faces that the perspective scene camera sees from behind. Kind "escape" marks sky in an interior view. The box is in pixels.
 - `clearance_check(paths, headroom=2.032, unit=None, tol=0.005, skip=())`
   Items (path, name, headroom_m) for objects inside the walking box over each path. paths maps a name to (x0, x1, y0, y1, z) in project units.
 - `fail_on(hits, label)`
   Print OK <label>, or FAIL <label>: <hits> and exit with status 1 when hits is not empty.
-- `run_checks(floors=(), walls=('wall_',), paths=None, figure=('man_',), exempt=None, interior=None, unit=None, rays=160)`
-  Run the six checks over the whole scene right before a render. Print OK, FAIL or SKIP for each, and exit 1 when any failed. exempt is {check: [exact object names]} for coplanar, flipped, wall_gaps, floor_fit, camera, and clearance. For openings meant to run to the ceiling, exempt takes {"openings": [(wall, wall), ...]}, a list of pairs.
+- `run_checks(floors=(), walls=('wall_',), paths=None, figure=('man_',), exempt=None, interior=None, unit=None, rays=160, overlaps=(), hits_file=None, finishes=())`
+  Run the six checks over the whole scene right before a render. Print OK, FAIL or SKIP for each, and exit 1 when any failed. exempt is {check: [exact object names]} for coplanar, flipped, wall_gaps, floor_fit, camera, and clearance. For openings meant to run to the ceiling, exempt takes {"openings": [(wall, wall), ...]}, a list of pairs. overlaps holds exact collection names for the coplanar check only. hits_file is a path. The run writes its own WARN and NOTE lines and every status and hit line there, and prints the path. finishes goes to floor_fit_check.
 
 ## wall_gaps.py
 

@@ -123,13 +123,21 @@ Use this for a project that built its scene with its own functions, such as a si
 Do this as a separate step, after the helper swap compares clean.
 
 1. Rename walls named by list index (`wall_27`) to stable names. For names that a loop generates, build each name from a constant, and write the exemptions from the same constant.
-2. Add `run_checks` as SKILL.md ("Checks") says. Call it right before the render call, with `unit` set to metres per project unit.
-3. Expect many hits on a large existing model. Take them check by check.
+2. Name every floor, slab, and deck in `floors`, including inset slabs such as a shower floor. An object on an unnamed slab reads as floating or sunk.
+3. If the project builds wall finishes such as tile pieces as separate objects, pass their prefixes in `finishes`.
+4. In a project under git, wire `run_checks` in a commit of its own. Until every hit is fixed or exempted, every render on the branch fails. A separate commit lets other work go on without it.
+5. Add `run_checks` as SKILL.md ("Checks") says. Call it right before the render call, with `unit` set to metres per project unit. Pass `hits_file`, so that the full list is on file.
+6. Expect many hits on a large existing model. Take them check by check.
    - Fix a real defect.
    - Exempt an intended one by its exact name, with the reason in a comment.
    - List a hit whose intent is unclear for the owner. Do not exempt it silently.
    - Never exempt by prefix to clear a long list.
-4. List each view that a fix changes, for the owner.
+7. Parts of one assembly that touch, such as a faucet's body and spout or a cabinet's panels, give coplanar hits.
+   - If the parts always move together, join them into one object. A join changes the geometry dump; list it for the owner.
+   - Otherwise, fix each contact that the camera can see.
+   - Exempt a part by its exact name only when the contact is hidden and both parts share a material.
+8. If many objects overlap on one plane by design, such as leaf cards, use one overlap collection (SKILL.md, "Checks", Exemptions).
+9. List each view that a fix changes, for the owner.
 
 ## Compare and decide
 

@@ -7,6 +7,47 @@ Conventions, kept from v1.1.0 on:
 - Name each public function whose signature or behaviour changed, or that was added or removed, as `module.function()`. Put it under Changed, Fixed, Added, or Removed.
 - The skill reads the installed version from the first numbered heading.
 
+## Unreleased
+
+This patch release adds optional arguments, which Semantic Versioning counts as a minor release. Decided on 2026-10-21 as a deviation.
+
+### Fixed
+
+- `checks.floor_fit_check()`: an object below the hang limit passes when contact supports it. Contact means within `tol`, or running into the other object. Before, only a rest under the object's centre counted. Support is a chain. A chain that starts at a floor passes at any height.
+- `checks.floor_fit_check()`: a panel mounted flat against its support takes its support's origin. A door, a drawer front, and a back panel are examples. The touching face is at least twice the area of each other bounding-box face. A panel end that runs into a carcass side is not a touching face.
+- `checks.floor_fit_check()`: a chain that starts at a wall or finish, and any other side contact, needs a base at least 0.1 m up. These objects no longer fail:
+  - wall-hung vanities and outlets;
+  - gear across two rails;
+  - a mattress on a frame ring;
+  - a door on a plinth;
+  - doors and drawer fronts a few cm up on a floor-standing carcass;
+  - a tilted disc on a thin stand.
+- `checks.floor_fit_check()`: a floating shelf, a raised bed, and a bed a few cm up against a wall or a nightstand still fail.
+- `checks.floor_fit_check()`: a plate no longer passes by resting on the lid on top of it. A candidate support rests under an object only when its bottom is at or below the object's bottom.
+- `checks.floor_fit_check()`: an object buried inside a floor reports its depth below the floor's top face. Before, it read `sunk more than 0.300 m`, even when it was sunk less. An object sunk more than 0.3 m still reads that way.
+- `checks.flipped_check()`: a small closed mesh far from the origin no longer reads as inside out. The signed volume is summed about the mesh's vertex centroid in Python floats. A correct 1.2 mm x 0.2 m x 0.009 m box 7.1 m out on the diagonal read negative.
+
+### Added
+
+- `checks.floor_fit_check()`: `finishes`, prefixes of wall finish objects such as tile pieces. They support objects as walls do.
+- `checks.floor_fit_check()`: `figure`, exact names of the scale figure's objects. They are never reported and never hold anything up. A `skip` object is not reported but still holds up what touches it.
+- `checks.coplanar_check()`: `overlaps`, exact collection names. A pair of objects inside one of them is not compared.
+- `checks.run_checks()`: `overlaps`, passed to the coplanar check only. It prints a `NOTE` line per collection. It prints a `WARN` for a missing or empty collection, or for a floor or wall in one.
+- `checks.run_checks()`: `hits_file`. The run writes its own WARN and NOTE lines and every status and hit line to that file. It prints `NOTE full hit list: <path>`. The console still shows 20 hits per check. Each coplanar hit in the file is followed by a detail line with the shared plane, the overlap box, and the area.
+- `checks.run_checks()`: `finishes`, passed to the floor_fit check.
+
+### Changed
+
+- SKILL.md names no single agent: it says "the agent", and it defines the skill folder as the folder that holds SKILL.md (`${CLAUDE_SKILL_DIR}` in Claude Code).
+- SKILL.md Checks: the overlap collection, `finishes`, `hits_file`, the new output lines, the tile-layer note, and the floor_fit support limits.
+- SKILL.md Checks: a roofless room or cutaway takes `interior=False`. One cause can give hits in two checks. An exempt object still supports what touches it.
+- `reference/migration.md`, "Wire the checks":
+  - name inset slabs in `floors`;
+  - pass `finishes`;
+  - wire the checks in a commit of their own;
+  - pass `hits_file`;
+  - handle touching assembly parts.
+
 ## [1.1.0] - 2026-10-21
 
 ### Changed
