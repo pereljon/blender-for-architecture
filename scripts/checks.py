@@ -329,20 +329,27 @@ def wall_gap_check(prefixes=("wall_",), floors=(), gap=0.3, opening=2.5, touch=0
 
 
 _HANG = 0.3
+_LIFT = 0.1    # the lowest base for support that starts at a wall or finish
 
 
-def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
+def _within(pts, lo, hi):
+    return [p for p in pts if lo.x <= p.x <= hi.x and lo.y <= p.y <= hi.y and lo.z <= p.z <= hi.z]
+
+
+def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), finishes=()):
     """Pairs (name, d) of mesh objects that float above or sink into the floor under their centre.
 
     floors holds exact object names. d is the base height above the floor in metres: positive is floating
-    (more than tol, with nothing under the centre), negative is sunk (more than tol); None is sunk more than hang.
-    An object at hang or higher is hung (lights, upper cabinets) and passes, and so does one that rests on another
-    object under its centre. An object that hangs from the underside of a floor above it is measured against the
-    floor below, and one that pierces that floor is sunk. Objects named with walls prefixes are reported only when
-    floating. Sorted by name.
+    (more than tol, with nothing holding the object up), negative is sunk (more than tol); None is sunk more than
+    hang. An object at hang or higher is hung (lights, upper cabinets) and passes, and so does one supported by
+    contact, through a chain that starts at a floor, or at a wall or finish when its base is at least 0.1 m up
+    (see SKILL.md, Checks, Limits). An object that hangs from the underside of a floor above it is measured against
+    the floor below, and one that pierces that floor is sunk. Objects named with walls prefixes are reported only
+    when floating. finishes holds prefixes of wall finish objects, such as tile pieces; here they count as walls.
+    Sorted by name.
     """
     dg = _depsgraph()
-    wpre = _prefixes(walls)
+    wpre = _prefixes(walls) + _prefixes(finishes)
     data, fl = {}, []
     for ob in _objects(("MESH",)):
         m = _mesh(ob, dg)
@@ -355,11 +362,85 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
     if not fl:
         return []
     tree = _bvh(fl)[0]
-    support = {}
     down, up = Vector((0, 0, -1)), Vector((0, 0, 1))
-    hits = []
+    dz = Vector((0, 0, tol))
+    geo = {}
+
+    def geom(n):
+        """BVH of the outward-wound polygons of n, and the vertices of its down- and up-facing polygons."""
+        if n not in geo:
+            vs, ps = data[n][1:3]
+            oriented = _outward(vs, ps)
+            if _closed(ps):
+                faces = [(p, _nz(vs, p)) for p in oriented]
+                lows = {i for p, z in faces if z < -1e-9 for i in p}
+                highs = {i for p, z in faces if z > 1e-9 for i in p}
+            else:
+                lows = highs = {i for p in oriented if abs(_nz(vs, p)) > 1e-9 for i in p}
+            geo[n] = (BVHTree.FromPolygons(vs, oriented), [vs[i] for i in lows], [vs[i] for i in highs])
+        return geo[n][0]
+
+    def centre_rest(n, c):
+        lo, hi = data[n][3:]
+        olo, ohi = data[c][3:]
+        cx, cy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
+        if not olo.x <= cx <= ohi.x or not olo.y <= cy <= ohi.y or ohi.z < lo.z - tol:
+            return False
+        hit = geom(c).ray_cast(Vector((cx, cy, lo.z + tol)), down, 2 * tol)
+        return hit[0] is not None and hit[1].z > 0
+
+    def vertex_rest(n, c):
+        tn, tc = geom(n), geom(c)
+        dn, uc = geo[n][1], geo[c][2]
+        grow = Vector((tol, tol, tol))
+        lo, hi = data[n][3:]
+        olo, ohi = data[c][3:]
+        for v in _within(dn, olo - grow, ohi + grow):
+            hit = tc.ray_cast(v + dz, down, 2 * tol)
+            if hit[0] is not None and hit[1].z > 0:
+                return True
+        for w in _within(uc, lo - grow, hi + grow):
+            hit = tn.ray_cast(w - dz, up, 2 * tol)
+            if hit[0] is not None and hit[1].z < 0:
+                return True
+        return False
+
+    def touches(n, c):
+        grow = Vector((tol, tol, tol))
+        lo, hi = data[n][3:]
+        olo, ohi = data[c][3:]
+        tn, tc = geom(n), geom(c)
+        return (any(tc.find_nearest(v, tol)[0] is not None for v in _within(data[n][1], olo - grow, ohi + grow))
+                or any(tn.find_nearest(w, tol)[0] is not None for w in _within(data[c][1], lo - grow, hi + grow))
+                or bool(tn.overlap(tc)))
+
+    def broad(n, c):
+        """True when n touches c with its largest face: its box is at most half as thick along the contact axis."""
+        lo, hi = data[n][3:]
+        olo, ohi = data[c][3:]
+        k = min((0, 1), key=lambda a: min(hi[a], ohi[a]) - max(lo[a], olo[a]))
+        return all(hi[k] - lo[k] <= 0.5 * (hi[j] - lo[j]) + 1e-9 for j in range(3) if j != k)
+
+    def link(n, c):
+        lo, hi = data[n][3:]
+        olo, ohi = data[c][3:]
+        if centre_rest(n, c) or (olo.z < lo.z and vertex_rest(n, c)):
+            return "rest"
+        if olo.z < hi.z - tol and ohi.z > lo.z + tol and touches(n, c):
+            return "broad" if broad(n, c) else "side"
+        return None
+
+    roots, nodes, hits = {}, {}, []    # roots give support: 2 from a floor, 1 from a wall
     for n, (ob, vs, ps, lo, hi) in data.items():
-        if n in floors or n in skip:
+        wall = n.startswith(wpre)
+        if n in floors:
+            roots[n] = 2
+            continue
+        if wall:
+            roots[n] = 1
+        elif n in skip:
+            roots[n] = 2
+        if n in skip:
             continue
         cx, cy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
         start = Vector((cx, cy, min(lo.z + hang, max(hi.z - 1e-4, lo.z + 1e-4))))
@@ -373,22 +454,50 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=()):
             continue
         d = None if normal.z < 0 else lo.z - loc.z
         if d is None or d < -tol:
-            if not n.startswith(wpre):
+            if not wall:
                 hits.append((n, d))
-        elif tol < d < hang:
-            at = Vector((cx, cy, lo.z + tol))
-            rests = False
-            for o, ovs, ops, olo, ohi in data.values():
-                if (o is ob or not olo.x <= cx <= ohi.x or not olo.y <= cy <= ohi.y or ohi.z < lo.z - tol):
-                    continue
-                if o.name not in support:
-                    support[o.name] = BVHTree.FromPolygons(ovs, _outward(ovs, ops))
-                hit = support[o.name].ray_cast(at, down, 2 * tol)
-                if hit[0] is not None and hit[1].z > 0:
-                    rests = True
-                    break
-            if not rests:
-                hits.append((n, d))
+                roots[n] = 2
+        elif d <= tol:
+            roots.setdefault(n, 2)
+        elif d < hang:
+            if wall:
+                if not any(centre_rest(n, c) for c in data if c != n):
+                    hits.append((n, d))
+            else:
+                nodes[n] = d
+    pool = [(c, data[c][3], data[c][4]) for c in (*roots, *nodes)]
+    links = {n: [] for n in nodes}
+    deps = {c: [] for c in nodes}
+    for n in nodes:
+        lo, hi = data[n][3:]
+        for c, clo, chi in pool:
+            if c == n or any(clo[k] > hi[k] + 2 * tol or lo[k] > chi[k] + 2 * tol for k in range(3)):
+                continue
+            kind = link(n, c)
+            if kind:
+                links[n].append((c, kind))
+                if c in nodes:
+                    deps[c].append(n)
+    origin = dict.fromkeys(nodes, 0)    # 0 none, 1 wall, 2 floor
+
+    def passes(n):
+        return origin[n] == 2 or origin[n] == 1 and nodes[n] >= _LIFT - 1e-6
+
+    def best(n):
+        out = 0
+        for c, kind in links[n]:
+            given = roots[c] if c in roots else origin[c] if passes(c) else 0
+            out = max(out, 1 if given and kind == "side" else given)
+        return out
+
+    work = list(nodes)
+    while work:
+        n = work.pop()
+        o = best(n)
+        if o > origin[n]:
+            origin[n] = o
+            work.extend(deps[n])
+    hits += [(n, d) for n, d in nodes.items() if not passes(n)]
     return sorted(hits, key=lambda h: h[0])
 
 
