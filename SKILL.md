@@ -157,6 +157,7 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 | `NOTE full hit list: <path>` | The file at that path holds every hit line, not only the first 20 per check. |
 
 - Fix every hit.
+- One cause can give hits in two checks. A slab sunk into the floor and coplanar with it gives a coplanar hit and a floor_fit hit. Fix the slab, then run again.
 - If a check prints `... and k more`, pass `hits_file` and run again to see every hit.
 - A tile or panel layer inside the wall volume gives coplanar hits and near-miss wall gaps where it meets walls and jambs. Read each such overlap in the file that `hits_file` writes before you fix or exempt it. List the layer prefix in `finishes`.
 - A camera hit gives a pixel box in the view's image at the run's `--res`. A failing run writes no image.
@@ -192,6 +193,7 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 - Draw each walking box between the handrails, from its nosing to the next nosing.
 - To check for sky in a scene with no ceiling, pass `interior=True` in the `run_checks` call, or set it in the view's entry.
 - If a view looks out through an opening without glass, set `interior=False` in its entry.
+- If a view is meant to show sky, such as a roofless room or a cutaway, set `interior=False` in its entry. Tell the owner that the view's sky is not checked.
 - In a script without a VIEWS table, leave out `interior` unless the view looks out through an opening without glass. The default detects an interior view from an object above the camera.
 
 ### Limits
@@ -206,10 +208,12 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 - Support that starts at a wall or finish needs a base at least 0.1 m above the floor. So does any other side contact, such as a box against a cabinet side.
 - An object below 0.1 m that touches only a wall, a finish, or another object with a narrow side is reported. A bed a few cm up against a wall or a nightstand is a defect.
 - Objects at or above the hang limit give no support. An item recessed more than 25 mm into a wall is reported.
-- An object buried entirely inside a floor reports as sunk more than the hang limit (0.3 m), whatever its depth.
+- An object buried inside a floor reports as `buried in the floor`, with no depth.
+- A panel end or edge that runs into another object is not a touching face, so it does not take that object's origin.
+- An object exempt from `floor_fit` is not reported, but it still supports what touches it.
 - The checks do not see instances (collection, geometry-nodes, or particle instances). Check those in the preview.
 - The checks see viewport geometry, not render geometry. A modifier shown in render but hidden in the viewport, such as a boolean with `show_viewport` off, is not seen.
-- `run_checks` leaves the figure out of the coplanar, floor_fit, and clearance checks. Run `clash_check` for the figure, as [reference/studies.md](reference/studies.md) says.
+- `run_checks` leaves the figure out of the coplanar, floor_fit, and clearance checks. The figure is never reported and never supports an object. Run `clash_check` for the figure, as [reference/studies.md](reference/studies.md) says.
 
 ## QA checklist
 
