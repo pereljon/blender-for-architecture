@@ -10,7 +10,7 @@ import argparse
 import os
 import sys
 
-LIB = "v1.1.0"   # the skill version this script is pinned to (SKILL.md, Project lib)
+LIB = "v1.1.1"   # the skill version this script is pinned to (SKILL.md, Project lib)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", LIB))
 
 import bhelpers as bh

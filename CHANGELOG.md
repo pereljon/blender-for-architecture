@@ -7,7 +7,7 @@ Conventions, kept from v1.1.0 on:
 - Name each public function whose signature or behaviour changed, or that was added or removed, as `module.function()`. Put it under Changed, Fixed, Added, or Removed.
 - The skill reads the installed version from the first numbered heading.
 
-## Unreleased
+## [1.1.1] - 2026-10-21
 
 This patch release adds optional arguments, which Semantic Versioning counts as a minor release. Decided on 2026-10-21 as a deviation.
 
@@ -38,6 +38,7 @@ This patch release adds optional arguments, which Semantic Versioning counts as 
 
 ### Changed
 
+- `templates/scene_template.py`: `LIB = "v1.1.1"`.
 - SKILL.md names no single agent: it says "the agent", and it defines the skill folder as the folder that holds SKILL.md (`${CLAUDE_SKILL_DIR}` in Claude Code).
 - SKILL.md Checks: the overlap collection, `finishes`, `hits_file`, the new output lines, the tile-layer note, and the floor_fit support limits.
 - SKILL.md Checks: a roofless room or cutaway takes `interior=False`. One cause can give hits in two checks. An exempt object still supports what touches it.
