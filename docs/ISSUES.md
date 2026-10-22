@@ -48,6 +48,8 @@ State of the blender-for-architecture skill: open bugs, planned work, next steps
 - [ ] Later: a headless multi-angle review sheet (several fixed cameras composed into one image with `compose.py`) to catch a wrong wall or a floating object before a full render. Idea from the community MCP's multi-angle capture.
 - [ ] Later, with the HDRI item: fetch CC0 HDRIs and textures from Poly Haven's free API (no key), with the user's consent and the download size per fetch, as for extensions; validate the API's file paths against path traversal, and fetch image files only, not `.blend` models (they can carry drivers and scripts).
 
+- [ ] Later (the user T1, 2026-10-21): when an architect supplies an IDS file (Information Delivery Specification: a machine-readable list of what an IFC must contain), check the `ifc_walls.py` output against it with IfcTester, called directly. Verify first whether Bonsai bundles IfcTester. Idea from the Blender MCP survey.
+
 ## Next steps
 
 - Measurements moved out of the reference docs on the v1.1.0 docs restructure. Point Cloud I/O test scan: the worst error after adding `las_origin_offset` back was 1.2e-7 m; with `center_on_origin` off it was 0.125 m, from a northing of 4181234 (32-bit spacing 0.25 m) against an easting of 551234 (0.0625 m). Walkthrough video: 40 to 66 s of video took 1 h 50 min to 3.5 h to render. Plan extraction: in one project, posts scaled from a 2016 sheet were about 6 in off, and a uniform offset between sources misplaced items.
