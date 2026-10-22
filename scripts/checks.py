@@ -75,7 +75,21 @@ def _closed(polys):
 
 
 def _volume(vs, polys):
-    return sum(vs[p[0]].dot(vs[p[i]].cross(vs[p[i + 1]])) for p in polys for i in range(1, len(p) - 1)) / 6
+    """Signed volume of a closed mesh, summed about its vertex centroid in Python floats.
+
+    Summed about the origin, the rounding of single-precision vector maths can swamp a thin box far from it.
+    """
+    pts = [tuple(v) for v in vs]
+    cx, cy, cz = (sum(c) / len(pts) for c in zip(*pts))
+    q = [(x - cx, y - cy, z - cz) for x, y, z in pts]
+    total = 0.0
+    for p in polys:
+        a = q[p[0]]
+        for i in range(1, len(p) - 1):
+            b, c = q[p[i]], q[p[i + 1]]
+            total += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0])
+                      + a[2] * (b[0] * c[1] - b[1] * c[0]))
+    return total / 6
 
 
 def _nz(vs, p):
