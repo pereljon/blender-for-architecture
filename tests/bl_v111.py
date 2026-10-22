@@ -1,5 +1,6 @@
 """Blender test: v1.1.1 (T42 floor_fit support, T43 lid on a plate, T44 cost, T45 coplanar overlaps, T46 run_checks
-overlaps output, T47 hits_file, T49 finishes and wall_gaps) from Revision 9 of the design. T48 is in test_v111.py."""
+overlaps output, T47 hits_file, T49 finishes and wall_gaps, FX9-T1 to FX9-T4 floor_fit fixes) from Revision 9 of the
+design. T48 is in test_v111.py."""
 import contextlib
 import io
 import math
@@ -282,6 +283,11 @@ def t44():
     bmesh.ops.translate(bm, vec=(0, 0, 0.04), verts=bm.verts)
     bh.new_obj("dense", bh._to_mesh("dense", bm))
     check(n_verts >= 90000, f"T44 fixture: the dense mesh has about 100,000 vertices, got {n_verts}")
+    # 60 objects whose bases are 30 to 50 mm above the dense mesh: its bounding box is within reach of each, so it is
+    # a candidate support, and the centre and vertex rays (reach 50 mm) miss it, so each is tested against its vertices
+    for k in range(60):
+        x, y, z = -3.5 + 0.7 * (k % 10), 1.0 + 0.5 * (k // 10), 0.07 + 0.02 * k / 59
+        bh.box(f"dense_band_{k}", x, x + 0.1, y, y + 0.1, z, z + 0.1)
     upd()
     n_obj = sum(1 for o in bpy.data.objects if o.type == "MESH")
     t0 = time.perf_counter()
@@ -572,8 +578,6 @@ def t50():
 
 # ---------------------------------------------------------------- T51: flipped_check on a thin box far from the origin
 def t51():
-    # Verified in Blender 5.2 on the v1.1.0 code: the correct box at (7, 0, 0) and at (0, 7, 0) is not reported, but at
-    # (4.12, 4.12, 4.12), 7.1 m from the origin, a correct 1.2 mm x 0.2 m x 0.009 m box reads inside-out.
     c = 7 / 1.7
     for label, (a, b, d) in (("1.2 mm thick along y", (0.2, 0.0012, 0.009)), ("1.2 mm thick along z", (0.2, 0.009, 0.0012))):
         for flip in (False, True):
@@ -587,7 +591,64 @@ def t51():
             expect(f"T51 {label}, {'flipped' if flip else 'wound correctly'}, 7.1 m from the origin", got, want)
 
 
-CASES = (t42, t42b, t43, t44, t45, t46, t47, t49, t50, t51)
+# ---------------------------------------------------------------- FX9-T1: the scale figure supports nothing (K1)
+def fx9_t1():
+    reset()
+    bh.box("floor", -1, 12, -2, 4, -0.5, 0)
+    # a rug floating 0.03 m, with the figure's foot standing on the floor under its centre and poking up through it
+    bh.box("rug", 0, 2, 0, 2, 0.03, 0.04)
+    bh.box("man_foot", 0.9, 1.1, 0.9, 1.1, 0.0, 0.05)
+    # a sofa floating 0.15 m, with the figure's pelvis sunk 0.05 m into its seat and touching nothing else
+    bh.box("sofa", 4, 6, 0, 0.9, 0.15, 0.45)
+    bh.box("man_pelvis", 4.8, 5.1, 0.3, 0.6, 0.40, 0.60)
+    # an object exempt from floor_fit, floating 0.05 m: it still holds up the vase that rests on it
+    bh.box("plinth_ex", 8, 8.6, 0, 0.6, 0.05, 0.15)
+    bh.box("vase", 8.1, 8.4, 0.1, 0.4, 0.15, 0.40)
+    upd()
+    lines, code = run(floors=("floor",), exempt={"floor_fit": ["plinth_ex"]})
+    got = [re.sub(r"\(\d+\.\d\d s\)", "(t s)", ln) for ln in block(lines, "floor_fit")]
+    check(got == ["FAIL floor_fit: 2 (t s)", "  rug floating 0.030 m", "  sofa floating 0.150 m"],
+          f"FX9-T1 rug and sofa are reported although a figure part touches them; the vase on the exempt plinth passes and the "
+          f"plinth and the figure are not reported: {got}")
+
+
+# ---------------------------------------------------------------- FX9-T2: a lid over a plate's centre must be under it
+def fx9_t2():
+    reset()
+    bh.box("floor", -2, 8, -2, 8, -0.5, 0)
+    # The lid is supported (its corner rests on a post that stands on the floor) and covers the plate's centre, but it
+    # lies above the plate: plate plus lid is 20 mm thick, so the plate's centre ray reaches the lid's top.
+    bh.box("post", 1.15, 1.4, -0.1, 0.15, 0, 0.108)
+    bh.box("lid", 0, 1.3, 0, 0.5, 0.108, 0.120)
+    bh.box("plate", 0.2, 0.8, 0.1, 0.4, 0.100, 0.108)
+    upd()
+    expect("FX9-T2 a plate under a supported lid floats", ck.floor_fit_check(("floor",)), [("plate", 0.1)])
+
+    # Equal min z: the chair's bottom is level with the rug's bottom, so the rug is under it. Only the rug can hold the
+    # chair up (the podium that holds up the rug's corner is not under the chair).
+    reset()
+    bh.box("floor", -2, 8, -2, 8, -0.5, 0)
+    bh.box("podium", 0, 0.5, 0, 0.5, 0, 0.2)
+    bh.box("rug", 0, 3, 0, 3, 0.2, 0.21)
+    bh.box("chair", 1.3, 1.7, 1.3, 1.7, 0.2, 0.9)
+    upd()
+    expect("FX9-T2 a chair at the rug's min z rests on the rug", ck.floor_fit_check(("floor",)), [])
+
+
+# ---------------------------------------------------------------- FX9-T3: an edge is not a broad face
+def fx9_t3():
+    reset()
+    bh.box("floor", -2, 4, -2, 4, -0.5, 0)
+    bh.box("carcass", 0, 1.0, 1.0, 1.6, 0, 0.9)
+    # A 20 mm panel (thin along x) whose end runs 30 mm into the carcass side at y = 1.0. The overlap is 20 mm along x
+    # and 30 mm along y, so the thin axis is not the face that touches the carcass.
+    bh.box("panel", 0.4, 0.42, 0.4, 1.03, 0.03, 0.5)
+    upd()
+    expect("FX9-T3 a 20 mm panel that runs 30 mm into a carcass side, floating 0.03 m",
+           ck.floor_fit_check(("floor",)), [("panel", 0.03)])
+
+
+CASES = (t42, t42b, t43, t44, t45, t46, t47, t49, t50, t51, fx9_t1, fx9_t2, fx9_t3)
 
 
 def main():

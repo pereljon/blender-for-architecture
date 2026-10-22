@@ -90,6 +90,7 @@ step syntax:bash 30 bash -n "$HERE/run_tests.sh"
 step syntax:python 60 python3 -I -m py_compile "$HERE"/tcommon.py "$HERE"/bl_*.py "$HERE"/test_*.py \
     "$HERE"/check_png.py "$HERE"/list_views.py "$HERE"/template_lib.py "$HERE"/with_timeout.py "$HERE"/seed_template.py
 rm -rf "$HERE/__pycache__"
+step syntax:fixture-v111 60 python3 -I -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$HERE/fixtures/v111/build_room.py"
 
 missing=0
 for f in bhelpers.py mannequin.py checks.py wall_gaps.py ifc_walls.py sheets.py compose.py annotate_plan.py extract_plan.py; do
