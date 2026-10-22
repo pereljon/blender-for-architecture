@@ -29,7 +29,7 @@ Shortest path to a first render:
 - Site measurements in the dimensions file. The skill reconciles them with the plans before any geometry change.
 - Site photos, as a checklist of fixture counts, ceiling steps, and closet bays. Texture images go on surfaces through the material helpers. They are either CC0 sets (public domain, free to use) or photos.
 
-**The scene script.** `templates/scene_template.py` is the starting point. It holds the project constants and a `VIEWS` table, which lists each named camera view: its position, lens, and plan settings. Its command-line flags are `--view`, `--res`, `--samples`, `--gpu`, `--out`, `--export-pieces`, and an option flag (`--option a|b` in the template). The project keeps one copy of `scripts/` per skill version it has used, in `blender/lib/vX.Y.Z/`. Each scene script pins one version with `LIB`, and an upgrade is a choice that [reference/migration.md](reference/migration.md) describes.
+**The scene script.** A scene script, copied from `templates/scene_template.py`, builds the whole model from the project's constants. Its `VIEWS` table lists the named camera views, and each run renders one of them.
 
 **Views.** A perspective view is a level camera with lens and shift. A plan view is an orthographic camera cut at a fixed height. Ceilings and lights are removed so the cut is true. Plan overlays mark posts, walls to remove, and door swings. `scripts/annotate_plan.py` adds circled callouts afterwards.
 
@@ -67,6 +67,23 @@ Shortest path to a first render:
 - Extraction tuning is per drawing set, because offices draw walls differently.
 - Headless Bonsai output beyond walls and a plan drawing is unverified. This covers doors and windows in openings, dimensions, labels, sheets, and rendering an IFC scene with project materials.
 
+## The scripts
+
+Each script in order of importance. [reference/scripts.md](reference/scripts.md) says how to run each one and lists its flags.
+
+| Script | Does |
+|---|---|
+| `templates/scene_template.py` | The starting scene script: constants, views, the build, the checks, and the render |
+| `bhelpers.py` | Units, geometry, materials, tiles, plan input, lights, cameras, plan cuts, and the render call |
+| `checks.py` | The six pre-render checks and `run_checks`, the gate that stops a render on a defect |
+| `sheets.py` | Construction sheets, dimension lines, and tile packing |
+| `extract_plan.py` | Walls, door swings, and door leaves from a plan PDF's vector linework |
+| `compose.py` | Labeled study pages from rendered views |
+| `annotate_plan.py` | Circled callouts on a plan render |
+| `ifc_walls.py` | IFC walls from the wall records, and a check of a Bonsai plan drawing |
+| `mannequin.py` | A posable clay figure at a real person's height |
+| `wall_gaps.py` | Walls that almost meet, and openings between in-line walls |
+
 ## Running a view by hand
 
 The agent normally runs every render. To run one view without it, copy the template into the Blender folder as a scene script, for example `blender/build_room.py`. Copy `scripts/` into `blender/lib/<LIB>/`, where `<LIB>` is the template's `LIB` value. Then run this from the project folder:
@@ -76,7 +93,7 @@ BLENDER=/Applications/Blender.app/Contents/MacOS/Blender; "$BLENDER" --factory-s
     --view persp --res 800 --samples 48 --gpu --out out/persp.png
 ```
 
-The script prints `DONE <path>` when the render is written. SKILL.md ("Environment") states the `$BLENDER` rule and the flags.
+The script prints `DONE <path>` when the render is written. SKILL.md ("Environment") states the `$BLENDER` rule; [reference/scripts.md](reference/scripts.md) lists the flags.
 
 ## Developer details
 
@@ -104,5 +121,5 @@ The suite prints `PASS` or `FAIL` for each step. It ends with a summary line (`N
 
 The rest of the skill:
 - [SKILL.md](SKILL.md): the instructions the agent follows.
-- [reference/](reference/): `api.md` (function signatures), `plan-input.md`, `views.md`, `studies.md`, `construction-sheets.md`, `extensions.md`, and `migration.md`.
+- [reference/](reference/): `api.md` (function signatures), `scripts.md` (how to run each script), `plan-input.md`, `views.md`, `studies.md`, `construction-sheets.md`, `extensions.md`, and `migration.md`.
 - [dev/features/blender-skill-contract.md](dev/features/blender-skill-contract.md): the design contract for `scripts/`.

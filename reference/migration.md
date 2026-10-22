@@ -4,7 +4,7 @@ How to upgrade a script's pinned lib version, and how to move a project's own he
 
 ## Before you start
 
-1. Make the current state restorable before any change.
+1. Make the current state restorable before any edit, including the `--dump` flag that the next section adds.
    - In a project under git, work on a branch. Commit each version folder, and ignore `__pycache__/`.
    - In a project without git, copy the Blender folder to a dated backup beside it. Or ask the user to put the project in a repo.
 2. Without history, the backup is the only record of which version made a delivered render. Keep it.
@@ -18,7 +18,7 @@ How to upgrade a script's pinned lib version, and how to move a project's own he
 
 ## Geometry dump
 
-The geometry dump is a JSON file that describes the built scene. Two dumps compare with a plain diff. A swap or an upgrade must leave the dumps equal. The dump holds the geometry, the material values, the lights, and the cameras.
+The geometry dump is a JSON file that describes the built scene. Compare two dumps with `scratch/dump_diff.py` ("Compare and decide"). A swap or an upgrade must leave them equal. The dump holds the geometry, the material values, the lights, and the cameras.
 
 Each object has an entry keyed by its name. The entry holds these fields:
 - `type`: the object type.
@@ -116,28 +116,31 @@ Use this for a project that built its scene with its own functions, such as a si
    - Every project-specific builder, material, pass, tile pipeline, and sheet layout.
 7. For a command-line tool that the project forked (`compose.py`, `annotate_plan.py`, `extract_plan.py`), diff the fork against the lib's copy first. Switch only when every option the project's commands use exists with the same meaning, and the output matches.
 8. Keep the project's own sheet basics unless `set_paper` reproduces its page pixels and its pixels per mm exactly. For example, `set_paper("a3")` gives 3307 x 2339 px at 200 dpi. A kit that draws A3 at 3300 x 2340 px keeps its own page.
-9. A script run with `python -I` does not see its own folder. If the script imports a sibling module, it inserts its own folder on `sys.path`.
+9. How to run a script, and how a script that imports a sibling module loads it: [scripts.md](scripts.md), "Two ways to run".
 
 ## Wire the checks
 
 Do this as a separate step, after the helper swap compares clean.
 
-1. Rename walls named by list index (`wall_27`) to stable names. For names that a loop generates, build each name from a constant, and write the exemptions from the same constant.
+1. Rename walls named by list index (`wall_27`) to stable names. For names that a loop generates, build each name from a constant, and write the exemptions from the same constant. Compare the dumps before and after the rename with a name map.
 2. Name every floor, slab, and deck in `floors`, including inset slabs such as a shower floor. An object on an unnamed slab reads as floating or sunk.
 3. If the project builds wall finishes such as tile pieces as separate objects, pass their prefixes in `finishes`.
 4. In a project under git, wire `run_checks` in a commit of its own. Until every hit is fixed or exempted, every render on the branch fails. A separate commit lets other work go on without it.
 5. Add `run_checks` as SKILL.md ("Checks") says. Call it right before the render call, with `unit` set to metres per project unit. Pass `hits_file`, so that the full list is on file.
-6. Expect many hits on a large existing model. Take them check by check.
+6. If a view prints `NOTE camera: exterior view, escapes not checked`, nothing is above its camera.
+   - In a view meant as an interior, raise it with the owner as a defect. The ceiling or roof is missing, hidden in that view, or not built yet.
+   - If the scene is open at the top by design, set `interior=False` in the view's entry (SKILL.md, Checks, Setup). Such a scene is a cutaway, or a model without its roof.
+7. Expect many hits on a large existing model. Take them check by check.
    - Fix a real defect.
    - Exempt an intended one by its exact name, with the reason in a comment.
    - List a hit whose intent is unclear for the owner. Do not exempt it silently.
    - Never exempt by prefix to clear a long list.
-7. Parts of one assembly that touch, such as a faucet's body and spout or a cabinet's panels, give coplanar hits.
+8. Parts of one assembly that touch, such as a faucet's body and spout or a cabinet's panels, give coplanar hits.
    - If the parts always move together, join them into one object. A join changes the geometry dump; list it for the owner.
    - Otherwise, fix each contact that the camera can see.
    - Exempt a part by its exact name only when the contact is hidden and both parts share a material.
-8. If many objects overlap on one plane by design, such as leaf cards, use one overlap collection (SKILL.md, "Checks", Exemptions).
-9. List each view that a fix changes, for the owner.
+9. If many objects overlap on one plane by design, such as leaf cards, use one overlap collection (SKILL.md, "Checks", Exemptions).
+10. List each view that a fix changes, for the owner.
 
 ## Compare and decide
 
@@ -154,7 +157,37 @@ print(diff.getbbox())
 
 It ignores channel differences of 8 levels or less, which are render noise. That value is a starting point, not a measured one.
 
-1. Compare geometry first. The dumps must be equal.
+Compare two geometry dumps with this script. Save it as `scratch/dump_diff.py`, and run `python3 -I scratch/dump_diff.py baseline.json new.json`.
+
+```python
+import json
+import sys
+
+TOL = 1e-5
+
+
+def diff(a, b, path=""):
+    if isinstance(a, dict) and isinstance(b, dict):
+        out = [f"{path}/{k}: only in {'A' if k in a else 'B'}" for k in sorted(set(a) ^ set(b))]
+        return out + [d for k in sorted(set(a) & set(b)) for d in diff(a[k], b[k], f"{path}/{k}")]
+    if isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+        return [d for i, (x, y) in enumerate(zip(a, b)) for d in diff(x, y, f"{path}[{i}]")]
+    num = (int, float)
+    if isinstance(a, num) and isinstance(b, num) and not isinstance(a, bool) and not isinstance(b, bool):
+        return [] if abs(a - b) <= TOL else [f"{path}: {a} != {b}"]
+    return [] if a == b else [f"{path}: {a!r} != {b!r}"]
+
+
+a, b = (json.load(open(p)) for p in sys.argv[1:3])
+names = json.load(open(sys.argv[3])) if len(sys.argv) > 3 else {}
+a = {names.get(k, k): v for k, v in a.items()}
+lines = diff(a, b)
+print("\n".join(lines) if lines else "SAME")
+```
+
+Numbers that differ by 1e-5 or less count as equal. A lib camera can differ by 1e-6 rad. If the change renamed objects, write a name map: a JSON object from each old name to its new name. Pass it third: `python3 -I scratch/dump_diff.py baseline.json new.json names.json`. The map renames the baseline's objects only, not material names. Show the map to the owner with the comparison.
+
+1. Compare geometry first. `dump_diff.py` must print `SAME`.
 2. Render each view at the baseline setting. Run `uvx --with pillow python -I scratch/diff.py A.png B.png` on each pair. A printed `None` means no visible change.
 3. Regenerate each sheet into `scratch/`. Compare it with its baseline sheet by `ImageChops.difference(a, b).getbbox()`, with no tolerance. Sheets are drawn without noise.
 4. Never write over a delivered issue.
