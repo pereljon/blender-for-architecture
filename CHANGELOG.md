@@ -25,7 +25,7 @@ This patch release adds optional arguments, which Semantic Versioning counts as 
 - `checks.floor_fit_check()`: a floating shelf, a raised bed, and a bed a few cm up against a wall or a nightstand still fail.
 - `checks.floor_fit_check()`: a plate no longer passes by resting on the lid on top of it. A candidate support rests under an object only when its bottom is at or below the object's bottom.
 - `checks.floor_fit_check()`: an object buried inside a floor reads `buried in the floor`. Before, it read `sunk more than 0.300 m`, even when it was sunk less.
-- `checks.flipped_check()`: a small closed mesh far from the origin no longer reads as inside out. The signed volume is summed about the mesh's vertex centroid in Python floats. A correct 1.2 mm x 0.2 m x 0.009 m box about 7 m out read negative.
+- `checks.flipped_check()`: a small closed mesh far from the origin no longer reads as inside out. The signed volume is summed about the mesh's vertex centroid in Python floats. A correct 1.2 mm x 0.2 m x 0.009 m box 7.1 m out on the diagonal read negative.
 
 ### Added
 

@@ -1148,6 +1148,7 @@ Scope, approved by the user on 2026-10-21 (R1): three fixes from field reports o
 - W1: floor_fit support is transitive by contact, with an origin per chain, floor or wall (R58). It replaces the first design's direct wall-contact pass and question V2. Rejected: wall contact at any height (a bed or sofa a few cm up against a wall must fail).
 - A strict "wall-hung" collection, which would mark objects allowed to hang at any height, is out of scope. It is recorded as a later item (R65).
 - X1, the broad-face rule: side contact gives the support's origin, floor included, when the touching face is the object's largest face: a panel mounted flat against its support, such as a cabinet door, a drawer front, or a back panel. Any other side contact gives wall origin and needs a base at least `_LIFT` up. So a door or drawer front on a floor-standing carcass passes at any height (kitchen doors 3 cm up), and a raised bed beside a flush nightstand fails, since it touches with a narrow side. Rejected: the architect's provisional rule (every side contact gives wall origin, so a door below 0.1 m fails); every side contact keeping the support's origin (the raised bed passes). The architect's definition of "largest face" is in R58 (Broad face).
+- F1 (2026-10-21, the user): the broad-face factor is two, kept as the named module constant `_BROAD` in `checks.py`. A panel counts as broad when its box is at most 1/`_BROAD` as thick along the contact axis as along each other axis. Rejected: factor 1 (a 0.3 x 0.4 x 0.47 m chest on a carcass side passes) and factors 3 to 5 (thick drawer fronts fail). Skill `docs/ISSUES.md` holds the same entry.
 
 ### Field data (2026-10-21, both render projects, generic)
 
@@ -1452,6 +1453,7 @@ Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill t
 - An object held only by an object at or above the hang limit is reported, since hung objects give no support.
 - An object recessed more than 25 mm into a wall, with no face crossing the wall's faces, is reported.
 - An object that crosses its support away from its centre, with no vertex of either on the other's face, is reported.
+- `_coplanar_detail` compares every triangle of one hit object with every triangle of the other, with no spatial pruning. It runs once per coplanar hit, only when `hits_file` is given, and for every hit, not only the first 20. Cost is the product of the two triangle counts per hit; it is not measured, so how long it takes on dense meshes is uncertain. Nothing bounds it today; a field report would justify a box filter (M4).
 
 ### Open questions
 
@@ -1486,3 +1488,20 @@ Pre-merge review (opus, high): no Critical. Eval E12: pass (exactly the three pl
 - FX9-I4 (M3): if T44 exceeds the limit, bisect a vertex list sorted by x in `_within` instead of scanning every vertex.
 - FX9-I5 (M5, E12): split the six CHANGELOG sentences over 25 words; SKILL.md says how to treat a roofless room or cutaway (set `interior=False` on a view meant to show sky, and say so to the owner); note that one cause can produce hits in two checks (a slab sunk into the floor and coplanar with it); fix the floor_fit message for an object buried inside a floor so it does not read "sunk more than 0.300 m" when it is sunk less (report the measured depth when it can be measured, or say "buried in the floor").
 - FX9-I6 (M6): record in this revision the implementer's deviations (`_BROAD`, walls and finishes as roots at any height, the `_clip_area` split), add F1 to this revision's Decisions, and note `_coplanar_detail` cost under Not covered (M4).
+
+### Implementer deviations and fix-round record (2026-10-21)
+
+Deviations of the shipped v1.1.1 code from the R58 and R59 text above (FX9-I6, review M6). Each is intended and stays.
+
+- `_BROAD`: the factor of two in the broad-face test is the module constant `_BROAD = 2` (`scripts/checks.py:350`), not a literal. This is decision F1. Commit `d85f9bf`.
+- Walls and finishes as roots: `floor_fit_check` sets `roots[n] = 1` for every object with a `walls` or `finishes` prefix before it probes the floor (`scripts/checks.py:462`). So a wall or finish is a wall-origin root at any height and over no floor. R58 says an object at `d >= hang`, or over no floor, is neither root nor node. That holds for every object that is not a wall or finish. A wall that stands on a floor keeps wall origin, since `roots.setdefault(n, 2)` (`scripts/checks.py:483`) does not replace an existing root. Reason (inferred from the code; the commit message does not state it): a wall or finish gives support wherever it stands.
+- The `_clip_area` split: R59's detail lines (H1) need the clipped polygon, not only its area. `_clip_area` became `_clip_poly` (the overlap polygon, `[]` when the triangles do not meet) and `_poly_area` (the area). `_overlap_poly` returns the polygon and the projection frame `(a, u, v)`. `_overlap` still returns the area, so `coplanar_check` is unchanged. Commit `a62e819`.
+
+Fix round (FX9-I1 to FX9-I6), implemented on `release-1.1.1` against the tests at `78f81a5`:
+
+- FX9-I1 (K1): `floor_fit_check(..., figure=())` takes exact names. `_objects(("MESH",), skip=figure)` leaves them out of the object table, so they are never reported, never roots, and never candidates. `run_checks` passes the figure objects as `figure=` and no longer adds them to `skip`. `skip` and exempt objects stay roots of floor origin. `run_checks(figure=("man_",))` works as before. SKILL.md Limits says an exempt object supports what touches it.
+- FX9-I2 (M1): in the centre-ray rest, a candidate's bottom must be at or below the object's bottom plus 1e-6. A lid that lies above a plate is no longer its support. A chair at the rug's min z still rests on the rug.
+- FX9-I3 (M2): the contact axis of `broad` is the horizontal axis on which the smallest share of the object's own extent lies inside the other object, that is the overlap divided by the object's size on that axis. The first rule took the axis of least overlap in metres, which picks the axis along which a thin panel is thin when its end runs 30 mm into a carcass side. Not chosen: requiring the overlap along the axis to be at most `tol`, the other option the finding named. The share rule needs no new threshold.
+- FX9-I4 (M3): not needed. T44 with 60 band objects over the 100,000-vertex mesh printed `TIMING floor_fit 0.81 s` (2,055 mesh objects, 285 hits; limit 10 s). `_within` still scans every vertex.
+- FX9-I5 (M5, E12): the six CHANGELOG sentences over 25 words are split. SKILL.md says to set `interior=False` on a view meant to show sky (a roofless room or a cutaway) and to tell the owner, and that one cause can give hits in two checks (a slab sunk into the floor and coplanar with it). The floor_fit line for an object buried in a floor reads `<name> buried in the floor`; the hit tuple stays `(name, None)`.
+- T51 measurement (FX9-T5): in Blender 5.2, a correct 1.2 mm x 0.2 m x 0.009 m box at (7, 0, 0) or (0, 7, 0) is not misreported by the old `flipped_check`. At (4.12, 4.12, 4.12), 7.1 m out on the diagonal, it read as inside out before the fix. T51 places the box at the diagonal.
