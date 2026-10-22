@@ -1,6 +1,7 @@
 """Pre-render scene checks (Blender): clashes, coplanar faces, flipped faces, wall gaps, floor fit, camera rays,
 stair clearance, and run_checks, the pass/fail gate that a build script calls before it renders."""
 import math
+import os
 import sys
 import time
 from bisect import bisect_right
@@ -167,8 +168,8 @@ def _tris(ob, dg, min_area):
             for pi, a, b, c, n, ar in raw if area[pi] >= min_area]
 
 
-def _clip_area(sub, clip):
-    """Area of the overlap of two convex counter-clockwise 2D polygons (Sutherland-Hodgman)."""
+def _clip_poly(sub, clip):
+    """Overlap polygon of two convex counter-clockwise 2D polygons (Sutherland-Hodgman); [] when they do not meet."""
     out = sub
     for i in range(len(clip)):
         p, q = clip[i], clip[(i + 1) % len(clip)]
@@ -183,13 +184,17 @@ def _clip_area(sub, clip):
                 t = ds / (ds - de)
                 out.append((s[0] + (e[0] - s[0]) * t, s[1] + (e[1] - s[1]) * t))
         if not out:
-            return 0.0
-    return abs(sum(out[k][0] * out[(k + 1) % len(out)][1] - out[(k + 1) % len(out)][0] * out[k][1]
-                   for k in range(len(out)))) / 2
+            return []
+    return out
 
 
-def _overlap(t1, t2):
-    """Overlap area of two coplanar-ish triangles, both projected onto the plane of t1."""
+def _poly_area(poly):
+    return abs(sum(poly[k][0] * poly[(k + 1) % len(poly)][1] - poly[(k + 1) % len(poly)][0] * poly[k][1]
+                   for k in range(len(poly)))) / 2
+
+
+def _overlap_poly(t1, t2):
+    """Overlap polygon of two coplanar-ish triangles, both projected onto the plane of t1, and its frame (a, u, v)."""
     a, b, c, n = t1[:4]
     u = (b - a).normalized()
     v = n.cross(u)
@@ -198,15 +203,27 @@ def _overlap(t1, t2):
     for p in (p1, p2):
         if (p[1][0] - p[0][0]) * (p[2][1] - p[0][1]) - (p[1][1] - p[0][1]) * (p[2][0] - p[0][0]) < 0:
             p.reverse()
-    return _clip_area(p2, p1)
+    return _clip_poly(p2, p1), (a, u, v)
 
 
-def coplanar_check(prefixes=None, tol=0.0005, min_area=1e-6, skip=()):
+def _overlap(t1, t2):
+    """Overlap area of two coplanar-ish triangles, both projected onto the plane of t1."""
+    return _poly_area(_overlap_poly(t1, t2)[0])
+
+
+def _same_plane(t1, t2, tol):
+    """True when triangles t1 and t2 face the same way, lie on one plane within tol, and have boxes within tol."""
+    return (t1[3].dot(t2[3]) > 0.9995 and abs((t2[0] - t1[0]).dot(t1[3])) < tol
+            and not any(t1[5][0][k] > t2[5][1][k] + tol or t2[5][0][k] > t1[5][1][k] + tol for k in range(3)))
+
+
+def coplanar_check(prefixes=None, tol=0.0005, min_area=1e-6, skip=(), overlaps=()):
     """Pairs (name1, name2) of mesh objects with faces on one plane (within tol metres) whose in-plane extents overlap.
 
     Faces count when their normals point the same way and the overlap exceeds min_area square metres; faces that
     meet back to back (butt joints, a wall on a floor) do not z-fight and are not reported.
     skip holds exact object names to leave out. Objects hidden from render are skipped.
+    overlaps holds exact collection names; a pair of objects in one of them is not compared.
     Catches z-fighting and black strips before rendering.
     """
     dg = _depsgraph()
@@ -218,19 +235,19 @@ def coplanar_check(prefixes=None, tol=0.0005, min_area=1e-6, skip=()):
         if ts:
             data.append((o.name, ts, (Vector(map(min, zip(*(t[5][0] for t in ts)))),
                                       Vector(map(max, zip(*(t[5][1] for t in ts)))))))
+    groups = [{o.name for o in c.all_objects} for c in map(bpy.data.collections.get, _prefixes(overlaps)) if c]
     hits = []
     for i, (n1, t1s, b1) in enumerate(data):
         for n2, t2s, b2 in data[i + 1:]:
+            if any(n1 in g and n2 in g for g in groups):
+                continue
             if any(b1[0][k] > b2[1][k] + tol or b2[0][k] > b1[1][k] + tol for k in range(3)):
                 continue
             total = 0.0
             for t1 in t1s:
                 for t2 in t2s:
-                    if t1[3].dot(t2[3]) <= 0.9995 or abs((t2[0] - t1[0]).dot(t1[3])) >= tol:
-                        continue
-                    if any(t1[5][0][k] > t2[5][1][k] + tol or t2[5][0][k] > t1[5][1][k] + tol for k in range(3)):
-                        continue
-                    total += _overlap(t1, t2)
+                    if _same_plane(t1, t2, tol):
+                        total += _overlap(t1, t2)
                 if total > min_area:
                     break
             if total > min_area:
@@ -630,8 +647,37 @@ def _line(check, h):
     return f"{h[0]} {h[1]} inside" if h[2] is None else f"{h[0]} {h[1]} headroom {h[2]:.3f} m"
 
 
+def _coplanar_detail(n1, n2, dg, tris, tol=0.0005, min_area=1e-6):
+    """Detail line for a pair that coplanar_check reports: the shared plane, the overlap box and its area.
+
+    tris caches the triangles of each object by name. Returns None when no triangle pair overlaps.
+    """
+    for n in (n1, n2):
+        if n not in tris:
+            tris[n] = _tris(bpy.data.objects[n], dg, min_area)
+    found = []
+    for t1 in tris[n1]:
+        for t2 in tris[n2]:
+            if _same_plane(t1, t2, tol):
+                poly, (a, u, v) = _overlap_poly(t1, t2)
+                if poly:
+                    found.append((_poly_area(poly), t1[3], t1[3].dot(t1[0]), [a + u * x + v * y for x, y in poly]))
+    if not found:
+        return None
+    _, normal, offset, _ = max(found, key=lambda f: f[0])
+    same = [f for f in found if f[1].dot(normal) > 0.9995 and abs(f[2] - offset) < tol]
+    lo, hi = _box([p for f in same for p in f[3]])
+
+    def f3(x):
+        return f"{round(x, 3) + 0.0:.3f}"
+
+    return (f"    plane n=({f3(normal.x)}, {f3(normal.y)}, {f3(normal.z)}) d={f3(offset)} m; "
+            f"overlap x {f3(lo.x)}-{f3(hi.x)} y {f3(lo.y)}-{f3(hi.y)} z {f3(lo.z)}-{f3(hi.z)} m; "
+            f"area {sum(f[0] for f in same):.4f} m2")
+
+
 def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt=None, interior=None, unit=None,
-               rays=160):
+               rays=160, overlaps=(), hits_file=None, finishes=()):
     """Run the six checks over the whole scene, print OK, FAIL or SKIP for each, and exit 1 when any failed.
 
     Call it after the camera is set and right before the render. floors: exact names of every floor, slab and
@@ -640,21 +686,43 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
     exempt: {check: [exact object names]} for coplanar, flipped, wall_gaps, floor_fit, camera and clearance, and
     {"openings": [(wall, wall)]} for openings meant to run to the ceiling. interior and rays go to camera_check;
     unit (metres per project unit, None for bhelpers.U) goes to clearance_check.
+    overlaps: exact collection names; the coplanar check does not compare a pair of objects in one of them.
+    hits_file: a path; the run writes its own WARN and NOTE lines and every status and hit line there, with no
+    limit of 20 hits, and prints the path. finishes: prefixes of wall finish objects, passed to floor_fit_check.
     """
     exempt = {k: v if k == "openings" else _prefixes(v) for k, v in (exempt or {}).items()}
     bad = [k for k in exempt if k not in _NAMES + ("openings",)]
     if bad:
         raise ValueError(f"unknown exempt key {bad[0]!r}; use one of {', '.join(_NAMES + ('openings',))}")
     bpy.context.view_layer.update()
+    log = []
+
+    def say(line):
+        print(line)
+        log.append(line)
+
     have = {o.name for o in bpy.data.objects}
     for key, names in exempt.items():
         for n in (n for item in names for n in ((item,) if isinstance(item, str) else item)):
             if n not in have:
-                print(f"WARN exempt {key}: no object named {n}")
+                say(f"WARN exempt {key}: no object named {n}")
     floors, rendered = _prefixes(floors), {o.name for o in _objects(("MESH",))}
     for n in floors:
         if n not in rendered:
-            print(f"WARN floors: no {'rendered mesh' if n in have else 'object'} named {n}")
+            say(f"WARN floors: no {'rendered mesh' if n in have else 'object'} named {n}")
+    for name in _prefixes(overlaps):
+        coll = bpy.data.collections.get(name)
+        if coll is None:
+            say(f"WARN overlaps: no collection named {name}")
+            continue
+        members = sorted(n for n in (o.name for o in coll.all_objects) if n in rendered)
+        if not members:
+            say(f"WARN overlaps: collection {name} holds no rendered mesh")
+            continue
+        say(f"NOTE coplanar: pairs inside collection {name} not checked ({len(members)} of {len(rendered)} objects)")
+        for n in members:
+            if n in floors or n.startswith(_prefixes(walls)):
+                say(f"WARN overlaps: {n} in collection {name} is a floor or wall")
     fig = tuple(n for n in have if n.startswith(_prefixes(figure))) if figure else ()
     given, floors = bool(floors), tuple(n for n in floors if n in rendered)
     cam = bpy.context.scene.camera
@@ -663,12 +731,12 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
         return tuple(exempt.get(check, ())) + tuple(extra)
 
     plan = (
-        ("coplanar", None, lambda: coplanar_check(skip=skip("coplanar", fig))),
+        ("coplanar", None, lambda: coplanar_check(skip=skip("coplanar", fig), overlaps=overlaps)),
         ("flipped", None, lambda: flipped_check(skip=skip("flipped"))),
         ("wall_gaps", None, lambda: wall_gap_check(prefixes=walls, floors=floors, skip=skip("wall_gaps"),
                                                    full_height=exempt.get("openings", ()))),
         ("floor_fit", None if floors else "none of the floors exists" if given else "no floors given",
-         lambda: floor_fit_check(floors, walls=walls, skip=skip("floor_fit", fig))),
+         lambda: floor_fit_check(floors, walls=walls, skip=skip("floor_fit", fig), finishes=finishes)),
         ("camera", "no scene camera" if cam is None else
          "scene camera is not a camera object" if cam.type != "CAMERA" else
          None if cam.data.type == "PERSP" else
@@ -677,29 +745,44 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
         ("clearance", None if paths else "no paths given",
          lambda: clearance_check(paths, unit=unit, skip=skip("clearance", fig))),
     )
-    failed = []
+    failed, tris, dg = [], {}, None
     for name, why, fn in plan:
         if why:
-            print(f"SKIP {name}: {why}")
+            say(f"SKIP {name}: {why}")
             continue
         t0 = time.perf_counter()
         try:
             hits = fn()
         except Exception as e:
-            print(f"FAIL {name}: error {type(e).__name__}: {e}")
+            say(f"FAIL {name}: error {type(e).__name__}: {e}")
             failed.append(name)
             continue
         dt = time.perf_counter() - t0
         if not hits:
-            print(f"OK {name} ({dt:.2f} s)")
+            say(f"OK {name} ({dt:.2f} s)")
             continue
         failed.append(name)
-        print(f"FAIL {name}: {len(hits)} ({dt:.2f} s)")
+        say(f"FAIL {name}: {len(hits)} ({dt:.2f} s)")
         for h in hits[:20]:
             print("  " + _line(name, h))
         if len(hits) > 20:
             print(f"  ... and {len(hits) - 20} more")
+        if hits_file is not None:
+            for h in hits:
+                log.append("  " + _line(name, h))
+                if name == "coplanar":
+                    if dg is None:
+                        dg = _depsgraph()
+                    detail = _coplanar_detail(h[0], h[1], dg, tris)
+                    if detail:
+                        log.append(detail)
+    verdict = f"FAIL run_checks: {', '.join(failed)}" if failed else "OK run_checks"
+    if hits_file is not None:
+        path = os.path.abspath(hits_file)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(log + [verdict]) + "\n")
+        print(f"NOTE full hit list: {path}")
+    print(verdict)
     if failed:
-        print(f"FAIL run_checks: {', '.join(failed)}")
         sys.exit(1)
-    print("OK run_checks")
