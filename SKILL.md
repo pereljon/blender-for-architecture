@@ -208,7 +208,7 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 - Support that starts at a wall or finish needs a base at least 0.1 m above the floor. So does any other side contact, such as a box against a cabinet side.
 - An object below 0.1 m that touches only a wall, a finish, or another object with a narrow side is reported. A bed a few cm up against a wall or a nightstand is a defect.
 - Objects at or above the hang limit give no support. An item recessed more than 25 mm into a wall is reported.
-- An object buried inside a floor reports as `buried in the floor`, with no depth.
+- An object buried inside a floor reports its depth below the floor's top face. One sunk more than the hang limit (0.3 m) reports `sunk more than 0.300 m`, whatever its depth.
 - A panel end or edge that runs into another object is not a touching face, so it does not take that object's origin.
 - An object exempt from `floor_fit` is not reported, but it still supports what touches it.
 - The checks do not see instances (collection, geometry-nodes, or particle instances). Check those in the preview.
