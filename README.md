@@ -1,6 +1,6 @@
 # blender-for-architecture
 
-A Claude Code skill that builds architectural and remodel renders in Blender. One Python scene script builds the whole model. Blender renders it headless (no window) with Cycles, its path-tracing renderer.
+An agent skill (a `SKILL.md` folder in the Agent Skills format) that builds architectural and remodel renders in Blender. One Python scene script builds the whole model. Blender renders it headless (no window) with Cycles, its path-tracing renderer.
 
 ## Why
 
@@ -13,22 +13,13 @@ The owner chooses from labeled comparison pages, and the choice becomes the scri
 Prerequisites:
 - Blender 5.2 LTS on macOS, Linux, or Windows. Only macOS is tested. SKILL.md ("Environment") lists the usual Blender path and GPU backend for each system.
 - uv, a Python package runner. It provides `uvx`, which runs the plain-Python scripts with Pillow, PyMuPDF, or IfcOpenShell and numpy. `uvx` needs the network on first use.
-- For IFC, sun, and scan work only: the Bonsai, Sun Position, and Point Cloud I/O extensions. Claude asks before it installs any of them. Bonsai is about 140 MB.
+- For IFC, sun, and scan work only: the Bonsai, Sun Position, and Point Cloud I/O extensions. The agent asks before it installs any of them. Bonsai is about 140 MB.
 
 Shortest path to a first render:
 1. Install the skill (see Developer details).
-2. Open Claude Code in a project. Ask for a render, plan view, study page, construction sheet, or IFC file of a room or house. The skill loads.
-3. Claude sets up the Blender folder (`blender/` by default), a dimensions file, and a decisions log, then builds the scene script from `templates/scene_template.py`.
-4. Claude copies `scripts/` into `blender/lib/vX.Y.Z/`, where X.Y.Z is the installed skill version. It runs a low-resolution preview before any final render.
-
-To run one view yourself, copy the template, and copy `scripts/` into `lib/<LIB>/` beside it. `<LIB>` is the template's `LIB` value. Then run:
-
-```
-BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P scene.py -- \
-    --view persp --res 800 --samples 48 --gpu --out out/persp.png
-```
-
-The script prints `DONE <path>` when the render is written. SKILL.md ("Environment") states the `$BLENDER` rule and the flags.
+2. Open your coding agent, such as Claude Code, in a project. Ask for a render, plan view, study page, construction sheet, or IFC file of a room or house. The skill loads.
+3. The agent sets up the Blender folder (`blender/` by default), a dimensions file, and a decisions log, then builds the scene script from `templates/scene_template.py`.
+4. The agent copies `scripts/` into `blender/lib/vX.Y.Z/`, where X.Y.Z is the installed skill version. It runs a low-resolution preview before any final render.
 
 ## How a model gets built
 
@@ -76,6 +67,17 @@ The script prints `DONE <path>` when the render is written. SKILL.md ("Environme
 - Extraction tuning is per drawing set, because offices draw walls differently.
 - Headless Bonsai output beyond walls and a plan drawing is unverified. This covers doors and windows in openings, dimensions, labels, sheets, and rendering an IFC scene with project materials.
 
+## Running a view by hand
+
+The agent normally runs every render. To run one view without it, copy the template into the Blender folder as a scene script, for example `blender/build_room.py`. Copy `scripts/` into `blender/lib/<LIB>/`, where `<LIB>` is the template's `LIB` value. Then run this from the project folder:
+
+```
+BLENDER=/Applications/Blender.app/Contents/MacOS/Blender; "$BLENDER" --factory-startup -b --python-exit-code 1 -P blender/build_room.py -- \
+    --view persp --res 800 --samples 48 --gpu --out out/persp.png
+```
+
+The script prints `DONE <path>` when the render is written. SKILL.md ("Environment") states the `$BLENDER` rule and the flags.
+
 ## Developer details
 
 Install from the skill-developer project root, after the release is approved:
@@ -101,6 +103,6 @@ The suite prints `PASS` or `FAIL` for each step. It ends with a summary line (`N
 - Output and logs go to `tests/out/`, which is gitignored.
 
 The rest of the skill:
-- [SKILL.md](SKILL.md): the instructions Claude follows.
+- [SKILL.md](SKILL.md): the instructions the agent follows.
 - [reference/](reference/): `api.md` (function signatures), `plan-input.md`, `views.md`, `studies.md`, `construction-sheets.md`, `extensions.md`, and `migration.md`.
 - [dev/features/blender-skill-contract.md](dev/features/blender-skill-contract.md): the design contract for `scripts/`.

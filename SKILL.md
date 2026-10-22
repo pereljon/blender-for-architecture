@@ -5,7 +5,7 @@ description: Builds architectural and remodel renders in Blender from a Python s
 
 # Architectural renders in Blender
 
-One Python file, the scene script, builds the whole scene, and Blender renders it headless. Options are command-line flags. The owner is the person who makes the design decisions. The user is the person working with Claude. The owner decides from labeled study pages, and the chosen option becomes the scene script's default.
+One Python file, the scene script, builds the whole scene, and Blender renders it headless. Options are command-line flags. The owner is the person who makes the design decisions. The user is the person working with the agent. The owner decides from labeled study pages, and the chosen option becomes the scene script's default.
 
 ## Environment
 
@@ -35,8 +35,8 @@ BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P script.p
 ## Project setup
 
 1. Choose the Blender folder. Use `blender/` in a new project. Use the folder where the project already keeps its scene scripts, such as `renders/`, in an existing project. Paths in this skill write it as `blender/`.
-2. Read the installed version from the skill folder, `${CLAUDE_SKILL_DIR}`: the first `## [X.Y.Z]` heading in `CHANGELOG.md`. If that file is missing, use the `tag:` line of `.installed`. If both are missing, use the `LIB` value in `templates/scene_template.py`.
-3. Copy `${CLAUDE_SKILL_DIR}/scripts/*.py` and `*.json` into `blender/lib/vX.Y.Z/`. Never edit a version folder after you copy it.
+2. Read the installed version from the skill folder, the folder that holds this SKILL.md (`${CLAUDE_SKILL_DIR}` in Claude Code): the first `## [X.Y.Z]` heading in `CHANGELOG.md`. If that file is missing, use the `tag:` line of `.installed`. If both are missing, use the `LIB` value in `templates/scene_template.py`.
+3. Copy the skill folder's `scripts/*.py` and `*.json` into `blender/lib/vX.Y.Z/`. Never edit a version folder after you copy it.
 4. Copy `templates/scene_template.py` to `blender/build_<scene>.py`. Its `LIB` already names the installed version.
 5. Call `set_units("ft")` if the drawings are in feet. All helper lengths are then in feet.
 6. If the main viewer is not 5'-7", set `VIEWER` to their height in project units. The eye-level camera height follows from it.
@@ -193,7 +193,7 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 - Draw each walking box between the handrails, from its nosing to the next nosing.
 - To check for sky in a scene with no ceiling, pass `interior=True` in the `run_checks` call, or set it in the view's entry.
 - If a view looks out through an opening without glass, set `interior=False` in its entry.
-- If a view is meant to show sky, such as a roofless room or a cutaway, set `interior=False` in its entry. Tell the owner that the view's sky is not checked.
+- If a view is meant to show sky, such as a cutaway, set `interior=False` in its entry. Tell the owner that the view's sky is not checked.
 - In a script without a VIEWS table, leave out `interior` unless the view looks out through an opening without glass. The default detects an interior view from an object above the camera.
 
 ### Limits

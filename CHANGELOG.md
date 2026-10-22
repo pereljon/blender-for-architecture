@@ -38,6 +38,7 @@ This patch release adds optional arguments, which Semantic Versioning counts as 
 
 ### Changed
 
+- SKILL.md names no single agent: it says "the agent", and it defines the skill folder as the folder that holds SKILL.md (`${CLAUDE_SKILL_DIR}` in Claude Code).
 - SKILL.md Checks: the overlap collection, `finishes`, `hits_file`, the new output lines, the tile-layer note, and the floor_fit support limits.
 - SKILL.md Checks: a roofless room or cutaway takes `interior=False`. One cause can give hits in two checks. An exempt object still supports what touches it.
 - `reference/migration.md`, "Wire the checks":
