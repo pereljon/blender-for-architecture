@@ -1140,15 +1140,27 @@ Pre-merge review (opus, high): no Critical; requirements R40 to R57 met. Evals E
 
 ## Revision 9 (2026-10-21, v1.1.1)
 
-Scope, approved by the user on 2026-10-21 (R1): three fixes from field reports of two render projects' check runs, and migration guidance from the same reports. (1) `floor_fit` false positives on supported objects; (2) a narrow coplanar opt-out for planes that overlap by design; (3) a full hit list written to a file. the user dropped the minor items (`look()` precision, dump tolerance, flicker notes); the E10 rerun's migration gaps stay in skill `docs/ISSUES.md` for later. Investigated against branch `release-1.1.1` at `842dd53` (v1.1.0 plus records). Files read; Blender not run.
+Scope, approved by the user on 2026-10-21 (R1): three fixes from field reports of two render projects' check runs, and migration guidance from the same reports. (1) `floor_fit` false positives on supported objects; (2) a narrow coplanar opt-out for planes that overlap by design; (3) a full hit list written to a file. the user dropped the minor items (`look()` precision, dump tolerance, flicker notes); the E10 rerun's migration gaps stay in skill `docs/ISSUES.md` for later. Investigated against branch `release-1.1.1` at `842dd53` (v1.1.0 plus records). Files read; Blender not run. Revised the same day after an independent review (C1, C2, I3, I4, and minors) and the user's decisions V1 and W1; the floor_fit design below is the revised one.
+
+### Decisions (2026-10-21, the user)
+
+- V1: the version stays v1.1.1. This is a deviation from Semantic Versioning: the release adds optional arguments (`overlaps`, `hits_file`, `finishes`), which Semantic Versioning counts as a minor release. The CHANGELOG lists them under Added and states the deviation (R64). Rejected: v1.2.0 with the tile work moved to v1.3.0.
+- W1: floor_fit support is transitive by contact, with an origin per chain, floor or wall (R58). It replaces the first design's direct wall-contact pass and question V2. Rejected: wall contact at any height (a bed or sofa a few cm up against a wall must fail).
+- A strict "wall-hung" collection, which would mark objects allowed to hang at any height, is out of scope. It is recorded as a later item (R65).
+- X1, the broad-face rule: side contact gives the support's origin, floor included, when the touching face is the object's largest face: a panel mounted flat against its support, such as a cabinet door, a drawer front, or a back panel. Any other side contact gives wall origin and needs a base at least `_LIFT` up. So a door or drawer front on a floor-standing carcass passes at any height (kitchen doors 3 cm up), and a raised bed beside a flush nightstand fails, since it touches with a narrow side. Rejected: the architect's provisional rule (every side contact gives wall origin, so a door below 0.1 m fails); every side contact keeping the support's origin (the raised bed passes). The architect's definition of "largest face" is in R58 (Broad face).
+
+### Field data (2026-10-21, both render projects, generic)
+
+- Project B: of 134 floor_fit hits, 40 touch a wall object directly. Most of the other 94 rest on parts of their own assembly: a toilet bowl on its neck and tank, a UPS on a rack post, a bed head panel on rails and legs, planter sides on a planter base, a cabinet door on its carcass. None touches only a finish layer.
+- Project A: wall-hung carcasses touch the tile layer (`wt_*`, 10 mm thick, inside the wall volume, the wall face about 1.2 mm behind). One outlet touches only a tile piece and a pipe-chase box; the nearest wall object is 106 mm away. Drawers and doors touch only their carcass. A bed base with no legs floats 0.08 m and touches only the headboard and the mattress; the headboard touches the wall. That bed base is a real defect and must fail.
 
 ### Index
 
 | Req | Owner | Files | Scope |
 |---|---|---|---|
-| R58 | implementer | `scripts/checks.py`, `floor_fit_check` | 1 |
+| R58 | implementer | `scripts/checks.py`, `floor_fit_check`, `_LIFT` | 1 |
 | R59 | implementer | `scripts/checks.py`, `coplanar_check` | 2 |
-| R60 | implementer | `scripts/checks.py`, `run_checks` | 2, 3 |
+| R60 | implementer | `scripts/checks.py`, `run_checks` | 1, 2, 3 |
 | R61 | session | SKILL.md, Checks | 1, 2, 3 |
 | R62 | session | `reference/api.md`, checks.py entries | 1, 2, 3 |
 | R63 | session | `reference/migration.md`, Wire the checks | guidance |
@@ -1159,68 +1171,91 @@ Scope, approved by the user on 2026-10-21 (R1): three fixes from field reports o
 
 Each fact names its source. "Training knowledge" marks a claim that no file in reach confirms.
 
-- `floor_fit_check` (`scripts/checks.py:320-378`) tests support only when `tol < d < hang` (`:364`). It casts one ray down from the box centre at `lo.z + tol`, for at most `2 tol`, against each object whose box covers the centre in plan and reaches within `tol` of `lo.z` (`:365-375`). An object at `hang` or higher passes before any support test. Read.
-- So today an object fails when its support is not under its box centre (two rails under gear, a frame ring under a mattress, a plinth under a door's back strip), when the contact is more than `tol` above its lowest point (a tilted disc on a thin pole: the pole meets the underside about 0.06 m above the low edge), and when it hangs on a wall with nothing under it. Inferred from the code; T42 shows each case fails before the change.
-- `data` holds every R32 mesh object with its world vertices, polygons, and box (`:333-336`); support BVHs are cached per object (`:370-371`) and oriented by `_outward` (`:87-91`). Read.
+- `floor_fit_check` (`scripts/checks.py:320-378`) tests support only when `tol < d < hang` (`:364`). It casts one ray down from the box centre at `lo.z + tol`, for at most `2 tol`, against each object whose box covers the centre in plan and whose top reaches `lo.z - tol` (`:365-375`). It has no condition on the candidate's bottom. An object at `hang` or higher passes before any support test. Read.
+- So today an object fails when its support is not under its box centre (two rails under gear, a frame ring under a mattress, a plinth under a door's back strip), when the contact is more than `tol` above its lowest point (a tilted disc on a thin pole), and when it hangs on a wall or a carcass with nothing under it. Inferred from the code; T42 shows each case fails before the change.
+- The centre ray today also lets a 5 mm plate pass by "resting" on a 5 mm lid on top of it: the ray starts at `lo.z + tol`, above the lid's top, and hits that top face. Inferred from `:365-373`; T43 covers it.
+- `data` holds every R32 mesh object with its world vertices, polygons, and box (`:333-336`); support BVHs are cached per object (`:370-371`) and oriented by `_outward` (`:87-91`). `_outward` turns every face of an open mesh up or sideways, so an open mesh has no down-facing face. Read.
 - `coplanar_check` (`:190-224`) compares every pair of R32 mesh objects whose boxes meet within `tol`; `skip` holds exact names (`:200`). Read.
-- `run_checks` (`:510-582`) prints at most 20 hit lines per check, then `  ... and <k> more` (`:575-578`). Its last line is `OK run_checks` or `FAIL run_checks: <names>`, then `sys.exit(1)`. `_line` (`:495-507`) formats each hit. `_prefixes` (`:16-17`) turns a bare string into a one-item tuple; `run_checks` uses it for `floors` and `exempt` names as well as prefixes. Read.
-- Existing tests that pin today's floor_fit results: `tests/bl_rev6.py` `t_floor_fit`, `t_support` (`led_riser` and `panel_old` still fail), `t_support_variants` (a lid above a plate is not its support), `t_floor_fit_upper_slab`, `t_floor_fit_hung_into_slab`, `t_run_float` (25 boxes 0.3 m apart, each 0.11 m up), and the template's seeded `float_test` (0.6 m from the nearest wall). Each still fails or passes as written under R58; checked against the rule below by hand.
-- The E10 fixture's `shelf_floating` (`tests/fixtures/migration/renders/build_house.py:196`) stands 0.2 ft (61 mm) off the west wall, so R58 still reports it. Read and computed.
-- `BVHTree.ray_cast(origin, direction, distance)` and `BVHTree.overlap(other)` are used in `checks.py` today (`:127`, `:372`). The contract records that `overlap` counts touching faces (Revision 6, Simplify: `clash_check` "counts touching as a clash").
-- `BVHTree.find_nearest(origin, distance)` returns `(location, normal, index, distance)`, or `None` values when no surface lies within `distance`. Training knowledge; the docs site refused the fetch (HTTP 403). T42's wall cases fail if it behaves otherwise.
-- `bpy.types.Collection.all_objects` exists in Blender 5.2: the bundled FBX and glTF exporters read it (`5.2/scripts/addons_core/io_scene_fbx/export_fbx_bin.py:3730`, `:3777`). That it includes the objects of child collections is inferred from `:3777`, which tests `c.all_objects` on each child to find non-empty subtrees, and from training knowledge. T45 checks it.
+- `run_checks` (`:510-582`) prints at most 20 hit lines per check, then `  ... and <k> more` (`:575-578`). Its last line is `OK run_checks` or `FAIL run_checks: <names>`, then `sys.exit(1)`. Its own WARN lines come from `:529-534`. `_line` (`:495-507`) formats each hit. `_prefixes` (`:16-17`) turns a bare string into a one-item tuple. Read.
+- Existing floor_fit tests in `tests/bl_rev6.py`: `t_floor_fit`, `t_support`, `t_support_variants`, `t_floor_fit_upper_slab`, `t_floor_fit_hung_into_slab`, `t_run_float`, `t_run_formats`. Checked by hand against R58: all keep their results except `t_run_formats`, whose `float_011` (0.3 to 0.6, 1.5 to 1.8, base 0.11) lies inside the floor-standing `cp_a` and touches it. Under R58 it passes by side contact. T49 moves it.
+- `t_support_variants` rests a chair on an open plane `rug` at the chair's own base height (equal min z), with `rug` in `skip`. It passes only through the centre ray, which has no bottom condition, and only if a skipped object gives support (R58, Roots).
+- The template's seeded `float_test` stands 0.6 m from the nearest wall; the E10 fixture's `shelf_floating` (`tests/fixtures/migration/renders/build_house.py:196`) stands 0.2 ft (61 mm) off the west wall and touches nothing. Both still fail under R58. Read and computed.
+- Reviewer, verified in Blender 5.2: a vertical ray cast from a vertex on a top edge of an object hits the object it starts on, so rays from every vertex find false rests (C1). `BVHTree.overlap` returns no pairs for face-to-face contact; it reports only crossing triangles. `BVHTree.find_nearest(origin, distance)` returns `(None, None, None, None)` when no surface lies within `distance`.
+- This corrects the first draft of this revision, which took `overlap` to count touching faces (from Revision 6, Simplify). Touch is therefore measured with `find_nearest`, and `overlap` only adds objects that run into each other.
+- `bpy.types.Collection.all_objects` exists in Blender 5.2: the bundled FBX and glTF exporters read it (`5.2/scripts/addons_core/io_scene_fbx/export_fbx_bin.py:3730`, `:3777`). That it includes the objects of child collections is inferred from `:3777` and from training knowledge. T45 checks it.
 
 ### Simplify before building (architect, 2026-10-21)
 
-Each kept part traces to scope 1 to 3 or to the migration guidance. Deleted, with the reason:
-- Deleted: a new contact tolerance. The rest test already treats `tol` (25 mm) as contact; the wall test uses the same value.
-- Deleted: a grid of down rays over the footprint. A grid misses a thin pole under a wide disc. Short rays from the vertices of both objects find the contact at any size, and cost only the vertices near the other object.
-- Deleted: support from side contact with any object. It would pass a raised bed that touches a nightstand. Only walls give side support, as the scope names.
-- Deleted: transitive support (checking that the support is itself supported). Today's rule stands: the object under it is reported instead.
-- Deleted: a sweep or grid index for the box tests. Today's support loop is already O(F x N); T44 bounds the cost on the 1,925-object timing scene.
-- Deleted: a default hit file. A file written on every render, previews included, is a side effect most runs do not need. The console tells the user when the list is cut, and SKILL.md says to pass `hits_file` then.
-- Deleted: JSON for the hit file. No program reads it. Plain lines, identical to the console, can be read, grepped, and diffed with the console text.
+Each kept part traces to scope 1 to 3, to W1, or to the migration guidance. Deleted, with the reason:
+- Deleted: a new contact tolerance. The rest test already treats `tol` (25 mm) as contact; every touch test uses the same value.
+- Deleted: a grid of down rays over the footprint. A grid misses a thin pole under a wide disc. Short rays from the vertices of the facing polygons of both objects find a rest at any size.
+- Deleted: hung objects (base at `hang` or higher) and objects over no floor as supports. W1 starts support at floors, walls, and finishes. Keeping hung objects out also keeps the graph inside the floating band.
+- Deleted: a sweep or grid index for the box tests. Today's support loop is already O(F x N); T44 bounds the cost.
+- Deleted: a default hit file. A file written on every render, previews included, is a side effect most runs do not need. SKILL.md says to pass `hits_file` when the console cuts a list.
+- Deleted: JSON for the hit file. No program reads it. Plain lines, identical to the console, can be read, grepped, and diffed.
 - Deleted: the coplanar opt-out by prefix, by object custom property, or as an `exempt` key with collection names. A prefix catches unrelated objects (SKILL.md, Exemptions); a property is invisible in the `run_checks` call; an `exempt` key would mix collection names into a map of exact object names.
-- Deleted: extending the overlap collection to the camera check. Out of scope; recorded under Not covered.
-- Narrowed: the overlap collection skips only pairs whose two objects are both members. A member coplanar with a wall or any non-member is still reported. The members cost the same as today, minus the skipped pairs.
+- Deleted: extending the overlap collection to the camera check, and a strict wall-hung collection. Out of scope; recorded under Not covered and as later items.
+- Narrowed: the overlap collection skips only pairs whose two objects are both in one collection. A member that lines up with a wall or a non-member is still reported.
 
 ### Code (implementer)
 
 Keep out: the implementer does not edit `tests/`; the test author does not edit `scripts/`, `templates/`, `reference/`, or SKILL.md. Lengths are world metres.
 
-- R58 `floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=0.3, skip=())`. Signature unchanged. Everything up to the value of d is unchanged: the floor BVH, the probe start, the hung-into-slab recast, sunk and None results, and the hung pass at `d >= hang`. Only the band `tol < d < hang` changes. There, the object passes when R58a or R58b holds; otherwise report `(name, d)`, as today. Stop at the first support found.
-  - Terms. The object is O, with world box (lo, hi), vertices, and polygons from `data`. "Grown box" is a world box enlarged by `tol` on every side. A candidate is another R32 mesh object whose grown box overlaps O's grown box in all three axes. Every BVH is built once per object, oriented by `_outward` (cache O's own BVH in the same dict as today).
-  - R58a Rest. O rests on candidate C when C's box bottom is below O's (`olo.z < lo.z`) and one of these holds:
-    1. Centre ray, as today: C's box covers (cx, cy) in plan, and the ray down from (cx, cy, lo.z + tol), for at most `2 tol`, hits C on a face with normal z > 0.
-    2. Down rays: for a vertex v of O inside C's grown box, the ray down from v + (0, 0, tol), for at most `2 tol`, hits C on a face with normal z > 0.
-    3. Up rays: for a vertex w of C inside O's grown box, the ray up from w - (0, 0, tol), for at most `2 tol`, hits O on a face with normal z < 0.
-    Floors, walls, skipped objects, and figure objects can all be C, as today. Walls (named with `walls` prefixes) get the rest test like any object.
-  - R58b Wall contact, only for an O not named with `walls` prefixes. O touches wall W, a candidate named with `walls` prefixes, when one of these holds:
-    1. For a vertex v of O inside W's grown box, `find_nearest(v, tol)` on W's BVH returns a location.
-    2. W's BVH and O's BVH overlap (`overlap` returns a non-empty list): O runs into the wall.
-  - Why `olo.z < lo.z`: a lid above O, whose underside faces down, must not count as O's support (`t_support_variants`, the plate case).
-  - Why the centre ray stays: a plank crossing a narrower beam at its centre has no vertex of either object near the other.
-  - Docstring: replace "and so does one that rests on another object under its centre" with "and so does one that rests on another object anywhere under it, or, unless it is a wall, touches a wall object (within tol, or intersecting)".
-  - Cost. N objects, F of them in the floating band. Unchanged base pass: one floor BVH and at most three rays per object. Support pass: O(F x N) box tests; per candidate pair, one BVH build per object (cached across the run) and one short ray or nearest query per vertex inside the other's grown box, each O(log p). On the T18 scene (1,925 objects, about 200 in the band), that is about 0.4 M box tests. T44 bounds it.
+- R58 `floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=0.3, skip=(), finishes=())`, and the module constant `_LIFT = 0.1` beside `_HANG`, with the comment `# the lowest base for support that starts at a wall or finish`.
+  - Unchanged: the floor BVH, the probe start, the hung-into-slab recast, the value of d, the sunk and None results, the hung pass at `d >= hang`, and the rule that walls are reported only when floating.
+  - `finishes` holds name prefixes (`_prefixes`), for example `("wt_",)`. In floor_fit, a finish is treated as a wall: it is a support root, and it is reported only when floating. Finishes change nothing in `wall_gap_check`.
+  - Walls and finishes in the band `tol < d < hang` keep today's rule exactly: they pass by the centre ray (below) on any object, with no chain and no contact test.
+  - Every other object in that band is a node. A node passes when its best origin is floor, or when its best origin is wall and `d >= _LIFT - 1e-6`. Otherwise report `(name, d)`, as today.
+  - Roots, which give support and are not nodes:
+    - Floor origin: each object named in `floors`; each object whose d is None or `d <= tol` (it stands on a floor, sunk ones included); each object in `skip` (an exempt object is accepted as placed; figure objects come in through `skip`).
+    - Wall origin: each object named with `walls` or `finishes` prefixes, at any height, whether or not it passes itself.
+    - Objects at `d >= hang` and objects over no floor are neither roots nor nodes. They give no support.
+  - Terms. O is a node with world box (lo, hi). "Grown box" is a world box enlarged by `tol` on every side. A candidate is a root or a node whose grown box overlaps O's grown box in all three axes. Per object, build once and cache: the BVH and the polygons oriented by `_outward`, the vertices of its down-facing polygons, and the vertices of its up-facing polygons. A polygon faces down when its oriented normal z is below 0, and up when above 0. For an open mesh, use every polygon that is not vertical for both lists.
+  - Links. For each candidate C, find the first link of O on C, in this order:
+    1. Rest by the centre ray, exactly as today: C's box covers (cx, cy) in plan, `ohi.z >= lo.z - tol`, and the ray down from (cx, cy, lo.z + tol), for at most `2 tol`, hits C on a face with normal z > 0.
+    2. Rest by vertex rays, only when C's box bottom is below O's (`olo.z < lo.z`): a vertex of a down-facing polygon of O, inside C's grown box, whose ray down from v + (0, 0, tol), for at most `2 tol`, hits C on a face with normal z > 0; or a vertex of an up-facing polygon of C, inside O's grown box, whose ray up from w - (0, 0, tol), for at most `2 tol`, hits O on a face with normal z < 0.
+    3. Side, only when C is not on top of O and not wholly under it (`olo.z < hi.z - tol` and `ohi.z > lo.z + tol`), and O touches C. Touch means: `find_nearest(v, tol)[0] is not None` on C's BVH for a vertex v of O inside C's grown box; or the same from a vertex of C inside O's grown box against O's BVH; or `overlap` between the two BVHs is not empty (one runs into the other).
+  - Origins. A link gives O an origin only when C is a root, or C is a node that passes:
+    - a rest link gives C's origin (floor or wall);
+    - a broad-face side link gives C's origin (floor or wall), as a rest link does;
+    - any other side link gives wall origin, whatever C's origin;
+    - any link to a wall or finish root gives wall origin.
+    - Floor beats wall. A node takes its best origin over all its links.
+  - Broad face (X1, the user, 2026-10-21). A side link is broad when O touches C with its largest face. Decide it from world boxes:
+    1. The contact axis k is the horizontal axis, x or y, along which O's box and C's box overlap least (`min(hi[k], ohi[k]) - max(lo[k], olo[k])`, negative for a gap). For face contact it is about 0; along the other axes the boxes overlap by the contact's width and height.
+    2. The link is broad when O's box size along k is at most half of each of O's other two box sizes. In face areas: the box face normal to k is at least twice the area of each other box face, so it is clearly the largest.
+    - Why boxes: the boxes are already in `data`, so the test is a few comparisons per side link. The mesh's own faces would need a face-area sum per normal for each object, for the same answer on the panels this rule is for.
+    - Why the factor of two: plain "largest" is ambiguous for a cube and passes a thick box whose touching face is only a little larger than the others, such as a 0.3 x 0.4 x 0.47 m chest on a carcass side. A door (0.6 x 0.02 x 0.72 m) or a drawer front (0.6 x 0.02 x 0.17 m) clears it by far.
+    - Limits. A panel rotated off the world axes has a fat world box, so it is not broad and needs `_LIFT`. A non-box mesh, such as an L-shaped or curved panel, is judged by its box. A panel touching at two faces gets one link per support; each is judged on its own axis, so a door touching a carcass front (broad) and a side panel with its edge (not broad) takes the better origin. An inset drawer front that touches the carcass only with its edges is not broad.
+  - Propagation. Compute every node's links once. Then start every node at "none", and repeat until nothing changes: raise each node's origin from the links whose C is a root or a passing node. Use a worklist: when a node starts to pass, or its origin rises to floor, re-examine the nodes linked to it. Origins only rise, none then wall then floor, so the loop ends.
+  - Why `olo.z < lo.z` on vertex rays: a lid on top of O must not count as O's support. Why only facing polygons: a ray from a vertex on a top edge hits the object it starts on (C1). Why the side guard: a lid on top of O touches O, but does not hold it up. Why the centre ray stays as it is: a plank crossing a narrower beam at its centre has no vertex near the other object, and a chair on a rug plane at equal min z rests only by it (C2).
+  - Docstring: replace "and so does one that rests on another object under its centre" with "and so does one supported by contact, through a chain that starts at a floor, or at a wall or finish when its base is at least 0.1 m up (see SKILL.md, Checks, Limits)". Add one sentence on `finishes`.
+  - Cost. N objects; B nodes in the band; K candidate pairs (grown boxes overlap) with B on one side; E links.
+    - Unchanged base pass: one floor BVH and at most three rays per object.
+    - Links: O(B x N) box tests. Per candidate pair, the cached BVHs and vertex lists, one filter of each vertex list by the other's grown box, O(v), and one short ray or nearest query per kept vertex, O(log p). Stop each pair at its first link.
+    - Propagation: O(B + E). Each node's origin rises at most twice, and each rise re-examines its links once.
+    - On the T18 scene (1,925 objects, about 200 in the band) that is about 0.4 M box tests. A dense mesh (about 100k vertices) costs one O(v) filter per pair it meets. T44 bounds both.
 - R59 `coplanar_check(prefixes=None, tol=0.0005, min_area=1e-6, skip=(), overlaps=())`:
   - `overlaps` holds exact names of Blender collections; a bare string is one name (`_prefixes`).
   - For each name that `bpy.data.collections` holds, take the set of names of its `all_objects` (child collections included). Ignore a name with no collection; `run_checks` warns about it.
-  - Do not compare a pair when both objects are in one of those sets. Every other pair, a member's included, is compared as today.
+  - Do not compare a pair when both objects are in one of those sets. Every other pair is compared as today, including a pair of members of two different collections.
   - Docstring: add "overlaps holds exact collection names; a pair of objects in one of them is not compared."
-- R60 `run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt=None, interior=None, unit=None, rays=160, overlaps=(), hits_file=None)`:
-  - `overlaps`: exact collection names, a bare string being one name. After the existing exempt and floors WARN lines, and before the first check line, print one line per name:
+- R60 `run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt=None, interior=None, unit=None, rays=160, overlaps=(), hits_file=None, finishes=())`:
+  - `finishes`: prefixes, passed to `floor_fit_check` only.
+  - `overlaps`: exact collection names, a bare string being one name. After the existing exempt and floors WARN lines, and before the first check line, print for each name:
     - no collection: `WARN overlaps: no collection named <name>`;
     - no R32 mesh among its `all_objects` (empty, or all hidden from render): `WARN overlaps: collection <name> holds no rendered mesh`;
-    - otherwise: `NOTE coplanar: pairs inside collection <name> not checked (<k> objects)`, k being the R32 mesh members.
-  - Pass `overlaps` to `coplanar_check` only. The other checks ignore it.
+    - otherwise: `NOTE coplanar: pairs inside collection <name> not checked (<k> of <n> objects)`, k being its R32 mesh members and n every R32 mesh object in the scene;
+    - and, for each member named in `floors` or with a `walls` prefix: `WARN overlaps: <member> in collection <name> is a floor or wall`.
+  - Pass `overlaps` to `coplanar_check` only.
   - `hits_file`: None (the default) writes nothing and prints nothing new. Given a path (a string or path-like, relative to the current folder):
     - After the last check, write a UTF-8 text file, overwriting any old one. Create its parent folders.
-    - Lines, in run order: each check's status line exactly as printed (`OK ...`, `FAIL ...`, `SKIP ...`, or `FAIL <check>: error ...`), and under a failed check every hit line exactly as printed (`  ` + `_line`), with no 20-line limit and no `... and <k> more` line. The last line is the verdict line as printed.
+    - Lines, in printed order: every `WARN` and `NOTE` line that `run_checks` itself prints (not the lines printed inside a check, such as `NOTE wall_gaps` or `NOTE camera`); each check's status line exactly as printed (`OK ...`, `FAIL ...`, `SKIP ...`, or `FAIL <check>: error ...`); under a failed check every hit line exactly as printed (`  ` + `_line`), with no 20-line limit and no `... and <k> more` line; last, the verdict line as printed.
     - Write the file when every check passes, too, so an old list never outlives a clean run.
-    - Print `NOTE full hit list: <absolute path>` after the last check's lines and before the verdict line.
+    - Print `NOTE full hit list: <absolute path>` after the last check's lines and before the verdict line. The file does not hold this line.
     - Write before `sys.exit(1)`. An error writing the file raises, as any other error in the run.
   - Console output is otherwise unchanged, including the 20-line limit.
-  - Docstring: add one sentence each for `overlaps` and `hits_file`.
+  - Docstring: add one sentence each for `overlaps`, `hits_file`, and `finishes`.
 
 No other function changes. No change to `bhelpers.py`, `wall_gaps.py`, `mannequin.py`, `sheets.py`, `ifc_walls.py`, or the template, except the release's `LIB = "v1.1.1"` (R41). No `allowed-tools` line and no `` !`command` `` injection is added.
 
@@ -1229,141 +1264,200 @@ No other function changes. No change to `bhelpers.py`, `wall_gaps.py`, `mannequi
 Draft text follows the instruction-writing rules; adjust wording only.
 
 - R61 SKILL.md, Checks:
-  - "Read the output", four table rows:
+  - "Read the output", five table rows:
     | Line | Meaning |
     |---|---|
-    | `NOTE coplanar: pairs inside collection X not checked (N objects)` | `overlaps` names collection X. Pairs of its members are not compared. Each member is still checked against every other object. |
+    | `NOTE coplanar: pairs inside collection X not checked (k of n objects)` | `overlaps` names collection X. Pairs of its members are not compared. Each member is still checked against every other object. |
     | `WARN overlaps: no collection named X` | No collection has that name, so it skips nothing. Correct the name. |
     | `WARN overlaps: collection X holds no rendered mesh` | The collection is empty, or its objects are hidden from render. It skips nothing. |
+    | `WARN overlaps: Y in collection X is a floor or wall` | A floor or wall is in the overlap collection. Take it out. |
     | `NOTE full hit list: <path>` | The file at that path holds every hit line, not only the first 20 per check. |
   - "Read the output", one bullet after "Fix every hit.": "If a check prints `... and k more`, pass `hits_file` and run again to see every hit."
   - "Exemptions", after the exact-name bullets:
     ```
     - If many objects overlap on one plane by design, such as leaf cards on a tree, put them in one collection.
     - Pass that collection's exact name in `overlaps`: `run_checks(..., overlaps=("tree_leaves",))`. Give the reason in a comment.
-    - Put only those overlapping objects in the collection.
+    - Put only those overlapping objects in the collection. Never put a floor or wall in it.
     - Pairs inside the collection skip the coplanar check only. Each member is still checked against other objects and by the other checks.
     ```
-  - "Setup", one bullet: "To write every hit to a file, pass `hits_file=f"scratch/checks_{args.view}.txt"`. Each run overwrites the file."
-  - "Limits", replacing nothing, three bullets:
+  - "Setup", two bullets:
     ```
-    - `floor_fit` passes an object below the hang limit if it rests on another object anywhere under it, or touches a wall. Touching means within 25 mm, or running into the wall.
-    - An object that touches a wall passes even if it was left at an old floor level. The walls and the freestanding objects at that level are still reported.
-    - An object held only at its side by a non-wall object, such as a door on a carcass front, is reported. So is one that crosses its support away from its centre with no corner on it. Join such an object into its support, or exempt it by exact name.
+    - If wall finishes such as tile pieces are separate objects, pass their prefixes in `finishes`: `finishes=("wt_",)`. Use a prefix that names only finishes.
+    - To write every hit to a file, pass `hits_file=f"scratch/checks_{args.view}.txt"`. Each run overwrites the file.
+    ```
+  - "Limits", replacing nothing, seven bullets:
+    ```
+    - `floor_fit` passes an object below the hang limit if it is supported by contact. Contact means within 25 mm, or running into the other object.
+    - Support that starts at a floor passes at any height: a chain of objects that rest on each other down to the floor.
+    - A panel mounted flat against its support, such as a door, a drawer front, or a back panel, takes its support's origin. A door on a floor-standing carcass passes at any height.
+    - A panel counts when the face it touches with is at least twice the area of each other face of its bounding box. A panel turned off the world axes does not count.
+    - Support that starts at a wall or finish needs a base at least 0.1 m above the floor. So does any other side contact, such as a box against a cabinet side.
+    - An object below 0.1 m that touches only a wall, a finish, or another object with a narrow side is reported. A bed a few cm up against a wall or a nightstand is a defect.
+    - Objects at or above the hang limit give no support. An item recessed more than 25 mm into a wall is reported.
     ```
 - R62 `reference/api.md`, checks.py: the signature lines of `coplanar_check`, `floor_fit_check`, and `run_checks` follow the code (T48), in the style of the other lines (`min_area=1e-06`, tuples as `('wall_',)`). Description changes:
   - `coplanar_check`: add "overlaps holds exact collection names; a pair of objects in one of them is not compared."
-  - `floor_fit_check`: replace the sentence on hung objects with "An object whose base is at least `hang` above the floor counts as hung and passes. An object below that passes when it rests on another object anywhere under it, or touches a walls object (within tol, or intersecting). Walls get no wall-contact pass."
-  - `run_checks`: add "overlaps holds exact collection names for the coplanar check only. hits_file is a path; the run writes every status and hit line there and prints the path."
-- R63 `reference/migration.md`, "Wire the checks", replacing steps 2 and 3 and adding a step before them. The new list:
+  - `floor_fit_check`: replace the sentence on hung objects with "An object whose base is at least `hang` above the floor counts as hung and passes. An object below that passes when supported by contact, through a chain from a floor at any height, or from a wall or finish when its base is at least 0.1 m up. A panel touching with its largest face takes its support's origin; other side contact needs 0.1 m. finishes holds prefixes of finish objects, treated as walls here only."
+  - `run_checks`: add "overlaps holds exact collection names for the coplanar check only. hits_file is a path; the run writes its own WARN and NOTE lines and every status and hit line there, and prints the path. finishes goes to floor_fit_check."
+- R63 `reference/migration.md`, "Wire the checks", replacing steps 2 and 3 and adding steps. The new list:
   ```
   1. Rename walls named by list index (`wall_27`) to stable names. (unchanged, with its second sentence)
   2. Name every floor, slab, and deck in `floors`, including inset slabs such as a shower floor or a sunken tile bed. An object on an unnamed slab reads as floating or sunk.
-  3. In a project under git, wire `run_checks` in a commit of its own. Until every hit is fixed or exempted, every render on the branch fails. A separate commit lets other work go on without it.
-  4. Add `run_checks` as SKILL.md ("Checks") says. Call it right before the render call, with `unit` set to metres per project unit. Pass `hits_file`, so that the full list is on file.
-  5. Expect many hits on a large existing model. Take them check by check.
+  3. If the project builds wall finishes such as tile pieces as separate objects, pass their prefixes in `finishes`.
+  4. In a project under git, wire `run_checks` in a commit of its own. Until every hit is fixed or exempted, every render on the branch fails. A separate commit lets other work go on without it.
+  5. Add `run_checks` as SKILL.md ("Checks") says. Call it right before the render call, with `unit` set to metres per project unit. Pass `hits_file`, so that the full list is on file.
+  6. Expect many hits on a large existing model. Take them check by check.
      - Fix a real defect.
      - Exempt an intended one by its exact name, with the reason in a comment.
      - List a hit whose intent is unclear for the owner. Do not exempt it silently.
      - Never exempt by prefix to clear a long list.
-  6. Parts of one assembly that touch, such as a faucet's body and spout or a cabinet's panels, give coplanar hits.
+  7. Parts of one assembly that touch, such as a faucet's body and spout or a cabinet's panels, give coplanar hits.
      - If the parts always move together, join them into one object. A join changes the geometry dump; list it for the owner.
      - Otherwise, fix each contact that the camera can see.
      - Exempt a part by its exact name only when the contact is hidden and both parts share a material.
-  7. If many objects overlap on one plane by design, such as leaf cards, use one overlap collection (SKILL.md, "Checks", Exemptions).
-  8. List each view that a fix changes, for the owner. (unchanged)
+  8. If many objects overlap on one plane by design, such as leaf cards, use one overlap collection (SKILL.md, "Checks", Exemptions).
+  9. List each view that a fix changes, for the owner. (unchanged)
   ```
 - R64 `CHANGELOG.md`: add `## Unreleased` above `## [1.1.0]`; the release retitles it `## [1.1.1] - <date>`.
   ```
   ## Unreleased
 
+  This patch release adds optional arguments, which Semantic Versioning counts as a minor release. Decided on 2026-10-21 as a deviation.
+
   ### Fixed
 
-  - `checks.floor_fit_check()`: an object below the hang limit passes when it rests on another object anywhere under it, not only under its centre, or when it touches a wall object (within `tol`, or intersecting). Wall-hung vanities, outlets, and rails, gear across two rails, a mattress on a frame ring, a door's back edge on a plinth, and a tilted disc on a thin stand no longer fail. Walls get no wall-contact pass, and side contact with other objects is not support, so a raised bed or a floating shelf still fails.
+  - `checks.floor_fit_check()`: an object below the hang limit passes when it is supported by contact (within `tol`, or running into the other object), not only when it rests on something under its centre. Support is a chain. A chain that starts at a floor passes at any height. A panel mounted flat against its support (a door, a drawer front, a back panel: the touching face is at least twice the area of each other bounding-box face) takes its support's origin. A chain that starts at a wall or finish, and any other side contact, needs a base at least 0.1 m up. Wall-hung vanities and outlets, gear across two rails, a mattress on a frame ring, a door on a plinth, doors and drawer fronts a few cm up on a floor-standing carcass, and a tilted disc on a thin stand no longer fail. A floating shelf, a raised bed, and a bed a few cm up against a wall or a nightstand still fail. A plate no longer passes by resting on the lid on top of it.
+
+  ### Added
+
+  - `checks.floor_fit_check()`: `finishes`, prefixes of wall finish objects such as tile pieces. They support objects as walls do.
+  - `checks.coplanar_check()`: `overlaps`, exact collection names; a pair of objects inside one of them is not compared.
+  - `checks.run_checks()`: `overlaps`, passed to the coplanar check only, with a `NOTE` line per collection and a `WARN` for a missing or empty collection, or for a floor or wall in one. `hits_file`: the run writes its own WARN and NOTE lines and every status and hit line to that file, and prints `NOTE full hit list: <path>`; the console still shows 20 hits per check. `finishes`, passed to the floor_fit check.
 
   ### Changed
 
-  - `checks.coplanar_check()`: new `overlaps`, exact collection names; a pair of objects inside one of them is not compared.
-  - `checks.run_checks()`: new `overlaps`, passed to the coplanar check only, with one `NOTE` line per collection and a `WARN` for a missing or empty one. New `hits_file`: the run writes every status and hit line to that file and prints `NOTE full hit list: <path>`. The console still shows 20 hits per check.
   - `templates/scene_template.py`: `LIB = "v1.1.1"`.
-  - SKILL.md Checks: the overlap collection, `hits_file`, the new output lines, and the floor_fit support limits. `reference/migration.md`, "Wire the checks": name inset slabs in `floors`, wire the checks in a commit of their own, pass `hits_file`, and handle touching assembly parts.
+  - SKILL.md Checks: the overlap collection, `finishes`, `hits_file`, the new output lines, and the floor_fit support limits. `reference/migration.md`, "Wire the checks": name inset slabs in `floors`, pass `finishes`, wire the checks in a commit of their own, pass `hits_file`, and handle touching assembly parts.
   ```
 - R65 Repo docs:
-  - Skill `docs/ISSUES.md` (the session edits it): add a v1.1.1 line under Planned (Revision 9, R58 to R65, branch `release-1.1.1`); add "Later: the overlap collection for camera backfaces of single-sheet leaves, if a project reports it"; keep the E10 migration-gap line open, since the user dropped those items from v1.1.1.
+  - Skill `docs/ISSUES.md` (the session edits it): add a v1.1.1 line under Planned (Revision 9, R58 to R65, branch `release-1.1.1`). Under Decisions, add V1 (the SemVer deviation, dated) and W1. Add two later items: a strict wall-hung collection for objects allowed to hang at any height; and the overlap collection for camera backfaces of single-sheet leaves, if a project reports it. Keep the E10 migration-gap line open.
   - `README.md:45-52`: no change expected; confirm the Checks table still holds.
 
 ### Tests (test author)
 
-All under the suite's timeouts; no sleeps. New Blender tests go in `tests/bl_v111.py`, new plain-Python tests in `tests/test_v111.py` (`python3 -I`); `run_tests.sh` adds both, and the syntax step covers them. The Revision 6 floor_fit tests in `bl_rev6.py` stay unchanged and must still pass. Each new test fails before the change unless it says otherwise. Place each case at least 0.3 m from every other case unless the case says they touch.
+All under the suite's timeouts; no sleeps. New Blender tests go in `tests/bl_v111.py`, new plain-Python tests in `tests/test_v111.py` (`python3 -I`); `run_tests.sh` adds both, and the syntax step covers them. Each new test fails before the change unless it says otherwise. In every case, place each contact vertex inside the other object's face, not on its edge, unless the case is about an edge. Keep cases at least 0.1 m apart unless they are meant to touch. Boxes are `(x0, x1, y0, y1, z0, z1)`.
 
-- T42 floor_fit field cases (`bl_v111.py`). Floor `(-6, 6, -6, 6, -0.5, 0)`; wall `wall_n (-6, 6, 2.0, 2.1, 0, 2.6)`, its south face at y 2.0. One `floor_fit_check(("floor",))` call over the whole scene; the result is exactly the "still fail" list below.
-  - Wall-hung, each touching `wall_n` at y 2.0 unless stated, all pass: `vanity (-5, -4.4, 1.5, 2.0, 0.15, 0.6)`; `toilet (-4, -3.6, 1.45, 2.0, 0.2, 0.6)`; `tower (-3.3, -2.9, 1.6, 2.0, 0.12, 2.0)`; `outlet (-2.6, -2.52, 1.99, 2.0, 0.25, 0.33)`; `blind (-2.2, -1.4, 1.98, 2.0, 0.2, 1.5)`; `rail (-1.1, -0.5, 1.97, 2.0, 0.1, 0.13)`; `vanity_3mm (-0.2, 0.4, 1.5, 1.997, 0.15, 0.6)` (3 mm off); `bracket (0.7, 0.75, 1.9, 2.06, 0.2, 0.25)` (runs 60 mm into the wall, no vertex within `tol` of a wall face: passes only by `overlap`).
-  - Resting off centre, all pass: `rail_l (-5, -4.97, -1, -0.5, 0, 0.12)` and `rail_r (-4.55, -4.52, -1, -0.5, 0, 0.12)` with `gear (-5, -4.52, -1, -0.5, 0.12, 0.3)`; a frame ring of four 0.05 m rails around x -3.5 to -1.5, y -1 to 1, z 0 to 0.25, with `mattress (-3.5, -1.5, -1, 1, 0.25, 0.45)`; `plinth (1.0, 2.2, -1.0, -0.4, 0, 0.1)` with `door (1.0, 1.6, -1.015, -0.995, 0.1, 0.8)` (its back 5 mm over the plinth, its centre in front of it) and `carcass (1.0, 2.2, -0.995, -0.4, 0.1, 0.9)`; `stand (2.99, 3.01, -1.01, -0.99, 0, 0.28)` with `cymbal`, a 32-segment cylinder of radius 0.18 m and thickness 0.004 m whose underside centre is at (3.0, -1.0, 0.28), turned 20 degrees about the world x axis through that point (its lowest point is about 0.22 m up); `beam (5.4, 5.6, -1.5, 0.5, 0, 0.1)` with `plank (5.0, 5.9, -0.6, -0.4, 0.1, 0.12)` (centre ray; passes before and after, a guard for the mutation below); `gear_m` and its two rails as the gear case at x 0 to 0.48, y -3 to -2.5, with `rail_mr` built mirrored (negative x scale, placed so that its world extents are as stated).
-  - Still fail: `shelf_float (-5, -4, -4.3, -4.0, 0.08, 0.10)`, touching nothing; `bed_raised (-3, -1, -5.5, -3.5, 0.08, 0.5)`, touching nothing; `bed_beside (0, 2, -5.5, -3.5, 0.08, 0.5)` with `nightstand (2, 2.5, -5.5, -5.0, 0, 0.6)` touching its side; `vanity_gap (1.5, 2.1, 1.46, 1.96, 0.15, 0.6)`, 40 mm off the wall; `wall_float (4, 4.1, -2, 2.0, 0.05, 2.6)`, a wall butting `wall_n`; `sunk_box (5, 5.2, 4, 4.2, -0.05, 0.5)`.
-  - Want: `[("bed_beside", 0.08), ("bed_raised", 0.08), ("shelf_float", 0.08), ("sunk_box", -0.05), ("vanity_gap", 0.15), ("wall_float", 0.05)]` (tolerance 1e-6). Fails before: the wall-hung and off-centre cases are reported.
-- T43 Rest direction (`bl_v111.py`): `stand_hi (0, 0.02, 0, 0.02, 0.2, 0.5)` touching the top of `low_disc (-0.2, 0.2, -0.2, 0.2, 0.15, 0.2)`, nothing under the disc: the disc is reported floating 0.15 (a support must reach below the object). Passes before; guards the `olo.z < lo.z` condition with the existing plate case.
-- T44 Cost (`bl_v111.py`): build the T18 timing scene (copy the builder from `bl_rev6.py:t_timing`, or import it), run `floor_fit_check(("floor",))` alone, print `TIMING floor_fit <t> s`, and require under 10 s. The implementer records the before and after times in this test plan's results. Passes before; it fails on a quadratic regression.
-- T45 coplanar overlaps (`bl_v111.py`): floor; `leaf_a (0, 1, 0, 1, 1.0, 1.001)` and `leaf_b (0.5, 1.5, 0.5, 1.5, 1.0, 1.001)` in collection `leaves`; `leaf_c (0.8, 1.8, 0, 1, 1.0, 1.001)` in `leaves_sub`, a child of `leaves`; `panel (1.2, 2.2, 1.2, 2.2, 1.0, 1.001)` in the scene collection only.
-  - `coplanar_check()` reports the leaf pairs and every panel pair that overlaps.
-  - `coplanar_check(overlaps=("leaves",))` reports only pairs with `panel`. `overlaps="leaves"` gives the same result.
-  - `overlaps=("nope",)` reports every pair, as without it.
+- T42 floor_fit support (`bl_v111.py`). Floor `(-8, 8, -8, 8, -0.5, 0)`; `wall_n (-8, 8, 4.0, 4.1, 0, 2.6)`, its south face at y 4.0; `wall_x (6.0, 6.1, -4.0, -2.0, 0, 2.6)`, ending at y -2.0. Run `floor_fit_check(("floor",), finishes=("wt_",))` over the whole scene; the result is exactly the "fail" list. Then run it without `finishes`: the same list plus `("outlet_t", 0.25)`.
+  - Wall-hung, touching `wall_n` at y 4.0 unless stated; each passes: `vanity (-7, -6.4, 3.5, 4.0, 0.15, 0.6)`; `toilet (-6.0, -5.6, 3.45, 4.0, 0.2, 0.6)`; `tower (-5.2, -4.8, 3.6, 4.0, 0.12, 2.0)`; `outlet (-4.4, -4.32, 3.99, 4.0, 0.25, 0.33)`; `blind (-4.0, -3.2, 3.98, 4.0, 0.2, 1.5)`; `rail (-2.9, -2.3, 3.97, 4.0, 0.12, 0.15)`; `vanity_3mm (-2.0, -1.4, 3.5, 3.997, 0.15, 0.6)` (3 mm off); `bracket (-1.0, -0.95, 3.9, 4.06, 0.2, 0.25)` (runs 60 mm into the wall with no vertex within `tol` of a wall face: passes only by `overlap`).
+  - Chain from a wall at 0.15 m, each passes: `shelf_w (4.0, 5.0, 3.7, 4.0, 0.15, 0.17)` on the wall; `box_w (4.7, 5.4, 3.75, 3.95, 0.17, 0.4)` resting on it off centre; `tag_w (5.4, 5.5, 3.8, 3.9, 0.2, 0.3)` touching `box_w`'s side only.
+  - Finish: `wt_7 (5.7, 6.3, 3.88, 3.894, 0.3, 1.2)`, a tile piece 106 mm from the wall, touching nothing; `outlet_t (5.9, 5.98, 3.87, 3.88, 0.25, 0.33)` touching only `wt_7`. It passes with `finishes` and fails without.
+  - Resting off centre, each passes only through a floor-origin rest (bases below 0.1 m, or no side link):
+    - `rail_l (-7, -6.97, -1, -0.5, 0, 0.12)` and `rail_r (-6.55, -6.52, -1, -0.5, 0, 0.12)` with `gear (-7, -6.52, -1, -0.5, 0.12, 0.3)`, centred over the gap;
+    - a frame ring of four 0.05 m rails around x -5.5 to -3.5, y -1 to 1, z 0 to 0.25, with `mattress (-5.5, -3.5, -1, 1, 0.25, 0.45)`;
+    - `plinth (1.0, 2.2, -1.0, -0.4, 0, 0.08)`, `door (1.05, 1.65, -1.015, -0.995, 0.08, 0.8)` (its back 5 mm over the plinth, its centre in front of it; it also passes by its broad face on the carcass), and `carcass (1.0, 2.2, -0.995, -0.4, 0.08, 0.9)`;
+    - `stand (2.99, 3.01, -1.01, -0.99, 0, 0.14)`, built mirrored (negative x scale, placed so its world extents are as stated), with `cymbal`, a 32-segment cylinder of radius 0.18 m and thickness 0.004 m whose underside centre is at (3.0, -1.0, 0.14), turned 20 degrees about the world x axis through that point (its lowest point is about 0.077 m up; the stand is its only support path, by up rays);
+    - `beam (5.4, 5.6, -1.5, 0.5, 0, 0.06)` with `plank (5.0, 5.9, -0.6, -0.4, 0.06, 0.08)` (its only path is the centre ray; it passes before and after).
+  - Chain three deep from a floor, each base below 0.1 m, each centre off its support; each passes: `leg (-7.02, -6.94, 1.48, 1.56, 0, 0.04)`; `rail_c (-7, -6.6, 1.5, 1.6, 0.04, 0.06)`; `slat (-6.7, -6.3, 1.52, 1.58, 0.06, 0.07)`; `pad (-6.4, -6.0, 1.53, 1.57, 0.07, 0.09)`.
+  - Broad-face side contact (X1), each below 0.1 m, each touching only its carcass front; each passes:
+    - `carc_f (-1.0, -0.4, 1.5, 2.0, 0, 0.9)`, floor-standing, with `door_s (-0.95, -0.45, 1.48, 1.5, 0.03, 0.85)`;
+    - `plinth2 (-5.0, -3.8, 1.55, 2.0, 0, 0.1)`, set back 50 mm, with `carc2 (-5.0, -3.8, 1.5, 2.0, 0.1, 0.9)` resting on it and `door2 (-4.95, -4.35, 1.48, 1.5, 0.03, 0.85)`, which hangs past the carcass bottom and does not touch the plinth;
+    - `carc_d (-3.0, -2.4, 1.5, 2.0, 0, 0.9)`, floor-standing, with `drawer_f (-2.95, -2.45, 1.48, 1.5, 0.03, 0.2)`.
+  - Narrow side contact below 0.1 m fails (in the list below): `chest (-2.4, -2.1, 1.5, 1.9, 0.03, 0.5)` against `carc_d`'s side at x -2.4. Its touching face (0.4 x 0.47 m) is its largest, but less than twice the next (0.3 x 0.47 m), so a plain "largest face" test passes it.
+  - Fail (want, sorted, tolerance 1e-6): `bed_raised (-5, -3, -5.5, -3.5, 0.08, 0.5)` touching nothing; `bed_side (1.5, 3.5, -4, -2, 0.08, 0.5)` beside a flush `nightstand (1.0, 1.5, -4, -3.5, 0, 0.6)`; `bed_wall (0.5, 2.5, 2.0, 4.0, 0.08, 0.5)` touching `wall_n`; `corner_box (6.12, 6.5, -1.98, -1.6, 0.15, 0.5)`, 20 mm past the end of `wall_x` and 20 mm off its face (28 mm from its corner edge); `ledge (3.0, 3.6, 3.8, 4.0, 0.05, 0.3)` on the wall at 0.05 m; `peg (3.2, 3.3, 3.7, 3.8, 0.12, 0.2)` touching only `ledge`'s front (a failing node gives no support); `shelf_float (-7, -6, -4.3, -4.0, 0.08, 0.10)`; `vanity_gap (-0.5, 0.1, 3.46, 3.96, 0.15, 0.6)`, 40 mm off the wall; `wall_float (7.0, 7.1, 1.0, 4.0, 0.05, 2.6)`, a wall butting `wall_n`; `sunk_box (7.5, 7.7, -7.5, -7.3, -0.05, 0.5)`.
+  - Want: `[("bed_raised", 0.08), ("bed_side", 0.08), ("bed_wall", 0.08), ("chest", 0.03), ("corner_box", 0.15), ("ledge", 0.05), ("peg", 0.12), ("shelf_float", 0.08), ("sunk_box", -0.05), ("vanity_gap", 0.15), ("wall_float", 0.05)]`. Fails before: the supported cases are reported.
+- T43 Lid on a plate (`bl_v111.py`): floor; `plate (0, 0.4, 6.0, 6.4, 0.11, 0.115)` and `lid (0, 0.4, 6.0, 6.4, 0.115, 0.12)`, nothing under the plate. Want `[("lid", 0.115), ("plate", 0.11)]`: neither holds the other up. Fails before: today each passes by the centre ray on the other.
+- T44 Cost (`bl_v111.py`): build the T18 timing scene (copy the builder from `bl_rev6.py:t_timing`, or import it). Add one dense mesh of about 100,000 vertices, a subdivided grid 0.04 m above the floor across an area that holds band objects. Run `floor_fit_check(("floor",))` alone, print `TIMING floor_fit <t> s`, and require under 10 s. The implementer records the times before and after in this test plan. Passes before; it fails on a quadratic regression or an unfiltered dense mesh.
+- T45 coplanar overlaps (`bl_v111.py`): floor; `leaf_a (0, 1, 0, 1, 1.0, 1.001)` and `leaf_b (0.5, 1.5, 0.5, 1.5, 1.0, 1.001)` in collection `leaves`; `leaf_c (0.8, 1.8, 0, 1, 1.0, 1.001)` in `leaves_sub`, a child of `leaves`; `vine_a (1.0, 2.0, 0.5, 1.5, 1.0, 1.001)` and `vine_b (1.5, 2.5, 0.5, 1.5, 1.0, 1.001)` in collection `vines`; `panel (1.2, 2.2, 1.2, 2.2, 1.0, 1.001)` in the scene collection only.
+  - `coplanar_check()` reports every overlapping pair.
+  - `coplanar_check(overlaps=("leaves", "vines"))` drops the pairs inside `leaves` and inside `vines`, and keeps every pair with `panel` and every pair of a leaf with a vine.
+  - `overlaps="leaves"` drops only the pairs inside `leaves`. `overlaps=("nope",)` reports every pair.
   - Fails before: `TypeError` on `overlaps`.
 - T46 run_checks overlaps output (`bl_v111.py`), using `clean_room` and `run` from `bl_rev6.py` (import or copy):
-  - The T45 leaves in `leaves`, raised to z 1.5, plus `overlaps=("leaves",)`: the line `NOTE coplanar: pairs inside collection leaves not checked (3 objects)` comes before the coplanar line; `OK coplanar (`; `OK run_checks`.
+  - The three T45 leaves in `leaves`, raised to z 1.5, and `overlaps=("leaves",)`: the line `NOTE coplanar: pairs inside collection leaves not checked (3 of <n> objects)`, n being the scene's rendered meshes, comes before the coplanar line; `OK coplanar (`; `OK run_checks`.
   - `overlaps=("nope",)`: `WARN overlaps: no collection named nope`, and `FAIL coplanar`.
-  - An empty collection `empty_c`, and one whose only member is hidden from render: `WARN overlaps: collection empty_c holds no rendered mesh`, and the same for the second.
-  - Coplanar only: a member of `leaves` at base 0.11 above the floor gives `  <name> floating 0.110 m` under `FAIL floor_fit`.
+  - An empty collection `empty_c`, and one whose only member is hidden from render: the `holds no rendered mesh` WARN for each.
+  - `wall_south` and `floor` linked into `leaves` as well: `WARN overlaps: wall_south in collection leaves is a floor or wall`, and the same for `floor`.
+  - Coplanar only: a member of `leaves` at base 0.11 above the floor, touching nothing, gives `  <name> floating 0.110 m` under `FAIL floor_fit`.
   - Fails before: `TypeError` on `overlaps`.
-- T47 hits_file (`bl_v111.py`): the 25 floating boxes of `t_run_float`, with `hits_file` set to `<tests/out>/v111/sub/checks.txt` after removing `v111/`:
-  - The file exists. Its lines are, in order: every status line the console printed, each identical; under `FAIL floor_fit: 25 (...)`, all 25 hit lines, in console order, the first 20 identical to the console's; no `... and` line; last, the console's last line.
+- T47 hits_file (`bl_v111.py`): the 25 floating boxes of `t_run_float`, `exempt={"floor_fit": ["no_such"]}`, and `hits_file` set to `<tests/out>/v111/sub/checks.txt` after removing `v111/`:
+  - The file exists. Its lines are, in order: the `WARN exempt floor_fit: no object named no_such` line; every status line the console printed, each identical; under `FAIL floor_fit: 25 (...)`, all 25 hit lines in console order, the first 20 identical to the console's; no `... and` line; last, the console's last line. It holds no `NOTE full hit list` line.
   - The console still shows 20 hit lines and `  ... and 5 more`. Its second-to-last line is `NOTE full hit list: <absolute path>`. Exit code 1.
   - A relative `hits_file` prints the absolute path.
   - The clean room with the same path: the file is overwritten and holds only `OK` or `SKIP` lines and `OK run_checks`.
+  - With `overlaps` naming a collection, the file holds its `NOTE coplanar` line.
   - With `checks.floor_fit_check` replaced by a function that raises, the file holds `FAIL floor_fit: error RuntimeError: boom`.
   - Without `hits_file`: no file is written and no `NOTE full hit list` line is printed.
   - Fails before: `TypeError` on `hits_file`.
 - T48 Docs in step (`test_v111.py`):
-  - For each public function in `scripts/checks.py`, `reference/api.md` holds a line `` `name(<args>)` `` equal to the function's signature, rendered from `ast` as `inspect.signature` prints it: defaults by `repr` of `ast.literal_eval`, a default that is a module-level name resolved from its assignment (`hang=_HANG` prints `hang=0.3`). Fails before: the three changed signatures.
-  - SKILL.md holds the texts `overlaps`, `hits_file`, `WARN overlaps: no collection named`, `WARN overlaps: collection`, `NOTE coplanar: pairs inside collection`, and `NOTE full hit list:`. Fails before.
-  - The CHANGELOG text above its first numbered heading names `checks.floor_fit_check()`. T40 already requires `checks.coplanar_check()` and `checks.run_checks()`. Fails before.
-- Mutation checks (report each): drop the up rays (T42 cymbal); drop the down rays (T42 gear and mattress); drop the centre ray (T42 plank); drop `olo.z < lo.z` (`bl_rev6` plate case); let walls take the wall-contact pass (T42 `wall_float`); count side contact with any object (T42 `bed_beside`); drop the `overlap` test (T42 `bracket`); use `2 tol` for wall proximity (T42 `vanity_gap`); orient supports without `_outward` (T42 `gear_m`); skip a pair when either object is a member (T45 panel pairs); use `objects` in place of `all_objects` (T45 `leaf_c`); cut the file at 20 hits (T47); write the file only on failure (T47 clean room); print the NOTE line after the verdict (T47). Each must fail at least one test.
+  - For each public function in `scripts/checks.py`, `reference/api.md` holds a line `` `name(<args>)` `` equal to the function's signature, rendered from `ast` as `inspect.signature` prints it: defaults by `repr` of `ast.literal_eval`, and a default that is a module-level name resolved from its assignment (`hang=_HANG` prints `hang=0.3`). Fails before: the three changed signatures.
+  - SKILL.md holds the texts `overlaps`, `hits_file`, `finishes`, `WARN overlaps: no collection named`, `WARN overlaps: collection`, `is a floor or wall`, `NOTE coplanar: pairs inside collection`, and `NOTE full hit list:`. Fails before.
+  - The CHANGELOG text above its first numbered heading names `checks.floor_fit_check()` and holds the word `Semantic Versioning`. T40 already requires `checks.coplanar_check()` and `checks.run_checks()`. Fails before.
+- T49 Finishes and wall_gaps (`bl_v111.py`), and the one changed existing test:
+  - `wall_a (0, 2, 0, 0.1, 0, 2.6)`, `wall_b (2.2, 4, 0, 0.1, 0, 2.6)`, and `wt_fill (2.0, 2.2, 0, 0.1, 0, 2.6)` filling the gap: the `wall_gaps` block of `run_checks(floors=("floor",), finishes=("wt_",))` equals the block without `finishes`, and reports the `gap` between `wall_a` and `wall_b`. Passes before only if `finishes` is accepted; fails before on `TypeError`.
+  - `bl_rev6.py` `t_run_formats`: move `float_011` to `(1.8, 2.1, 3.0, 3.3, 0.11, 0.5)`, clear of `cp_a`. Its expected lines stay. Run every other existing floor_fit test unchanged; report any other changed result as a finding, not as a silent edit.
+- Mutation checks (report each), each must fail at least one test:
+  - Cast vertex rays from every vertex, not only facing polygons (T42 `bed_side`, `bed_wall`, or T43).
+  - Drop the up rays (T42 `cymbal`). Drop the down rays (T42 `slat` and `pad`, whose only path is down rays; the plinth `door` also passes by its broad face on `carcass`).
+  - Drop the centre ray (T42 `plank`; `bl_rev6` `t_support_variants` chair on the rug plane).
+  - Drop `olo.z < lo.z` (T43).
+  - Drop the side guard (T43, `bl_rev6` plate case).
+  - Every side link counts as floor, giving the support's origin (T42 `bed_side`, `chest`).
+  - Every side link counts as wall (T42 `door_s`, `door2`, `drawer_f`).
+  - Broad means only "largest face", without the factor of two (T42 `chest`).
+  - Take the contact axis as the axis of largest overlap (T42 `door_s`, `drawer_f`).
+  - Let a failing node give support (T42 `peg`).
+  - Make support non-transitive, any link passing (T43; T42 `peg`).
+  - Pass wall-origin nodes at any height (T42 `bed_wall`, `ledge`).
+  - Drop `_outward` for the facing lists (T42 `stand`, mirrored).
+  - Use box contact in place of `find_nearest` (T42 `corner_box`). Drop `overlap` (T42 `bracket`). Use `2 tol` for touch (T42 `vanity_gap`).
+  - Let walls take contact support (T42 `wall_float`). Treat skipped objects as non-roots (`bl_rev6` `t_support_variants`).
+  - Pass `finishes` to `wall_gap_check` as walls (T49).
+  - Skip a pair when each object is in any collection (T45 leaf and vine pairs). Use `objects` in place of `all_objects` (T45 `leaf_c`).
+  - Cut the file at 20 hits; write it only on failure; leave out the WARN and NOTE lines; print the NOTE line after the verdict (T47).
 
 ### Evals
 
 Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill tool; synthetic data only; nothing installed. The skill folder is a scratch `git archive` of the branch, with `## Unreleased` retitled `## [1.1.1] - 2026-10-21` in that copy only. Each prompt says: "`${CLAUDE_SKILL_DIR}` in SKILL.md is `<scratch folder>`." Render at `--res 160 --samples 8` on CPU. Check each transcript for a Skill call.
 
-- E12 Supported objects and overlapping planes. The test author writes the fixture under `tests/fixtures/v111/` (synthetic, committed with the tests): a project with `blender/lib/v1.1.1/` (the branch's `scripts/`) and `blender/build_room.py` pinned to `v1.1.1`, a 4 x 5 m room with a ceiling and a perspective view, and `run_checks(floors=("floor",), interior=...)` already wired. It holds: a wall-hung vanity touching a wall, base 0.15 m; a low rack of two floor rails with three items across them, each centred over the gap; a disc tilted 20 degrees on a thin stand, lowest point about 0.22 m up; 200 thin closed leaf boxes generated in a loop into the collection `tree_leaves`, overlapping in pairs on shared planes, out of the camera's view; a shelf 0.08 m off the floor touching nothing; and a bed raised 0.08 m touching nothing. The test author confirms with v1.1.1 that, with `overlaps=("tree_leaves",)` added, only the shelf and the bed fail; and that v1.1.0 also reports the vanity, the rack items, and the disc.
+- E12 Supported objects and overlapping planes. The test author writes the fixture under `tests/fixtures/v111/` (synthetic, committed with the tests): a project with `blender/lib/v1.1.1/` (the branch's `scripts/`) and `blender/build_room.py` pinned to `v1.1.1`, a 4 x 5 m room with a ceiling and a perspective view, and `run_checks(floors=("floor",), interior=...)` already wired, with no `finishes` and no `overlaps`. It holds:
+  - a wall-hung vanity at base 0.15 m touching a tile layer of `wt_` pieces, 10 mm thick, with the wall face 30 mm behind the tiles' back;
+  - a low rack of two floor rails with three items across them, each centred over the gap;
+  - a disc tilted 20 degrees on a thin stand, lowest point about 0.08 m up;
+  - 200 thin closed leaf boxes generated in a loop into the collection `tree_leaves`, overlapping in pairs on shared planes, out of the camera's view;
+  - a shelf 0.08 m off the floor touching nothing; and a bed base 0.08 m up touching only a headboard that touches the wall.
+  The test author confirms with v1.1.1 that, with `finishes=("wt_",)` and `overlaps=("tree_leaves",)` added, only the shelf and the bed base fail; and that v1.1.0 also reports the vanity, the rack items, and the disc.
   - Prompt: "Preview the room scene and fix what the checks report. Tell me what you changed and what you left for me."
   - Pass:
     - The coplanar hits on the leaves are cleared with `overlaps` naming `tree_leaves` exactly, with a reason comment. No prefix exemption and no list of leaf names.
+    - The vanity hit is cleared by passing `finishes=("wt_",)`, not by an exemption or a move.
     - If a check prints `... and k more`, the agent passes `hits_file` and reads the file before deciding.
-    - `floor_fit` reports only the shelf and the bed. The vanity, the rack items, and the disc get no exemption and no move.
-    - The shelf and the bed are fixed (set on the floor) or listed for the owner. Neither is exempted.
+    - The rack items and the disc get no exemption and no move.
+    - The shelf and the bed base are fixed (set on the floor) or listed for the owner. Neither is exempted.
     - The final run prints `OK run_checks` and `DONE`.
 - After install (Releases): the discovery eval, in a fresh subagent not told the skill's name or path, with E8's prompt.
 
 ### Not covered
 
-- Leaf planes seen from behind give `camera` backface hits; the overlap collection does not cover them. Recorded as a later item (R65).
-- A door hung on a carcass front with nothing under it, and an object that crosses its support away from its centre with no corner on it, are still reported (R61, Limits).
-- An object left at an old floor level that touches a wall passes (question V2).
+- Leaf planes seen from behind give `camera` backface hits; the overlap collection does not cover them. Later item (R65).
+- An object allowed to hang below 0.1 m from a wall, such as a low rail, is reported. A strict wall-hung collection would cover it; later item (R65).
+- An object held only by an object at or above the hang limit is reported, since hung objects give no support.
+- An object recessed more than 25 mm into a wall, with no face crossing the wall's faces, is reported.
+- An object that crosses its support away from its centre, with no vertex of either on the other's face, is reported.
 
 ### Open questions
 
-Applied provisionally with the recommended defaults, so work can start.
-- V1 Version number. `overlaps` and `hits_file` are new optional arguments, which Semantic Versioning, named in the CHANGELOG header, counts as a minor release. Keep v1.1.1 as approved, or release v1.2.0 and move the tile work to v1.3.0? Recommended: keep v1.1.1 as approved; both arguments default to today's behaviour. Run the pre-merge review at opus, high, because R58 changes what the gate passes.
-- V2 Wall contact passes an object left at an old floor level when it touches a wall, which narrows the Revision 6 defect 4 coverage. The walls and freestanding objects at that level are still reported, so a level shift still fails the run. Accept? Recommended: yes.
+None open. the user decided X1 on 2026-10-21 (Decisions, the broad-face rule). The factor of two in R58 (Broad face) is the architect's reading of "largest face".
 
 ### Order of work, and how to continue if interrupted
 
-0. the user answers V1 and V2. Until then the recommended defaults stand; a "no" to V2 drops R58b and its T42 cases.
-1. The test author writes T42 to T48 and the E12 fixture on `release-1.1.1`. They fail as stated; T43 and T44 pass before.
+0. Done: the user decided V1, W1, and X1 (Decisions).
+1. The test author writes T42 to T49 and the E12 fixture on `release-1.1.1`. They fail as stated; T44 passes before.
 2. The implementer makes R58 to R60.
 3. The development session writes R61 to R65.
 4. Run the full suite and the mutation checks; record the T44 times.
 5. Run E12.
-6. Pre-merge review (V1), then merge approval. At the release, set the template's `LIB = "v1.1.1"` and retitle `## Unreleased` (T41 runs on the tag); install; run the discovery eval.
+6. Pre-merge review (opus, high: R58 changes what the gate passes), then merge approval. At the release, set the template's `LIB = "v1.1.1"` and retitle `## Unreleased` (T41 runs on the tag); install; run the discovery eval.
 
 Each finished item is ticked in skill `docs/ISSUES.md` under the v1.1.1 line. A fresh session reads that line, this section, and `git log` on `release-1.1.1`.
 
-Keep out, for everyone working on this revision: `dev/inputs/`; earlier revisions of this contract (append findings, never rewrite); `~/.claude/skills/` and `~/.claude/skill-installs/` until the approved install; the skill-developer repo's `scripts/` and `tests/`; the render projects' files; `tests/out/` (except T47's scratch output); `scripts/` other than `checks.py`; `templates/` until the release's `LIB` line.
+Keep out, for everyone working on this revision: `dev/inputs/`; earlier revisions of this contract (append findings, never rewrite); `~/.claude/skills/` and `~/.claude/skill-installs/` until the approved install; the skill-developer repo's `scripts/` and `tests/`; the render projects' files; `tests/out/` (except T47's scratch output); `scripts/` other than `checks.py`; `templates/` until the release's `LIB` line; existing tests other than the `t_run_formats` move (T49).
