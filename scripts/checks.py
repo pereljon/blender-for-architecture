@@ -2,6 +2,7 @@
 stair clearance, and run_checks, the pass/fail gate that a build script calls before it renders."""
 import math
 import os
+import re
 import sys
 import time
 from bisect import bisect_right
@@ -440,7 +441,12 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), fi
         olo, ohi = data[c][3:]
         # The contact axis is the one on which the smallest share of n's extent lies inside c. A thin panel whose end
         # runs into c is mostly outside c along its long axis, so that axis wins and the panel is not thin along it.
-        k = min((0, 1), key=lambda a: (min(hi[a], ohi[a]) - max(lo[a], olo[a])) / max(hi[a] - lo[a], 1e-9))
+        # A panel inside c's plan box on both axes has a share of 1.0 on each; the smaller overlap marks the thin axis.
+        def share(a):
+            over = min(hi[a], ohi[a]) - max(lo[a], olo[a])
+            return over / max(hi[a] - lo[a], 1e-9), over
+
+        k = min((0, 1), key=share)
         return all((hi[k] - lo[k]) * _BROAD <= hi[j] - lo[j] + 1e-9 for j in range(3) if j != k)
 
     def link(n, c):
@@ -475,12 +481,13 @@ def floor_fit_check(floors, walls=("wall_",), tol=0.025, hang=_HANG, skip=(), fi
         if loc is None:
             continue
         d = None if normal.z < 0 else lo.z - loc.z
+        buried = False
         if d is None:
             # The probe starts inside the floor: measure the object's depth below the floor's top face.
             top = tree.ray_cast(start, up)
-            if top[0] is not None and top[1].z > 0 and tol < top[0].z - lo.z <= hang:
-                d = lo.z - top[0].z
-        if d is None or d < -tol:
+            if top[0] is not None and top[1].z > 0 and 0 < top[0].z - lo.z <= hang:
+                d, buried = lo.z - top[0].z, True
+        if d is None or buried or d < -tol:
             if not wall:
                 hits.append((n, d))
                 roots[n] = 2
@@ -657,10 +664,18 @@ def _line(check, h):
     return f"{h[0]} {h[1]} inside" if h[2] is None else f"{h[0]} {h[1]} headroom {h[2]:.3f} m"
 
 
-def _coplanar_detail(n1, n2, dg, tris, tol=0.0005, min_area=1e-6):
-    """Detail line for a pair that coplanar_check reports: the shared plane, the overlap box and its area.
+def _cover_box(ob, dg):
+    """World-space (low, high) corners of the evaluated bound box of ob."""
+    return _box([ob.matrix_world @ Vector(c) for c in ob.evaluated_get(dg).bound_box])
+
+
+def _coplanar_detail(n1, n2, dg, tris, tol=0.0005, min_area=1e-6, solids=None):
+    """Detail line for a pair that coplanar_check reports: the shared plane, the overlap box, its area and a cover mark.
 
     tris caches the triangles of each object by name. Returns None when no triangle pair overlaps.
+    The mark is buried, partly buried (k of n points) or exposed: whether points a little in front of every overlap,
+    on every plane, lie inside a closed object. solids maps each candidate's name to [low, high, BVH]; the BVH is built
+    on first use, and is False for an open mesh. With solids None the line has no mark.
     """
     for n in (n1, n2):
         if n not in tris:
@@ -681,9 +696,30 @@ def _coplanar_detail(n1, n2, dg, tris, tol=0.0005, min_area=1e-6):
     def f3(x):
         return f"{round(x, 3) + 0.0:.3f}"
 
+    mark = ""
+    if solids is not None:
+        # 4 * tol clears the coplanar tolerance and stays thinner than a real cover.
+        step = 4 * tol
+        covered = points = 0
+        for _, nrm, _, pts in found:
+            c = sum(pts, Vector()) / len(pts)
+            for q in [c] + [p + (c - p) * 0.1 for p in pts]:
+                s = q + nrm * step
+                points += 1
+                for name, ent in solids.items():
+                    if not all(ent[0][i] <= s[i] <= ent[1][i] for i in range(3)):
+                        continue
+                    if ent[2] is None:
+                        tree, _, closed = _geom(bpy.data.objects[name], dg)
+                        ent[2] = tree if closed else False
+                    if ent[2] is not False and _inside(ent[2], s):
+                        covered += 1
+                        break
+        mark = ("; buried" if covered == points else "; exposed" if covered == 0
+                else f"; partly buried ({covered} of {points} points)")
     return (f"    plane n=({f3(normal.x)}, {f3(normal.y)}, {f3(normal.z)}) d={f3(offset)} m; "
             f"overlap x {f3(lo.x)}-{f3(hi.x)} y {f3(lo.y)}-{f3(hi.y)} z {f3(lo.z)}-{f3(hi.z)} m; "
-            f"area {sum(f[0] for f in same):.4f} m2")
+            f"area {sum(f[0] for f in same):.4f} m2{mark}")
 
 
 def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt=None, interior=None, unit=None,
@@ -694,16 +730,22 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
     deck. walls: wall name prefixes. paths: {name: (x0, x1, y0, y1, z)} walking boxes in project units, one per
     stair tread. figure: prefixes of the scale figure, left out of coplanar, floor fit and clearance.
     exempt: {check: [exact object names]} for coplanar, flipped, wall_gaps, floor_fit, camera and clearance, and
-    {"openings": [(wall, wall)]} for openings meant to run to the ceiling. interior and rays go to camera_check;
+    {"openings": [(wall, wall)]} for openings meant to run to the ceiling, and {"coplanar_pairs": [(name, name)]}
+    for pairs of objects that the coplanar check does not report. interior and rays go to camera_check;
     unit (metres per project unit, None for bhelpers.U) goes to clearance_check.
     overlaps: exact collection names; the coplanar check does not compare a pair of objects in one of them.
     hits_file: a path; the run writes its own WARN and NOTE lines and every status and hit line there, with no
     limit of 20 hits, and prints the path. finishes: prefixes of wall finish objects, passed to floor_fit_check.
     """
-    exempt = {k: v if k == "openings" else _prefixes(v) for k, v in (exempt or {}).items()}
-    bad = [k for k in exempt if k not in _NAMES + ("openings",)]
+    keys = _NAMES + ("openings", "coplanar_pairs")
+    exempt = {k: v if k in ("openings", "coplanar_pairs") else _prefixes(v) for k, v in (exempt or {}).items()}
+    bad = [k for k in exempt if k not in keys]
     if bad:
-        raise ValueError(f"unknown exempt key {bad[0]!r}; use one of {', '.join(_NAMES + ('openings',))}")
+        raise ValueError(f"unknown exempt key {bad[0]!r}; use one of {', '.join(keys)}")
+    pairs = exempt.get("coplanar_pairs", ())
+    if isinstance(pairs, str) or any(not isinstance(p, (list, tuple)) or len(p) != 2
+                                     or not all(isinstance(n, str) for n in p) for p in pairs):
+        raise ValueError("exempt coplanar_pairs: give a list of (name, name) pairs")
     bpy.context.view_layer.update()
     log = []
 
@@ -720,6 +762,9 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
     for n in floors:
         if n not in rendered:
             say(f"WARN floors: no {'rendered mesh' if n in have else 'object'} named {n}")
+    suffixed = sorted(n for n in rendered if re.search(r"\.\d{3}$", n))
+    if suffixed:
+        say(f"WARN names: {len(suffixed)} rendered meshes have a number suffix, such as {suffixed[0]}")
     for name in _prefixes(overlaps):
         coll = bpy.data.collections.get(name)
         if coll is None:
@@ -740,8 +785,16 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
     def skip(check, extra=()):
         return tuple(exempt.get(check, ())) + tuple(extra)
 
+    def coplanar():
+        hits = coplanar_check(skip=skip("coplanar", fig), overlaps=overlaps)
+        found, exempt_pairs = {frozenset(h) for h in hits}, {frozenset(p) for p in pairs}
+        for pair in pairs:
+            if frozenset(pair) not in found:
+                say(f"WARN exempt coplanar_pairs: {pair[0]} {pair[1]} is not a coplanar hit")
+        return [h for h in hits if frozenset(h) not in exempt_pairs]
+
     plan = (
-        ("coplanar", None, lambda: coplanar_check(skip=skip("coplanar", fig), overlaps=overlaps)),
+        ("coplanar", None, coplanar),
         ("flipped", None, lambda: flipped_check(skip=skip("flipped"))),
         ("wall_gaps", None, lambda: wall_gap_check(prefixes=walls, floors=floors, skip=skip("wall_gaps"),
                                                    full_height=exempt.get("openings", ()))),
@@ -755,7 +808,7 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
         ("clearance", None if paths else "no paths given",
          lambda: clearance_check(paths, unit=unit, skip=skip("clearance", fig))),
     )
-    failed, tris, dg = [], {}, None
+    failed, tris, solids, dg = [], {}, {}, None
     for name, why, fn in plan:
         if why:
             say(f"SKIP {name}: {why}")
@@ -783,7 +836,8 @@ def run_checks(floors=(), walls=("wall_",), paths=None, figure=("man_",), exempt
                 if name == "coplanar":
                     if dg is None:
                         dg = _depsgraph()
-                    detail = _coplanar_detail(h[0], h[1], dg, tris)
+                        solids = {o.name: [*_cover_box(o, dg), None] for o in _objects(("MESH",), fig)}
+                    detail = _coplanar_detail(h[0], h[1], dg, tris, solids=solids)
                     if detail:
                         log.append(detail)
     verdict = f"FAIL run_checks: {', '.join(failed)}" if failed else "OK run_checks"
