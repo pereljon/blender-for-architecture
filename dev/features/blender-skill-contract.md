@@ -1470,3 +1470,19 @@ None open. the user decided X1 on 2026-10-21 (Decisions, the broad-face rule). T
 Each finished item is ticked in skill `docs/ISSUES.md` under the v1.1.1 line. A fresh session reads that line, this section, and `git log` on `release-1.1.1`.
 
 Keep out, for everyone working on this revision: `dev/inputs/`; earlier revisions of this contract (append findings, never rewrite); `~/.claude/skills/` and `~/.claude/skill-installs/` until the approved install; the skill-developer repo's `scripts/` and `tests/`; the render projects' files; `tests/out/` (except T47's scratch output); `scripts/` other than `checks.py`; `templates/` until the release's `LIB` line; existing tests other than the `t_run_formats` move (T49).
+
+### Revision 9 review and eval findings (2026-10-21)
+
+Pre-merge review (opus, high): no Critical. Eval E12: pass (exactly the three planted defects reported; foliage cleared by `overlaps`; no exemptions). Decision K1 (the user, 2026-10-21): the scale figure is never reported by floor_fit and never supports anything; exempt objects still support what touches them, and SKILL.md Limits says so. Fixes, for the test author (FX9-T) and the implementer (FX9-I):
+
+- FX9-T1 (K1, review I1): a rug floating 0.03 m with a figure part (`man_` prefix) poking up through it is reported; a sofa floating 0.15 m with a figure part resting on its seat, touching nothing else, is reported; an exempt object floating 0.05 m still supports an object resting on it (that object passes), and the exempt object itself is not reported.
+- FX9-T2 (review M1): a plate whose centre is covered by a lid that is supported (the lid rests on a floor-standing post through a hole, or another supported path), with plate plus lid 25 mm thick or less, is reported when the plate floats. The chair-on-rug case at equal min z still passes.
+- FX9-T3 (review M2): a 20 mm panel whose end runs 30 mm into a floor-standing carcass side, floating 0.03 m, is reported (an edge is not a broad face).
+- FX9-T4 (review M3): in T44, place at least 50 band objects within 50 mm above or beside the dense 100k-vertex mesh so it is a candidate support; keep the 10 s limit and print the timing.
+- FX9-T5: delete the duplicated comment at `tests/bl_v111.py:574-575`; commit the E12 scene under `tests/fixtures/v111/` (synthetic; from the eval scratch export) so the design's claim holds.
+- FX9-I1 (K1): pass the figure names to `floor_fit_check` separately (a new keyword or an internal path from `run_checks`), leave them out of support roots and the candidate pool, and keep `skip` objects as roots. SKILL.md Limits: an exempt object supports what touches it.
+- FX9-I2 (M1): in the centre-ray rest, require the candidate's bottom at or below the object's bottom plus 1e-6.
+- FX9-I3 (M2): choose the contact axis by overlap divided by the panel's size on that axis, or require the overlap along it to be at most `tol`; justify the choice in a code comment.
+- FX9-I4 (M3): if T44 exceeds the limit, bisect a vertex list sorted by x in `_within` instead of scanning every vertex.
+- FX9-I5 (M5, E12): split the six CHANGELOG sentences over 25 words; SKILL.md says how to treat a roofless room or cutaway (set `interior=False` on a view meant to show sky, and say so to the owner); note that one cause can produce hits in two checks (a slab sunk into the floor and coplanar with it); fix the floor_fit message for an object buried inside a floor so it does not read "sunk more than 0.300 m" when it is sunk less (report the measured depth when it can be measured, or say "buried in the floor").
+- FX9-I6 (M6): record in this revision the implementer's deviations (`_BROAD`, walls and finishes as roots at any height, the `_clip_area` split), add F1 to this revision's Decisions, and note `_coplanar_detail` cost under Not covered (M4).
