@@ -208,11 +208,14 @@ def t52_file():
 
 
 # ---------------------------------------------------------------- T53: cover marks
-def plane_obj(name, x0, x1, y0, y1, z):
-    """An open single-quad mesh."""
+def open_box(name, x0, x1, y0, y1, z0, z1):
+    """A box without its bottom face: an open mesh whose volume holds points a closed box would cover."""
     bm = bmesh.new()
-    vs = [bm.verts.new(v) for v in ((x0, y0, z), (x1, y0, z), (x1, y1, z), (x0, y1, z))]
-    bm.faces.new(vs)
+    vs = [bm.verts.new(v) for v in (
+        (x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
+        (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1))]
+    for f in [(4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]:
+        bm.faces.new([vs[i] for i in f])
     return bh.new_obj(name, bh._to_mesh(name, bm))
 
 
@@ -253,8 +256,8 @@ def t53():
         ("enclose", lambda t: bh.box(f"cover_{t}", *ENCLOSE), "buried"),
         ("tops", lambda t: bh.box(f"cover_{t}", -0.1, 1.6, -0.1, 1.1, 0.3, 0.4), "partly"),
         ("part", lambda t: bh.box(f"cover_{t}", 0.5, 0.75, -0.1, 1.1, 0.2, 0.4), "partly"),
-        ("open", lambda t: (plane_obj(f"sheet_{t}", -0.1, 1.6, -0.1, 1.1, 0.301),
-                            setattr(bh.box(f"cover_{t}", *ENCLOSE), "hide_render", True)), "exposed"),
+        ("open", lambda t: open_box(f"cover_{t}", *ENCLOSE), "exposed"),
+        ("hidden", lambda t: setattr(bh.box(f"cover_{t}", *ENCLOSE), "hide_render", True), "exposed"),
         ("thin", lambda t: bh.box(f"cover_{t}", -0.1, 1.6, -0.1, 1.1, 0.301, 0.3015), "exposed"),
         ("figure", lambda t: bh.box("man_cover", *ENCLOSE), "exposed"),
     )
