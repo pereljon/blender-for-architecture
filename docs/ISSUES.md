@@ -52,6 +52,8 @@ State of the blender-for-architecture skill: open bugs, planned work, next steps
 
 - [ ] Later (the user W1, 2026-10-21): an optional strict "wall-hung" collection for floor_fit. Listed objects follow a stricter support rule, so a chain that starts at a wall cannot pass an object floating 10 cm or more. Add it only when a project shows a false pass under the v1.1.1 rule (transitive support; wall-only chains need 0.1 m or more).
 
+- [ ] Later (H1, 2026-10-21, from project A's migration): floor_fit for objects recessed into the floor on purpose (a sunk linear drain, about 36 parts), other than exact-name exemptions; wall_gaps not reporting a gap that a third wall closes.
+
 ## Next steps
 
 - Measurements moved out of the reference docs on the v1.1.0 docs restructure. Point Cloud I/O test scan: the worst error after adding `las_origin_offset` back was 1.2e-7 m; with `center_on_origin` off it was 0.125 m, from a northing of 4181234 (32-bit spacing 0.25 m) against an easting of 551234 (0.0625 m). Walkthrough video: 40 to 66 s of video took 1 h 50 min to 3.5 h to render. Plan extraction: in one project, posts scaled from a 2016 sheet were about 6 in off, and a uniform offset between sources misplaced items.
