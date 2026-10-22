@@ -7,6 +7,25 @@ Conventions, kept from v1.1.0 on:
 - Name each public function whose signature or behaviour changed, or that was added or removed, as `module.function()`. Put it under Changed, Fixed, Added, or Removed.
 - The skill reads the installed version from the first numbered heading.
 
+## Unreleased
+
+This patch release adds optional arguments, which Semantic Versioning counts as a minor release. Decided on 2026-10-21 as a deviation.
+
+### Fixed
+
+- `checks.floor_fit_check()`: an object below the hang limit passes when it is supported by contact (within `tol`, or running into the other object), not only when it rests on something under its centre. Support is a chain. A chain that starts at a floor passes at any height. A panel mounted flat against its support (a door, a drawer front, a back panel: the touching face is at least twice the area of each other bounding-box face) takes its support's origin. A chain that starts at a wall or finish, and any other side contact, needs a base at least 0.1 m up. Wall-hung vanities and outlets, gear across two rails, a mattress on a frame ring, a door on a plinth, doors and drawer fronts a few cm up on a floor-standing carcass, and a tilted disc on a thin stand no longer fail. A floating shelf, a raised bed, and a bed a few cm up against a wall or a nightstand still fail. A plate no longer passes by resting on the lid on top of it.
+- `checks.flipped_check()`: a small closed mesh far from the origin no longer reads as inside out. The signed volume is summed about the mesh's vertex centroid in Python floats. A correct 1.2 mm x 0.2 m x 0.009 m box about 7 m out read negative.
+
+### Added
+
+- `checks.floor_fit_check()`: `finishes`, prefixes of wall finish objects such as tile pieces. They support objects as walls do.
+- `checks.coplanar_check()`: `overlaps`, exact collection names; a pair of objects inside one of them is not compared.
+- `checks.run_checks()`: `overlaps`, passed to the coplanar check only, with a `NOTE` line per collection and a `WARN` for a missing or empty collection, or for a floor or wall in one. `hits_file`: the run writes its own WARN and NOTE lines and every status and hit line to that file, and prints `NOTE full hit list: <path>`; the console still shows 20 hits per check. Each coplanar hit in the file is followed by a detail line with the shared plane, the overlap box, and the area. `finishes`, passed to the floor_fit check.
+
+### Changed
+
+- SKILL.md Checks: the overlap collection, `finishes`, `hits_file`, the new output lines, the tile-layer note, and the floor_fit support limits. `reference/migration.md`, "Wire the checks": name inset slabs in `floors`, pass `finishes`, wire the checks in a commit of their own, pass `hits_file`, and handle touching assembly parts.
+
 ## [1.1.0] - 2026-10-21
 
 ### Changed
