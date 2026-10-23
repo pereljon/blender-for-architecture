@@ -97,12 +97,15 @@ def t58_skill():
 
 def t58_changelog():
     log = read("CHANGELOG.md")
-    body = section(log, "Unreleased")
-    if not check(body is not None, "T58 the CHANGELOG has a '## Unreleased' section"):
+    # The v1.1.2 section, headed "Unreleased" until the release retitles it [1.1.2].
+    body = section(log, "[1.1.2]")
+    if body is None:
+        body = section(log, "Unreleased")
+    if not check(body is not None, "T58 the CHANGELOG has an '## Unreleased' or '## [1.1.2]' section"):
         return
-    check("checks.run_checks()" in body, "T58 the Unreleased section names `checks.run_checks()`")
-    check("checks.floor_fit_check()" in body, "T58 the Unreleased section names `checks.floor_fit_check()`")
-    check("Semantic Versioning" in body, "T58 the Unreleased section holds the words Semantic Versioning")
+    check("checks.run_checks()" in body, "T58 the v1.1.2 CHANGELOG section names `checks.run_checks()`")
+    check("checks.floor_fit_check()" in body, "T58 the v1.1.2 CHANGELOG section names `checks.floor_fit_check()`")
+    check("Semantic Versioning" in body, "T58 the v1.1.2 CHANGELOG section holds the words Semantic Versioning")
 
 
 def run_dump_diff(code, a, b, names=None):
