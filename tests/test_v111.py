@@ -96,8 +96,8 @@ def t48_skill():
 
 def t48_changelog():
     log = read("CHANGELOG.md")
-    # The release under test is the section above [1.1.0], headed "Unreleased" until the release retitles it [1.1.1].
-    m = re.search(r"^## (?:\[?Unreleased\]?|\[1\.1\.1\][^\n]*)\s*$", log, re.M)
+    # The v1.1.1 section, headed "Unreleased" until the release retitles it [1.1.1]. From v1.1.2 on it is the [1.1.1] section.
+    m = re.search(r"^## \[1\.1\.1\][^\n]*\s*$", log, re.M) or re.search(r"^## \[?Unreleased\]?\s*$", log, re.M)
     if not check(m, "T48 the CHANGELOG has an Unreleased or [1.1.1] heading"):
         return
     end = re.search(r"^## ", log[m.end():], re.M)

@@ -540,7 +540,8 @@ def t49():
 # ---------------------------------------------------------------- T50: coplanar detail lines in the hits file
 DETAIL = re.compile(r"^    plane n=\((-?\d+\.\d{3}), (-?\d+\.\d{3}), (-?\d+\.\d{3})\) d=(-?\d+\.\d{3}) m; "
                     r"overlap x (-?\d+\.\d{3})-(-?\d+\.\d{3}) y (-?\d+\.\d{3})-(-?\d+\.\d{3}) "
-                    r"z (-?\d+\.\d{3})-(-?\d+\.\d{3}) m; area (\d+\.\d{4}) m2$")
+                    r"z (-?\d+\.\d{3})-(-?\d+\.\d{3}) m; area (\d+\.\d{4}) m2; "
+                    r"(buried|exposed|partly buried \(\d+ of \d+ points\))$")
 
 
 def t50():
@@ -569,7 +570,8 @@ def t50():
     m = DETAIL.match(got[i + 1])
     if not check(m, f"T50 the next line is the detail line: {got[i + 1]!r}"):
         return
-    v = [float(x) for x in m.groups()]
+    v = [float(x) for x in m.groups()[:11]]
+    check(m.group(12) == "exposed", f"T50 nothing covers the pair, so the mark is 'exposed': {got[i + 1]!r}")
     want = [0.0, 0.0, 1.0, 0.3, 0.1, 0.5, 0.2, 0.4, 0.3, 0.3, 0.08]
     check(all(abs(a - b) <= 1e-3 for a, b in zip(v, want)), f"T50 detail values (n, d, x, y, z, area) want {want}, got {v}")
     check(sum(1 for ln in got if ln.startswith("    ")) == 1, "T50 one detail line for one pair")

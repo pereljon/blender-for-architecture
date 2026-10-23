@@ -1505,3 +1505,302 @@ Fix round (FX9-I1 to FX9-I6), implemented on `release-1.1.1` against the tests a
 - FX9-I4 (M3): not needed. T44 with 60 band objects over the 100,000-vertex mesh printed `TIMING floor_fit 0.81 s` (2,055 mesh objects, 285 hits; limit 10 s). `_within` still scans every vertex.
 - FX9-I5 (M5, E12): the six CHANGELOG sentences over 25 words are split. SKILL.md says to set `interior=False` on a view meant to show sky (a roofless room or a cutaway) and to tell the owner, and that one cause can give hits in two checks (a slab sunk into the floor and coplanar with it). When the probe starts inside the floor and the object's bottom is more than `tol` and at most `hang` below the floor's top face, found by an up ray from the probe start, `floor_fit_check` reports `(name, -depth)` and the line reads `<name> sunk <depth> m`. A deeper object, or one with no up face to hit, keeps `(name, None)` and `sunk more than 0.300 m`. A first version printed `buried in the floor` for every `None`; `bl_rev6` (the R26 line `sunk_deep sunk more than 0.300 m`, object 0.4 m deep) rejected it, and the message is correct for that object.
 - T51 measurement (FX9-T5): in Blender 5.2, a correct 1.2 mm x 0.2 m x 0.009 m box at (7, 0, 0) or (0, 7, 0) is not misreported by the old `flipped_check`. At (4.12, 4.12, 4.12), 7.1 m out on the diagonal, it read as inside out before the fix. T51 places the box at the diagonal.
+
+## Revision 10 (2026-10-21, v1.1.2)
+
+Scope, approved by the user on 2026-10-21: six check and doc changes from the two render projects' migrations on v1.1.1, and a docs restructure (R3). (1) A pair-level coplanar exemption, `coplanar_pairs`. (2) A buried, partly buried, or exposed mark on each coplanar detail line in the hits file. (3) Hanging support in floor_fit as a doc line only. (4) The three edge cases from the v1.1.1 fix-round review (N3). (5) The E10 rerun's migration doc gaps. (6) A WARN for Blender number suffixes such as `.001`. (7) R3: a README section and a new `reference/scripts.md` that give each script, how it runs, and its flags. Investigated against branch `release-1.1.2` at `e1ad996` (v1.1.1 plus the release record). Files read; Blender 5.2 run headless for the probes below, with scratch scripts outside the repo.
+
+### Decisions (2026-10-21, the user)
+
+- V2: the version is v1.1.2, a patch number. This is a deviation from Semantic Versioning, the same as V1: the release adds an exemption key and new output, which Semantic Versioning counts as a minor release. The CHANGELOG states the deviation (R80). Rejected: v1.2.0, which is held for the tile layout work.
+- R3: restructure the docs so that each script's command line and flags have one home, `reference/scripts.md` (R76). `reference/api.md` keeps function signatures. The versioned lib and the `LIB` pin stay in `reference/migration.md` and SKILL.md ("Project lib").
+- The architect's review recommended the scope above (proposals 1 to 3, with 3 as a doc line), and the user approved it. Rejected for this release: a hanging-support rule in floor_fit (see "Simplify before building"); the v1.3.0 candidates (the warn-only mode, `stair_paths()`, and a fill test for `wall_gaps`).
+
+### Field data (2026-10-21, both render projects, generic)
+
+- Project A had 165 coplanar hits. It stepped 2 mm off each shared face and tested whether the point lay inside another solid. 88 hits were buried. About 60 were outer shell faces outside every room: wall tops against the ceiling slab top, wall bottoms at -0.06 m, and overlapping outer faces. About 15 were small and exposed. The marks cut triage from hours to minutes.
+- Project A exempted an object from coplanar to clear one intended pair. That exemption dropped every pair of the object and hid a real defect: a hall ceiling that overlaps a bathroom ceiling. `overlaps` collections cannot hold floors or walls (the `WARN overlaps: ... is a floor or wall` line).
+- Project A: garments hang from a closet rod. Their tops touch the rod's lowest line, the rod's ends butt full-height floor-standing panels, and the garment bases are at 0.291 m. floor_fit reports them floating.
+- Project B: duplicate base names with `.001` suffixes made its hit lists hard to read.
+
+### Index
+
+| Req | Owner | Files | Scope |
+|---|---|---|---|
+| R69 | implementer | `scripts/checks.py`, `run_checks` | 1 |
+| R70 | implementer | `scripts/checks.py`, `_coplanar_detail`, `run_checks` | 2 |
+| R71 | implementer | `scripts/checks.py`, `floor_fit_check` | 4 |
+| R72 | implementer | `scripts/checks.py`, `floor_fit_check` (`broad`) | 4 |
+| R73 | implementer | `scripts/checks.py`, `run_checks` | 6 |
+| R74 | session | SKILL.md | 1 to 7 |
+| R75 | session | `reference/api.md` | 1, 7 |
+| R76 | session | `reference/scripts.md` (new) | 7 |
+| R77 | session | `README.md` | 7 |
+| R78 | session | `reference/migration.md` | 5, 7 |
+| R79 | session | `reference/studies.md` | 7 |
+| R80 | session | `CHANGELOG.md` | all |
+| R81 | session | skill `docs/ISSUES.md` | all |
+
+### Verified (2026-10-21)
+
+Each fact names its source. "Probe" means a scratch script run in headless Blender 5.2 against this branch's `scripts/checks.py`.
+
+- `run_checks` turns each `exempt` value into a tuple of names with `_prefixes`, except `openings`, which it keeps as a list of pairs (`scripts/checks.py:703`). It rejects unknown keys with a `ValueError` that lists the valid ones (`:704-706`). Its name WARN walks nested items, so it already handles pairs (`:715-718`). Read.
+- `_coplanar_detail` collects every overlapping triangle pair of a hit, on every plane. Its line reports only the plane with the largest single overlap (`:677-678`). Read. Probe: two plates `(0, 1, 0, 1, 0.29, 0.3)` and `(0.5, 1.5, 0, 1, 0.295, 0.3)` overlap on three planes: the tops, 0.5 m2, and two 5 mm side strips of 0.0025 m2 each. With a closed cover box `(-0.1, 1.6, -0.1, 1.1, 0.3, 0.4)` over the tops only, the points 2 mm in front of the top overlap were inside the cover (14 of 14). The points 2 mm in front of the side strips were not (0 of 28). A mark from the reported plane alone would read `buried` with two strips exposed.
+- `_inside(tree, p)` counts surface crossings along one skewed ray (`:34-43`). `_geom` marks a mesh closed when every edge has an even face count (`:28-29`). Read.
+- The coplanar detail line in T50 is matched by a regex anchored at `m2$` (`tests/bl_v111.py:541-543`). A mark appended to the line needs T50 amended. Read.
+- `NOTE camera: exterior view, escapes not checked` prints only when `interior` is None (auto) and no object lies above the camera (`scripts/checks.py:557-560`). Read.
+- Probe, N3 thin buried: with floor `(-2, 2, -2, 2, -0.1, 0)`, a box `(0, 0.3, 0, 0.3, -0.015, -0.010)` gives `(name, None)`, which reads `sunk more than 0.300 m`. Boxes buried 40 mm and 80 mm give their depths. The code path: the probe starts inside the floor, and the up-ray branch needs the depth above `tol` (`:481`). It reproduces.
+- Probe, N3 slab pierce: an upper slab `(-2, 2, -2, 2, 3.0, 3.2)` over the floor. A box at z 2.95 to 3.19, whose probe starts inside the slab, gives d = -0.25. A box at z 2.95 to 3.25, whose probe starts above the slab, also gives -0.25. A box at z 2.85 to 3.19 gives None, and one at z 2.95 to 3.10 passes as hung into the slab. Both piercing cases measure against the top of the slab they pierce, so the probe start does not change the surface. It does not reproduce. T56 confirms it before any change.
+- Probe, N3 broad tie: a floor-standing solid `carcass (0, 0.6, 0, 0.6, 0, 0.9)` and a 20 mm `front_flush (0.05, 0.55, 0, 0.02, 0.05, 0.35)`, which lies inside the carcass's plan box. The front is reported floating 0.05 m. Its share inside the carcass is 1.0 on both plan axes. `min` takes axis x, and along x the front is 0.5 m wide, so it is not broad. It reproduces. A front at y -0.02 to 0, outside the box, passes.
+- Probe, hanging (scope 3): with a 25 mm rod at 1.7 m, `BVHTree.find_nearest` from a point on the rod's lowest line returns distance 0.0. That holds whether a vertex or a flat face is lowest. An up ray from 0.1 mm below hits at 0.1 mm with normal z -0.995 or -1.0. floor_fit still reports the garments, for three reasons read in the code. The rod is above the hang limit, so it is not in the support pool (`:495`). `touches()` samples only vertices, and a box garment's top corners are 0.225 m off the rod axis, while the rod's vertices sit at its end caps (`:428-435`). Both rest tests look down only (`:403-426`).
+- The template's flags are `--view`, `--res`, `--samples`, `--gpu`, `--out`, `--option`, and `--export-pieces` (`templates/scene_template.py:57-63`). `--dump PATH` is a flag that a project adds (`reference/migration.md`, "Geometry dump"), and so is `--ifc PATH` (`reference/extensions.md`, "Write an IFC"). Neither is in the template. Read.
+- `--res` sets the image width in pixels; the height is the width times the view's aspect (`scripts/bhelpers.py:911-916`, `:968`). `compose.py` takes `--title=TEXT` and `--width=PX`; without `--width`, the page is 1000 px per cell of the widest row, plus gaps (`scripts/compose.py:30-48`). `extract_plan.py` reads `pdf` and `sheets` from the config, with paths relative to the config file, and writes each sheet's JSON to its `out` (`scripts/extract_plan.py:271-278`). `sheets.py`, run directly, prints a packing self-test line `PACK ...` (`scripts/sheets.py:240-242`). `annotate_plan.py`, `compose.py`, and `extract_plan.py` read `sys.argv` directly and take no other flags. Read.
+- README has no section named "Limits". The nearest is "What it does not do". R77 puts "The scripts" after it (Open questions, Q1).
+- `tests/bl_v110.py:147` (T39) executes the first fenced code block under the heading "Geometry dump" in `migration.md`. A new block must not come first under that heading. Read.
+- `tests/test_v111.py:100` (T48) reads the first `## Unreleased` or `## [1.1.1]` section. Once R80 adds `## Unreleased` above `## [1.1.1]`, T48 reads the v1.1.2 section. Read.
+
+### Simplify before building (architect, 2026-10-21)
+
+Each kept part traces to scope 1 to 7. Deleted, with the reason:
+- Deleted: suppressing buried hits, by default or as an option. A buried face shows in a cut plan or a long section, through a closed glass cover, when an option study hides the cover, through a gap that the samples miss, and from a camera inside the cover. No requirement asks for suppression.
+- Deleted: an "outside every room" class. It needs room volumes, which the scene does not have. Deleted: a "seen from this camera" class. The coplanar check covers every view, and a mark per view would change between runs of one scene.
+- Deleted: a NOTE line for pair exemptions. The pairs are visible in the `run_checks` call; the overlaps NOTE exists because a collection's members are not.
+- Deleted: a `pairs` argument on `coplanar_check`. `run_checks` filters the hits; the check itself is unchanged.
+- Deleted: prefixes or wildcards in pairs. Exact names only, as for every exemption (Revision 6 decision).
+- Deleted: hanging-support code (scope 3). No geometric test separates a garment under a rod from a plate under a supported lid (FX9-T2) or a box floating just under a shelf, without a new heuristic. There is one field case, and an exact-name exemption covers it. The architect's rule for a later revision, if a second project needs it: an object hangs from C when an up ray from its top centre hits a down-facing face of C within `tol`, its plan centre lies in C's box, and C is at most `2 tol` across in one plan axis and in height. C takes its origin from its direct contacts with roots.
+- Deleted: a code change for the slab pierce (N3). It does not reproduce (Verified).
+- Deleted: one WARN per suffixed name. One line with a count and the first name keeps the console short.
+- Narrowed: the mark covers every overlap plane of the pair, not only the plane that the detail line reports (Verified, the side strips).
+
+### Code (implementer)
+
+Keep out: the implementer does not edit `tests/`; the test author does not edit `scripts/`, `templates/`, `reference/`, README, or SKILL.md. Lengths are world metres.
+
+- R69 `run_checks`: the exempt key `coplanar_pairs`.
+  - Value: a list of pairs of exact object names, in either order. Keep it as pairs, as `openings` is kept.
+  - Validate before any check runs. Raise `ValueError("exempt coplanar_pairs: give a list of (name, name) pairs")` when the value is a string, or when any item is a string or is not a sequence of exactly two strings. So a bare pair `("a", "b")` raises.
+  - Add `coplanar_pairs` to the valid keys. The unknown-key error then lists it.
+  - The existing WARN `WARN exempt coplanar_pairs: no object named X` covers unknown names, unchanged.
+  - After `coplanar_check` returns, drop each hit whose unordered name pair is exempt. The status line counts only the hits that remain. If none remain, the check prints `OK coplanar`.
+  - For each exempt pair that matched no hit, print `WARN exempt coplanar_pairs: A B is not a coplanar hit`, with the names as given. Print these lines through `say` (so the hits file holds them), right before the coplanar status line. This also covers a pair that `overlaps` or an object exemption already hides.
+  - If the coplanar check is skipped for an error, print no not-a-hit WARN.
+  - The hits file holds no hit line and no detail line for an exempt pair.
+  - Docstring: one sentence for `coplanar_pairs`.
+- R70 `_coplanar_detail(n1, n2, dg, tris, tol=0.0005, min_area=1e-6, solids=None)`: a cover mark at the end of the detail line.
+  - The line gains one of `; buried`, `; partly buried (k of n points)`, or `; exposed`. The rest of the line is unchanged.
+  - Samples: for every overlap polygon that the function finds, on every plane, take its centroid and each vertex moved 10% of the way to the centroid.
+  - Step each sample by `4 * tol` (2 mm at the default) along its own triangle's unit normal. Both faces of a coplanar hit face that way, so the step leaves both objects.
+  - A sample is covered when it is inside any covering solid, by `_inside` (odd crossings). A covering solid is a render-visible mesh that `_geom` reports closed, whose world box contains the sample. The scale figure's objects never cover. The two objects of the pair do cover, so a solid that wraps its own face counts.
+  - `buried` when every sample is covered; `exposed` when none is; otherwise `partly buried (k of n points)`, with k covered of n samples.
+  - `solids` is a cache dict owned by `run_checks`, like `tris`. It holds each candidate's world box, from the evaluated object's `bound_box` and `matrix_world`. It builds each candidate's BVH with `_geom` the first time a sample falls in its box.
+  - Run it only when `run_checks` writes the hits file, as today. `coplanar_check` and the console are unchanged. A buried hit still fails the run.
+  - Code comment at the step: why `4 * tol` (it clears the coplanar tolerance and stays thinner than a real cover).
+- R71 `floor_fit_check`: the depth of a thin buried object.
+  - In the branch where the probe starts inside the floor (`scripts/checks.py:478-482`), take the up ray's floor top when `0 < top.z - lo.z <= hang` (today `tol < ...`).
+  - Report that object as `(name, lo.z - top.z)` even when the depth is `tol` or less. It lies entirely inside the floor, since the probe starts at `hi.z - 1e-4`, and it cannot be seen.
+  - Unchanged: walls are reported only when floating; a deeper object, or one with no up face to hit, keeps `None`; an object whose top is above the floor top keeps today's result.
+  - No object changes between pass and fail. Only its d value changes, from None to the depth.
+- R72 `floor_fit_check`, `broad`: the tie-break.
+  - The contact axis is the horizontal axis with the smallest share, as today. On equal shares, take the axis with the smaller overlap in metres: key `(share, overlap)`.
+  - Extend the code comment: a panel inside its support's plan box on both axes has a share of 1.0 on each, and the smaller overlap marks the thin axis.
+- R73 `run_checks`: the number-suffix WARN.
+  - Among rendered mesh objects, count the names that match `\.\d{3}$`. If any match, print one line through `say`: `WARN names: k rendered meshes have a number suffix, such as X.001`, where X.001 is the first matching name in sorted order.
+  - Print it after the floors WARN lines and before the overlaps lines. It changes no verdict.
+
+No other function changes. No change to `bhelpers.py`, `wall_gaps.py`, `mannequin.py`, `sheets.py`, `ifc_walls.py`, `compose.py`, `annotate_plan.py`, `extract_plan.py`, or the template, except the release's `LIB = "v1.1.2"`. No `allowed-tools` line and no `` !`command` `` injection is added.
+
+### Docs (development session)
+
+Draft text follows the instruction-writing rules; adjust wording only.
+
+- R74 SKILL.md:
+  - Checks, "Read the output", two table rows:
+    | Line | Meaning |
+    |---|---|
+    | `WARN exempt coplanar_pairs: A B is not a coplanar hit` | The pair has no coplanar hit, so its exemption does nothing. Remove it or correct the names. |
+    | `WARN names: k rendered meshes have a number suffix, such as X.001` | Blender added a number to a repeated name. Give each object a unique name, so that each hit line and exemption names one object. |
+  - Checks, "Read the output", bullets after the `hits_file` bullet:
+    ```
+    - In the hits file, each coplanar detail line ends with `buried`, `partly buried (k of n points)`, or `exposed`.
+    - `buried` means that a point 2 mm in front of each overlap lies inside another closed object. Fix `exposed` and `partly buried` hits first.
+    - A buried hit still fails. It shows in a cut plan or a section, through glass, and when an option hides the covering object.
+    ```
+  - Checks, "Exemptions", after the `openings` bullets:
+    ```
+    - If one pair of objects overlaps on one plane by design, or the overlap is buried, exempt the pair: `exempt={"coplanar_pairs": [("ceiling_hall", "blocking_h")]}`.
+    - In the coplanar check, exempt a pair, not an object. An object exemption drops every pair of that object and can hide a real defect.
+    - Fix a buried hit when the fix is simple, such as removing a duplicate face. Otherwise exempt the pair, and name the covering object in the comment.
+    - Give `coplanar_pairs` a list of pairs. A bare pair raises an error.
+    ```
+  - Checks, "Limits", two bullets after the hang-limit bullets:
+    ```
+    - Support comes from below or from the side, never from above. An object hung from a rod or hook, with its base below the hang limit, is reported.
+    - Exempt such an object by its exact name, such as each garment on a closet rod. Give the reason in a comment.
+    ```
+  - Environment: replace "Add `--with pymupdf` for `extract_plan.py`." with "[reference/scripts.md](reference/scripts.md) gives each script's command line and flags."
+  - Scripts: replace the intro sentence with "Run these; do not read them into context. Look up how to run each one, and its flags, in [reference/scripts.md](reference/scripts.md), and function signatures in [reference/api.md](reference/api.md)." The table stays.
+  - Reference: replace the api.md line with two lines: "Function signatures: [reference/api.md](reference/api.md)" and "How to run each script, and its flags: [reference/scripts.md](reference/scripts.md)".
+- R75 `reference/api.md`:
+  - Delete the section "Command-line scripts" and its Contents line. Its facts move to R76.
+  - `run_checks` entry: add "exempt also takes {"coplanar_pairs": [(name, name), ...]}, pairs that the coplanar check does not report." Add "With hits_file, each coplanar detail line ends with buried, partly buried, or exposed."
+- R76 `reference/scripts.md` (new). Title "Scripts". Intro: "How to run each script, and its command-line flags. Function signatures are in [api.md](api.md). SKILL.md ("Environment") holds the `$BLENDER` rules." Then:
+  - "Two ways to run": inside Blender with `"$BLENDER" --factory-startup -b --python-exit-code 1 -P script.py -- FLAGS` (link to SKILL.md, Environment); plain Python with `uvx --with PACKAGES python -I blender/lib/<LIB>/SCRIPT.py ARGS`, from the project folder. One sentence: `python -I` leaves the script's own folder off `sys.path`, so a project script that imports a lib module inserts the lib folder itself, as a scene script's two `LIB` lines do. `reference/migration.md` step 9 then links here instead of restating it.
+  - One section per script, in R77's order. Each gives what it does, where it runs, its command line, and every flag:
+    - `templates/scene_template.py`: runs in Blender. Command line: the `$BLENDER` line above with `-P blender/build_<scene>.py -- --view persp --res 800 --samples 48 --gpu --out out/persp.png`. Flags table: `--view NAME` (a key of `VIEWS`; default `persp`); `--res N` (image width in pixels; the height is the width times the view's aspect; default 800); `--samples N` (Cycles samples; default 48); `--gpu` (render on the system's GPU backend, SKILL.md "Environment"; default CPU); `--out PATH` (default `out/<view>.png`); `--option a` or `b` (the study option; default `a`; a project names its own option flags and sets each owner choice as the default); `--export-pieces PATH` (build, write the tile pieces JSON, print `DONE <PATH>`, and skip the checks and the render). Then "Flags a project adds": `--dump PATH` ([migration.md](migration.md), "Geometry dump") and `--ifc PATH` ([extensions.md](extensions.md), "Write an IFC"). Output: `DONE <path>` when the render is written; exit 1 on a failed check or a script error.
+    - `bhelpers.py`, `checks.py`, `mannequin.py`: imported by a scene script inside Blender. No command line.
+    - `sheets.py`: imported by a project's sheet generator, run with `uvx --with pillow python -I`. Run directly, it prints a packing self-test line (`PACK ...`).
+    - `extract_plan.py`: `uvx --with pymupdf python -I blender/lib/<LIB>/extract_plan.py CONFIG.json`. No flags. The config's paths are relative to the config file; each sheet's JSON goes to its `out`. Config keys: `plan_config.example.json` and [plan-input.md](plan-input.md).
+    - `compose.py`: the usage line, the two flags (`--title=TEXT`; `--width=PX`, default 1000 px per cell of the widest row), and the item syntax, moved from api.md.
+    - `annotate_plan.py`: the usage line and the CALLOUTS.json format, moved from api.md. No flags.
+    - `ifc_walls.py`: imported, in a Blender run that enables the extensions ([extensions.md](extensions.md)), or in plain Python with `uvx --with ifcopenshell --with numpy python -I script.py`. No command line.
+    - `wall_gaps.py`: imported, in Blender or plain Python, with no packages. No command line.
+- R77 `README.md`:
+  - "How a model gets built", the scene-script paragraph becomes: "**The scene script.** A scene script, copied from `templates/scene_template.py`, builds the whole model from the project's constants. Its `VIEWS` table lists the named camera views, and each run renders one of them."
+  - A new section "## The scripts" after "## What it does not do". One sentence: "Each script in order of importance. [reference/scripts.md](reference/scripts.md) says how to run each one and lists its flags." Then a two-column table (Script, Does), one line each, in this order: `templates/scene_template.py` (the starting scene script: constants, views, the build, the checks, and the render); `bhelpers.py` (units, geometry, materials, tiles, plan input, lights, cameras, plan cuts, and the render call); `checks.py` (the six pre-render checks and `run_checks`, the gate that stops a render on a defect); `sheets.py` (construction sheets, dimension lines, and tile packing); `extract_plan.py` (walls, door swings, and door leaves from a plan PDF's vector linework); `compose.py` (labeled study pages from rendered views); `annotate_plan.py` (circled callouts on a plan render); `ifc_walls.py` (IFC walls from the wall records, and a check of a Bonsai plan drawing); `mannequin.py` (a posable clay figure at a real person's height); `wall_gaps.py` (walls that almost meet, and openings between in-line walls).
+  - "Developer details", the reference list: add `scripts.md` to the `reference/` files.
+- R78 `reference/migration.md` (the E10 gaps):
+  - "Before you start", step 1: "Make the current state restorable before any edit, including the `--dump` flag that the next section adds."
+  - "Geometry dump", replace "Two dumps compare with a plain diff. A swap or an upgrade must leave the dumps equal." with "Compare two dumps with `scratch/dump_diff.py` ("Compare and decide"). A swap or an upgrade must leave them equal." Add no code block under this heading (T39).
+  - "Compare and decide", a second script after `diff.py`, saved as `scratch/dump_diff.py`:
+    ```python
+    import json
+    import sys
+
+    TOL = 1e-5
+
+
+    def diff(a, b, path=""):
+        if isinstance(a, dict) and isinstance(b, dict):
+            out = [f"{path}/{k}: only in {'A' if k in a else 'B'}" for k in sorted(set(a) ^ set(b))]
+            return out + [d for k in sorted(set(a) & set(b)) for d in diff(a[k], b[k], f"{path}/{k}")]
+        if isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+            return [d for i, (x, y) in enumerate(zip(a, b)) for d in diff(x, y, f"{path}[{i}]")]
+        num = (int, float)
+        if isinstance(a, num) and isinstance(b, num) and not isinstance(a, bool) and not isinstance(b, bool):
+            return [] if abs(a - b) <= TOL else [f"{path}: {a} != {b}"]
+        return [] if a == b else [f"{path}: {a!r} != {b!r}"]
+
+
+    a, b = (json.load(open(p)) for p in sys.argv[1:3])
+    names = json.load(open(sys.argv[3])) if len(sys.argv) > 3 else {}
+    a = {names.get(k, k): v for k, v in a.items()}
+    lines = diff(a, b)
+    print("\n".join(lines) if lines else "SAME")
+    ```
+    Text: "Numbers that differ by 1e-5 or less count as equal. A lib camera can differ by 1e-6 rad. If the change renamed objects, write a name map, a JSON object from each old name to its new name, and pass it third: `python3 -I scratch/dump_diff.py baseline.json new.json names.json`. The map renames the baseline's objects only, not material names. Show the map to the owner with the comparison."
+  - "Compare and decide", step 1: "Compare geometry first. `dump_diff.py` must print `SAME`."
+  - "Wire the checks", step 1: add "Compare the dumps before and after the rename with a name map."
+  - "Wire the checks", a step after step 5: "If a view prints `NOTE camera: exterior view, escapes not checked`, nothing is above its camera. In a view meant as an interior, raise it with the owner as a defect: the ceiling or roof is missing, hidden in that view, or not built yet. If the scene is open at the top by design, such as a cutaway or a model without its roof, set `interior=False` in the view's entry (SKILL.md, Checks, Setup)."
+  - Step 9 of "Move a project's own helpers onto the lib": replace the sentence with a link to scripts.md ("Two ways to run").
+- R79 `reference/studies.md:23`: "The item syntax is in [scripts.md](scripts.md), under `compose.py`." Grep `reference/` and SKILL.md for "Command-line scripts" and fix any other link to it.
+- R80 `CHANGELOG.md`: a `## Unreleased` heading above `## [1.1.1]`.
+  - A first paragraph: "This patch release adds an exemption key and new output, which Semantic Versioning counts as a minor release. Decided on 2026-10-21 as a deviation, as for 1.1.1."
+  - Added: `checks.run_checks()` takes `exempt={"coplanar_pairs": [(name, name), ...]}`; other pairs of the same objects are still reported; a pair that is no hit gives a WARN; a bare pair raises `ValueError`. `checks.run_checks()`: in the `hits_file`, each coplanar detail line ends with `buried`, `partly buried (k of n points)`, or `exposed`, and buried hits still fail. `checks.run_checks()`: a `WARN names:` line for rendered meshes with a number suffix such as `.001`. `reference/scripts.md`: each script, how it runs, its command line, and its flags.
+  - Fixed: `checks.floor_fit_check()`: an object inside a floor less than `tol` deep reports its depth; before, it read `sunk more than 0.300 m`. `checks.floor_fit_check()`: a panel inside its support's plan box on both axes, such as a front flush with a carcass face, now counts as a broad face; before, a tie took the x axis. `reference/migration.md`: a tolerance and a name map for comparing dumps; when the exterior NOTE is a defect; the backup before the `--dump` flag.
+  - Changed: `reference/api.md` keeps function signatures; command lines moved to `reference/scripts.md`.
+  - Keep each sentence at 25 words or fewer.
+- R81 skill `docs/ISSUES.md`: tick the v1.1.2 item and the v1.1.1 migration doc gaps item; record the slab pierce as not reproduced (with T56's result); add a v1.1.2 line naming this revision; add V2 and R3 under Decisions; keep the hanging-support rule as a later item (Simplify before building) and the v1.3.0 candidates as they stand.
+
+### Tests (test author)
+
+All under the suite's timeouts; no sleeps. New Blender tests go in `tests/bl_v112.py`, new plain-Python tests in `tests/test_v112.py` (`python3 -I`); `run_tests.sh` adds both, and the syntax step covers them. Each new test fails before the change unless it says otherwise. Boxes are `(x0, x1, y0, y1, z0, z1)`, built as closed cubes with transforms applied. Keep cases at least 0.5 m apart unless they are meant to touch, or build each case in its own scene.
+
+- T52 `coplanar_pairs` (`bl_v112.py`). Scene: floor `(-4, 4, -4, 4, -0.1, 0)`; `ceiling_hall (0, 2, 0, 2, 2.40, 2.45)`; `ceiling_bath (1.7, 3.5, 0, 2, 2.40, 2.45)` (bottoms coplanar at 2.40 over x 1.7 to 2; tops at 2.45); `blocking_h (0.2, 0.6, 0.2, 1.8, 2.42, 2.45)` (inside the hall ceiling, its top coplanar); `wall_n (-0.1, 3.6, 2.0, 2.1, 0, 2.6)`. Run `run_checks(floors=("floor",), exempt=..., hits_file=...)` with the camera unset; catch `SystemExit`; read the console and the file.
+  - `[("blocking_h", "ceiling_hall")]` (reversed order): FAIL coplanar with exactly the hall and bath pair; no `WARN exempt` line.
+  - Both pairs: `OK coplanar`.
+  - `[("ceiling_hall", "wall_n")]` (both exist, no hit): the line `WARN exempt coplanar_pairs: ceiling_hall wall_n is not a coplanar hit`, before the coplanar status line; both hits still reported.
+  - `[("ceiling_hall", "nope")]`: both `WARN exempt coplanar_pairs: no object named nope` and the not-a-hit line.
+  - `("ceiling_hall", "blocking_h")` (a bare pair), `["ceiling_hall"]`, and `[("a", "b", "c")]`: each raises `ValueError` before any check line prints.
+  - The two ceilings in a collection passed in `overlaps`, with the pair also exempt: the not-a-hit WARN.
+  - `exempt={"coplanar": ["ceiling_hall"]}` alone: `OK coplanar`. This case pins the masking that pairs avoid; it passes before.
+  - Hits file: no hit line and no detail line for an exempt pair; the WARN lines are in the file.
+- T53 cover marks (`bl_v112.py`). Each case is a pair of plates `a (0, 1, 0, 1, 0.29, 0.3)` and `b (0.5, 1.5, 0, 1, 0.295, 0.3)`, with names unique per case, in its own scene. The pair overlaps at its tops and on two 5 mm side strips (Verified). Run `run_checks` with `hits_file` and read the mark on the pair's detail line:
+  - No cover: `exposed`.
+  - A closed cover `(-0.1, 1.6, -0.1, 1.1, 0.2, 0.4)` enclosing both plates: `buried`.
+  - A closed cover `(-0.1, 1.6, -0.1, 1.1, 0.3, 0.4)` over the tops only: `partly buried (k of n points)`, with 0 < k < n. This catches a mark taken from the reported plane only.
+  - A closed cover `(0.5, 0.75, -0.1, 1.1, 0.2, 0.4)` over part of the overlap: `partly buried`.
+  - An open plane over the tops at z 0.301, and the enclosing cover with `hide_render` set: `exposed`.
+  - A closed cover 0.5 mm thick at z 0.301 to 0.3015: `exposed` (thinner than the step).
+  - The enclosing cover named `man_cover`, with the default `figure`: `exposed`.
+  - In every case: the run still FAILs coplanar; the console holds no mark; `coplanar_check` returns a list of 2-tuples.
+  - Amend T50 (`tests/bl_v111.py:541-543`): the regex ends `m2; (buried|exposed|partly buried \(\d+ of \d+ points\))$`, and T50's scene expects `exposed`.
+- T54 number-suffix WARN (`bl_v112.py`). Rendered meshes `chair`, `chair.001`, `chair.002`, `lamp.017`, and `hidden.001` with `hide_render` set: exactly one line `WARN names: 3 rendered meshes have a number suffix, such as chair.001`, also in the hits file. A scene with no suffixed names has no `WARN names` line. The verdict does not change.
+- T55 thin buried depth (`bl_v112.py`). Floor `(-2, 2, -2, 2, -0.1, 0)`; `thin_15 (0, 0.3, 0, 0.3, -0.015, -0.010)` gives `("thin_15", -0.015)` within 1e-3, and its line reads `thin_15 sunk 0.015 m`. Unchanged: `thin_40 (1, 1.3, 0, 0.3, -0.040, -0.035)` gives -0.04; an object 0.4 m deep gives None; `proud_15 (-1, -0.7, 0, 0.3, -0.015, 0.005)` passes.
+- T56 slab pierce, written and run first, before any code change (`bl_v112.py`). Floor `(-2, 2, -2, 2, -0.1, 0)` and `slab (-2, 2, -2, 2, 3.0, 3.2)`, both in `floors`; `p_in (0, 0.1, 0, 0.1, 2.95, 3.19)` (probe inside the slab) and `p_above (1, 1.1, 0, 0.1, 2.95, 3.25)` (probe above it). Assert both give d = -0.25 within 1e-3: the depth below the top of the slab they pierce. The probe passed this on v1.1.1, so it is expected not to reproduce. If it passes, delete T56 and report "not reproduced" for R81. If it fails, stop and report to the architect.
+- T57 broad tie (`bl_v112.py`). Floor; floor-standing `carcass (0, 0.6, 0, 0.6, 0, 0.9)`.
+  - `front_flush (0.05, 0.55, 0, 0.02, 0.05, 0.35)`, inside the carcass's plan box: passes.
+  - `chest_flush (0.1, 0.4, 0, 0.4, 0.05, 0.52)` in a second carcass: reported (not broad on either axis; F1's rejected chest).
+  - `front_out (0.05, 0.55, -0.02, 0, 0.05, 0.35)` on a third carcass: passes before and after.
+- T58 docs (`test_v112.py`).
+  - `reference/scripts.md` exists. It names each of the ten scripts of R77. It holds every flag that the template's `argparse` defines, read with `ast` from `templates/scene_template.py`, so the doc stays in step with the template. It holds `--dump` and `--ifc`, each with a link to `migration.md` or `extensions.md`.
+  - `reference/api.md` has no heading "Command-line scripts", and its `run_checks` entry holds `coplanar_pairs`.
+  - README has `## The scripts` after `## What it does not do`; its table lists the ten scripts in R77's order and links `reference/scripts.md`. The scene-script paragraph of "How a model gets built" holds no `--` and no `LIB`.
+  - SKILL.md holds `coplanar_pairs`, `WARN exempt coplanar_pairs:`, `WARN names:`, `partly buried`, and `reference/scripts.md`.
+  - The CHANGELOG's `## Unreleased` section names `checks.run_checks()` and `checks.floor_fit_check()` and holds the words "Semantic Versioning".
+  - `migration.md`: run the fenced block under "Compare and decide" that defines `diff(` as a script with `python3 -I`, on temp files. Dumps that differ by 1e-6 print `SAME`. A difference of 1e-4 prints a line naming the key. A renamed object with a name map prints `SAME`, and without the map prints two "only in" lines.
+  - Amend T48 (`tests/test_v111.py:100`): read the `## [1.1.1]` section when one exists, else `## Unreleased`.
+- Mutation checks, recorded under Results: step along minus the normal (T53 no cover reads `buried`); let open meshes cover (T53 open plane); mark from the reported plane only (T53 tops-only cover); keep `tol <` in R71 (T55); break ties by axis 0 (T57); drop the not-a-hit WARN (T52); accept a bare pair (T52).
+
+### Evals
+
+Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill tool; synthetic data only; nothing installed. The skill folder is a scratch `git archive` of the branch, with `## Unreleased` retitled `## [1.1.2] - 2026-10-21` in that copy only. Each prompt says: "`${CLAUDE_SKILL_DIR}` in SKILL.md is `<scratch folder>`." Render at `--res 160 --samples 8` on CPU. Check each transcript for a Skill call.
+
+- E13 Coplanar triage with pairs. The test author writes the fixture under `tests/fixtures/v112/` (synthetic, committed with the tests): a project with `blender/lib/v1.1.2/` (the branch's `scripts/`) and `blender/build_flat.py` pinned to `v1.1.2`. It builds a hall and a bathroom with walls 2.6 m high, a floor, and a ceiling slab `roof_slab` over the walls at 2.6 to 2.8. `run_checks(floors=("floor",), interior=...)` is wired with no `exempt` and no `hits_file`. It holds:
+  - four wall plates `plate_n`, `plate_s`, `plate_e`, `plate_w`, each inside its wall at z 2.5 to 2.6, inset 10 mm from both wall faces, so that only its top is coplanar with the wall top, under `roof_slab` (buried);
+  - `ceiling_hall` and `ceiling_bath` dropped ceilings at 2.40 to 2.45, overlapping by 0.3 m in plan, under an insulation box `insul` at 2.45 to 2.6 (their bottoms exposed, their tops covered: partly buried), with the overlap in the camera's view;
+  - `blocking_h` inside `ceiling_hall`, its top coplanar with the hall ceiling's top under `insul` (buried).
+  `insul` lies inside the rooms, clear of the walls in plan. The test author confirms on the branch that these six pairs are the only coplanar hits, that the hits file marks the four plate pairs and the blocking pair `buried`, and that it marks the ceiling pair `partly buried`.
+  - Prompt: "The preview fails the checks. Triage the hits: fix what is wrong, exempt only what is hidden, and tell me what you changed and what you left for me."
+  - Pass:
+    - The agent passes `hits_file` and uses the marks in its triage.
+    - The ceiling pair is fixed (one ceiling trimmed or moved so that they no longer overlap) or listed for the owner. It is not exempted.
+    - Each buried pair is fixed or exempted with `coplanar_pairs` by exact names, with a reason comment that names the covering object.
+    - No `"coplanar"` object exemption for `ceiling_hall`; no prefix; no overlaps collection that holds a wall.
+    - The final run prints `OK run_checks` and `DONE`, with no `WARN exempt` line.
+- After install (Releases): the discovery eval, in a fresh subagent not told the skill's name or path, with E8's prompt.
+
+### Not covered
+
+- An object hung from a rod or hook below the hang limit is reported (scope 3). SKILL.md Limits says to exempt it by name.
+- The mark is a triage aid. A cover thinner than 2 mm, an open mesh, a mesh with bad topology, and a gap between samples can all mislead it. The hit fails either way.
+- Mark cost: samples times candidate closed meshes per hit, plus a BVH per candidate on first use, only when `hits_file` is given. Not measured. A field report would justify a bound, as for `_coplanar_detail` (M4).
+- A piercing object reports its depth below the top of the slab it pierces, wherever the probe starts (Verified). The line does not name the slab.
+
+### Open questions
+
+- Q1: Scope R3 says "after Limits", and README has no Limits section. Recommended, and applied in R77: put "The scripts" after "What it does not do", the README's list of limits.
+
+### Order of work, and how to continue if interrupted
+
+0. Done: the user approved the scope (V2, R3).
+1. The test author writes and runs T56 first, on `release-1.1.2` before any code change. If it passes, delete it and record "not reproduced". Then T52 to T55, T57, T58, the T50 and T48 amendments, and the E13 fixture. They fail as stated.
+2. The implementer makes R69 to R73.
+3. The development session writes R74 to R81.
+4. Run the full suite and the mutation checks.
+5. Run E13.
+6. Pre-merge review (opus, high: R69 and R72 change what the gate passes), then merge approval. At the release, set the template's `LIB = "v1.1.2"` and retitle `## Unreleased` (T41 runs on the tag); install; run the discovery eval.
+
+Each finished item is ticked in skill `docs/ISSUES.md` under the v1.1.2 line. A fresh session reads that line, this section, and `git log` on `release-1.1.2`.
+
+Keep out, for everyone working on this revision: `dev/inputs/`; earlier revisions of this contract (append findings, never rewrite); `~/.claude/skills/` and `~/.claude/skill-installs/` until the approved install; the skill-developer repo's `scripts/` and `tests/`; the render projects' files; `tests/out/`; `scripts/` other than `checks.py`; `templates/` until the release's `LIB` line; existing tests other than the T50 and T48 amendments; function docstrings other than `run_checks` (R69).
+
+### Test author findings (2026-10-22, tests at `d32292f`)
+
+- T56 does not reproduce: `p_in` and `p_above` both give d = -0.25 on the unchanged scripts. T56 is deleted; R81 records "not reproduced".
+- R71 needs a second change. Besides the up-ray condition at `scripts/checks.py:481`, the `d < -tol` test at `:483` drops a depth of 0.015 m, so the object falls to `roots.setdefault(n, 2)` and passes. The R71 behaviour (report the depth even when it is `tol` or less) covers both lines.
+- T55 "an object 0.4 m deep gives None" cannot be built in the 0.1 m floor: its probe starts at `lo.z + hang`, on the floor's bottom face. T55 uses a 0.35 m object in that floor, plus a second scene with a 0.5 m floor and a 0.4 m object (`deep_40`). Both expect None.
+- T54 adds `lamp.12` and `pad.0012` as names that must not match, to pin `\.\d{3}$`.
+- The E13 fixture commits no `blender/lib/v1.1.2/`; the eval copies `scripts/` there after R69 to R73, as for the v1.1.1 fixture. On the unchanged scripts it gives exactly the six named coplanar hits and no other failure.
+
+### Pre-merge review and E13 (2026-10-22)
+
+- E13 (fresh sonnet subagent, scratch export with `## Unreleased` retitled): pass. The agent passed `hits_file`, read the marks, fixed the ceiling pair by butting the two ceilings at x 3.2, exempted the four plate pairs and the blocking pair by exact names with covering-object comments (`roof_slab`, `insul`), and the final run printed `OK run_checks` and `DONE` with no `WARN exempt` line. It also moved the fill light from 2.6 m to 2.40 m to light the preview, a change outside the checks.
+- Review of `git diff v1.1.1..release-1.1.2` (opus, high): no Critical or Important; verdict merge as is. The reviewer reran the suite (77 of 77 on a scratch copy) and all seven mutations plus two of its own; each failed the test the contract names.
+- M1 (Minor, fixed): SKILL.md now says a pair exemption drops every hit of that pair, on every plane.
+- M2 (Minor, later): `None`, a number, or a generator for `coplanar_pairs` raises `TypeError` or is spent silently. Outside Revision 10's letter; recorded in skill `docs/ISSUES.md`.
+- M3 (Minor, fixed): the SKILL.md `buried` definition now says every sample and names render-visible covers, one of which can be a pair member.
+- M4 (Minor, fixed): `reference/plan-input.md` step 4 links to `scripts.md` instead of restating the command line; `scripts.md` "Two ways to run" now covers an import of a sibling project module as well as a lib module.
+- M5 (Minor, fixed): skill `docs/ISSUES.md` gains the hanging-support later item, and its J2 line no longer lists the duplicate-name warning that R73 delivered.
+- Uncertain, not a regression: the R72 tie-break needs both plan shares at exactly 1.0. A rotated panel is reported floating, because the plan-box method is axis-aligned; that is v1.1.1 behaviour. Float noise at flush edges could miss the tie; not reproduced.
+- T53 "open" is fixed at `f692d10`: the cover is `ENCLOSE` with its bottom face deleted (helper `open_box`, replacing `plane_obj`), and the render-invisible closed cover is its own case, `hidden`. The mutation "let open meshes cover" (`ent[2] = tree if closed else False` becomes `ent[2] = tree` in `_coplanar_detail`), on a scratch copy of `scripts/`, now fails `T53 open: want exposed, got buried` and nothing else. The unchanged scripts pass `bl_v112`.

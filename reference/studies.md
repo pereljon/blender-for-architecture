@@ -20,7 +20,7 @@ uvx --with pillow python -I blender/lib/<LIB>/compose.py scratch/vanity.jpg \
   "#Plan" "A=scratch/p_a.png" "B=scratch/p_b.png" "C=-"
 ```
 
-- The item syntax is in [api.md](api.md), under Command-line scripts.
+- The item syntax is in [scripts.md](scripts.md), under `compose.py`.
 - Write the page to `scratch/`. The loop copies a delivered page into the delivery folder.
 - Send one page per question.
 

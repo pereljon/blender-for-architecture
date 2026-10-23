@@ -7,6 +7,27 @@ Conventions, kept from v1.1.0 on:
 - Name each public function whose signature or behaviour changed, or that was added or removed, as `module.function()`. Put it under Changed, Fixed, Added, or Removed.
 - The skill reads the installed version from the first numbered heading.
 
+## Unreleased
+
+This patch release adds an exemption key and new output, which Semantic Versioning counts as a minor release. Decided on 2026-10-21 as a deviation, as for 1.1.1.
+
+### Added
+
+- `checks.run_checks()`: `exempt` takes `{"coplanar_pairs": [(name, name), ...]}`. Other pairs of the same objects are still reported. A pair that is no hit gives a `WARN`. A bare pair raises `ValueError`.
+- `checks.run_checks()`: in the `hits_file`, each coplanar detail line ends with `buried`, `partly buried (k of n points)`, or `exposed`. A buried hit still fails.
+- `checks.run_checks()`: a `WARN names:` line for rendered meshes with a number suffix such as `.001`.
+- `reference/scripts.md`: each script, how it runs, its command line, and its flags.
+
+### Fixed
+
+- `checks.floor_fit_check()`: an object inside a floor less than `tol` deep reports its depth. Before, it read `sunk more than 0.300 m`.
+- `checks.floor_fit_check()`: a panel inside its support's plan box on both axes, such as a front flush with a carcass face, now counts as a broad face. Before, a tie took the x axis.
+- `reference/migration.md`: a tolerance and a name map for comparing dumps. When the exterior `NOTE` is a defect. The backup comes before the `--dump` flag.
+
+### Changed
+
+- `reference/api.md`: function signatures only. Command lines moved to `reference/scripts.md`.
+
 ## [1.1.1] - 2026-10-21
 
 This patch release adds optional arguments, which Semantic Versioning counts as a minor release. Decided on 2026-10-21 as a deviation.

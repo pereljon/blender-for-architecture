@@ -7,7 +7,6 @@ Every public function and class of the lib, from the scripts' signatures and doc
 - VIEWS entries
 - Pose format
 - bhelpers.py, mannequin.py, checks.py, wall_gaps.py, ifc_walls.py, sheets.py
-- Command-line scripts
 
 ## Conventions
 
@@ -195,7 +194,7 @@ Lengths in the checks are world metres, except `paths` in `run_checks` and `clea
 - `fail_on(hits, label)`
   Print OK <label>, or FAIL <label>: <hits> and exit with status 1 when hits is not empty.
 - `run_checks(floors=(), walls=('wall_',), paths=None, figure=('man_',), exempt=None, interior=None, unit=None, rays=160, overlaps=(), hits_file=None, finishes=())`
-  Run the six checks over the whole scene right before a render. Print OK, FAIL or SKIP for each, and exit 1 when any failed. exempt is {check: [exact object names]} for coplanar, flipped, wall_gaps, floor_fit, camera, and clearance. For openings meant to run to the ceiling, exempt takes {"openings": [(wall, wall), ...]}, a list of pairs. overlaps holds exact collection names for the coplanar check only. hits_file is a path. The run writes its own WARN and NOTE lines and every status and hit line there, and prints the path. finishes goes to floor_fit_check.
+  Run the six checks over the whole scene right before a render. Print OK, FAIL or SKIP for each, and exit 1 when any failed. exempt is {check: [exact object names]} for coplanar, flipped, wall_gaps, floor_fit, camera, and clearance. For openings meant to run to the ceiling, exempt takes {"openings": [(wall, wall), ...]}, a list of pairs. exempt also takes {"coplanar_pairs": [(name, name), ...]}, pairs that the coplanar check does not report. overlaps holds exact collection names for the coplanar check only. hits_file is a path. The run writes its own WARN and NOTE lines and every status and hit line there, and prints the path. With hits_file, each coplanar detail line ends with buried, partly buried, or exposed. finishes goes to floor_fit_check.
 
 ## wall_gaps.py
 
@@ -253,16 +252,3 @@ Plain Python (no Blender). Rects are `(x0, x1, y0, y1)`, `(x0, x1, y0, y1, z0, z
   Pack pieces dict(id, w, h), at finished size in metres, onto tw x th stock, with a saw cut of width kerf between pieces.
 
 `mm` is an alias of `fmt`. `INK` and `DIM` are the line and dimension colors.
-
-## Command-line scripts
-
-Run each script from the scene's version folder, `blender/lib/<LIB>/`.
-
-- `uvx --with pillow python -I blender/lib/<LIB>/compose.py OUT.jpg [--title=TEXT] [--width=PX] ITEM ...`
-  Each item is `Label=path.png`, `Label=-` (blank cell), `|` (end of row), or `#Heading`. Each row scales so its cells share the page width.
-- `uvx --with pillow python -I blender/lib/<LIB>/annotate_plan.py IN.png OUT.png CALLOUTS.json`
-  CALLOUTS.json is `{"center": [x, y], "width": w, "callouts": [{"x", "y", "label", "above", "r"}]}`. The default ring radius is in pixels. `r` is in project units.
-- `uvx --with pymupdf python -I blender/lib/<LIB>/extract_plan.py CONFIG.json`
-  See `plan_config.example.json` and [plan-input.md](plan-input.md).
-- `uvx --with pillow python -I blender/lib/<LIB>/sheets.py`
-  Runs the packing self-test.

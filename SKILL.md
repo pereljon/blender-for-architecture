@@ -29,7 +29,7 @@ BLENDER=<path>; "$BLENDER" --factory-startup -b --python-exit-code 1 -P script.p
 - The tests run on macOS with Metal only. The Linux and Windows paths and backends are untested.
 - The scripts target Blender 5.2 LTS. Blender's Python also bundles numpy and a few other packages. The helpers use only `bpy`, `bmesh`, and `mathutils`. Do not pip-install into Blender.
 - Run plain-Python scripts through uvx, with no installs: `uvx --with pillow python -I script.py`.
-- Add `--with pymupdf` for `extract_plan.py`.
+- [reference/scripts.md](reference/scripts.md) gives each script's command line and flags.
 - uvx needs uv installed, and network on first use. Without them, run `python3 -I script.py` with a system Pillow.
 
 ## Project setup
@@ -154,11 +154,16 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 | `WARN overlaps: no collection named X` | No collection has that name, so it skips nothing. Correct the name. |
 | `WARN overlaps: collection X holds no rendered mesh` | The collection is empty, or its objects are hidden from render. It skips nothing. |
 | `WARN overlaps: Y in collection X is a floor or wall` | A floor or wall is in the overlap collection. Take it out. |
+| `WARN exempt coplanar_pairs: A B is not a coplanar hit` | The pair has no coplanar hit, so its exemption does nothing. Remove it or correct the names. |
+| `WARN names: k rendered meshes have a number suffix, such as X.001` | Blender added a number to a repeated name. Give each object a unique name, so that each hit line and exemption names one object. |
 | `NOTE full hit list: <path>` | The file at that path holds every hit line, not only the first 20 per check. |
 
 - Fix every hit.
 - One cause can give hits in two checks. A slab sunk into the floor and coplanar with it gives a coplanar hit and a floor_fit hit. Fix the slab, then run again.
 - If a check prints `... and k more`, pass `hits_file` and run again to see every hit.
+- In the hits file, each coplanar detail line ends with `buried`, `partly buried (k of n points)`, or `exposed`.
+- `buried` means that every sample 2 mm in front of the overlaps lies inside a closed, render-visible object. One of the pair can be the cover. Fix `exposed` and `partly buried` hits first.
+- A buried hit still fails. It shows in a cut plan or a section, through glass, and when an option hides the covering object.
 - A tile or panel layer inside the wall volume gives coplanar hits and near-miss wall gaps where it meets walls and jambs. Read each such overlap in the file that `hits_file` writes before you fix or exempt it. List the layer prefix in `finishes`.
 - A camera hit gives a pixel box in the view's image at the run's `--res`. A failing run writes no image.
 - To see a camera hit, exempt its object for one preview run at the same `--res`. Then look inside the pixel box.
@@ -170,6 +175,11 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 - Exempt only objects with stable names. A name built from a list index, such as `wall_27`, can point at another object after the plan changes.
 - If an opening is meant to run to the ceiling, exempt it by its two wall names: `exempt={"openings": [("wall_hall_w", "wall_hall_e")]}`.
 - Give `openings` a list of pairs. One bare pair is read as two names, and the hit stays.
+- If one pair of objects overlaps on one plane by design, or the overlap is buried, exempt the pair: `exempt={"coplanar_pairs": [("ceiling_hall", "blocking_h")]}`.
+- In the coplanar check, exempt a pair, not an object. An object exemption drops every pair of that object and can hide a real defect.
+- The exemption drops every hit of that pair, on every plane. Check the pair's other planes before you exempt it.
+- Fix a buried hit when the fix is simple, such as removing a duplicate face. Otherwise exempt the pair, and name the covering object in the comment.
+- Give `coplanar_pairs` a list of pairs. A bare pair raises an error.
 - Give the reason for each exemption in a comment.
 - If many objects overlap on one plane by design, such as leaf cards, put them in one collection.
 - Pass that collection's exact name in `overlaps`: `run_checks(..., overlaps=("tree_leaves",))`. Give the reason in a comment.
@@ -208,6 +218,8 @@ run_checks(floors=("floor",), paths=STAIR_PATHS, interior=VIEWS[args.view].get("
 - Support that starts at a wall or finish needs a base at least 0.1 m above the floor. So does any other side contact, such as a box against a cabinet side.
 - An object below 0.1 m that touches only a wall, a finish, or another object with a narrow side is reported. A bed a few cm up against a wall or a nightstand is a defect.
 - Objects at or above the hang limit give no support. An item recessed more than 25 mm into a wall is reported.
+- Support comes from below or from the side, never from above. An object hung from a rod or hook, with its base below the hang limit, is reported.
+- Exempt such an object by its exact name, such as each garment on a closet rod. Give the reason in a comment.
 - An object buried inside a floor reports its depth below the floor's top face. One sunk more than the hang limit (0.3 m) reports `sunk more than 0.300 m`, whatever its depth.
 - A panel end or edge that runs into another object is not a touching face, so it does not take that object's origin.
 - An object exempt from `floor_fit` is not reported, but it still supports what touches it.
@@ -239,7 +251,7 @@ Check every preview against this list. The owner's colored-box markup of a plan 
 
 ## Scripts
 
-Run these; do not read them into context. Look up signatures in [reference/api.md](reference/api.md).
+Run these; do not read them into context. Look up how to run each one, and its flags, in [reference/scripts.md](reference/scripts.md), and function signatures in [reference/api.md](reference/api.md).
 
 | Script | Runs in | Does |
 |---|---|---|
@@ -275,4 +287,5 @@ Read [reference/extensions.md](reference/extensions.md) before you install or us
 - Construction sheets and tile cutting plans: [reference/construction-sheets.md](reference/construction-sheets.md)
 - Extensions (Bonsai and IfcOpenShell, Sun Position, Point Cloud I/O): [reference/extensions.md](reference/extensions.md)
 - Upgrade a pin, or move a project's own helpers onto the lib: [reference/migration.md](reference/migration.md)
-- Function signatures and command-line syntax: [reference/api.md](reference/api.md)
+- Function signatures: [reference/api.md](reference/api.md)
+- How to run each script, and its flags: [reference/scripts.md](reference/scripts.md)
