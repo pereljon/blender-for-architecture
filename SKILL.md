@@ -162,7 +162,7 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 - One cause can give hits in two checks. A slab sunk into the floor and coplanar with it gives a coplanar hit and a floor_fit hit. Fix the slab, then run again.
 - If a check prints `... and k more`, pass `hits_file` and run again to see every hit.
 - In the hits file, each coplanar detail line ends with `buried`, `partly buried (k of n points)`, or `exposed`.
-- `buried` means that a point 2 mm in front of each overlap lies inside another closed object. Fix `exposed` and `partly buried` hits first.
+- `buried` means that every sample 2 mm in front of the overlaps lies inside a closed, render-visible object. One of the pair can be the cover. Fix `exposed` and `partly buried` hits first.
 - A buried hit still fails. It shows in a cut plan or a section, through glass, and when an option hides the covering object.
 - A tile or panel layer inside the wall volume gives coplanar hits and near-miss wall gaps where it meets walls and jambs. Read each such overlap in the file that `hits_file` writes before you fix or exempt it. List the layer prefix in `finishes`.
 - A camera hit gives a pixel box in the view's image at the run's `--res`. A failing run writes no image.
@@ -177,6 +177,7 @@ Besides `OK`, `FAIL`, and `SKIP`, `run_checks` prints these lines:
 - Give `openings` a list of pairs. One bare pair is read as two names, and the hit stays.
 - If one pair of objects overlaps on one plane by design, or the overlap is buried, exempt the pair: `exempt={"coplanar_pairs": [("ceiling_hall", "blocking_h")]}`.
 - In the coplanar check, exempt a pair, not an object. An object exemption drops every pair of that object and can hide a real defect.
+- The exemption drops every hit of that pair, on every plane. Check the pair's other planes before you exempt it.
 - Fix a buried hit when the fix is simple, such as removing a duplicate face. Otherwise exempt the pair, and name the covering object in the comment.
 - Give `coplanar_pairs` a list of pairs. A bare pair raises an error.
 - Give the reason for each exemption in a comment.

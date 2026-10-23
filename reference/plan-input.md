@@ -10,7 +10,7 @@ Two routes bring the plan into the scene script. Choose one per drawing set.
 1. Copy `plan_config.example.json` next to the script. Set `pdf`, `pt_per_unit`, and `origin`, and give each entry in `sheets` its `page`, `region`, and `out`. An entry may also set `shift`.
 2. List `page.get_drawings()` for a small area that holds known walls, doors, and posts.
 3. Read their fill, stroke color, and stroke width. Set `new_fill`, `existing_width`, `swing_width`, and `leaf_width` from them.
-4. Run `uvx --with pymupdf python -I blender/lib/<LIB>/extract_plan.py plan_config.json`.
+4. Run the command in [scripts.md](scripts.md), under `extract_plan.py`.
 5. Render a plan view and compare it with the sheet. Fix differences in the correction layer, never in the JSON.
 6. Run the extraction again whenever a new plan set arrives.
 

@@ -7,7 +7,7 @@ How to run each script, and its command-line flags. Function signatures are in [
 - Inside Blender: `"$BLENDER" --factory-startup -b --python-exit-code 1 -P script.py -- FLAGS` (SKILL.md, "Environment").
 - Plain Python, from the project folder: `uvx --with PACKAGES python -I blender/lib/<LIB>/SCRIPT.py ARGS`.
 
-`python -I` leaves the script's own folder off `sys.path`. A project script that imports a lib module inserts the lib folder itself, as a scene script's two `LIB` lines do.
+`python -I` leaves the script's own folder off `sys.path`. A script that imports a lib module inserts the lib folder itself, as a scene script's two `LIB` lines do. The same holds for an import of a sibling project module.
 
 ## templates/scene_template.py
 

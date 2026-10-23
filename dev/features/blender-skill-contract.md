@@ -1792,4 +1792,15 @@ Keep out, for everyone working on this revision: `dev/inputs/`; earlier revision
 - T55 "an object 0.4 m deep gives None" cannot be built in the 0.1 m floor: its probe starts at `lo.z + hang`, on the floor's bottom face. T55 uses a 0.35 m object in that floor, plus a second scene with a 0.5 m floor and a 0.4 m object (`deep_40`). Both expect None.
 - T54 adds `lamp.12` and `pad.0012` as names that must not match, to pin `\.\d{3}$`.
 - The E13 fixture commits no `blender/lib/v1.1.2/`; the eval copies `scripts/` there after R69 to R73, as for the v1.1.1 fixture. On the unchanged scripts it gives exactly the six named coplanar hits and no other failure.
+
+### Pre-merge review and E13 (2026-10-22)
+
+- E13 (fresh sonnet subagent, scratch export with `## Unreleased` retitled): pass. The agent passed `hits_file`, read the marks, fixed the ceiling pair by butting the two ceilings at x 3.2, exempted the four plate pairs and the blocking pair by exact names with covering-object comments (`roof_slab`, `insul`), and the final run printed `OK run_checks` and `DONE` with no `WARN exempt` line. It also moved the fill light from 2.6 m to 2.40 m to light the preview, a change outside the checks.
+- Review of `git diff v1.1.1..release-1.1.2` (opus, high): no Critical or Important; verdict merge as is. The reviewer reran the suite (77 of 77 on a scratch copy) and all seven mutations plus two of its own; each failed the test the contract names.
+- M1 (Minor, fixed): SKILL.md now says a pair exemption drops every hit of that pair, on every plane.
+- M2 (Minor, later): `None`, a number, or a generator for `coplanar_pairs` raises `TypeError` or is spent silently. Outside Revision 10's letter; recorded in skill `docs/ISSUES.md`.
+- M3 (Minor, fixed): the SKILL.md `buried` definition now says every sample and names render-visible covers, one of which can be a pair member.
+- M4 (Minor, fixed): `reference/plan-input.md` step 4 links to `scripts.md` instead of restating the command line; `scripts.md` "Two ways to run" now covers an import of a sibling project module as well as a lib module.
+- M5 (Minor, fixed): skill `docs/ISSUES.md` gains the hanging-support later item, and its J2 line no longer lists the duplicate-name warning that R73 delivered.
+- Uncertain, not a regression: the R72 tie-break needs both plan shares at exactly 1.0. A rotated panel is reported floating, because the plan-box method is axis-aligned; that is v1.1.1 behaviour. Float noise at flush edges could miss the tie; not reproduced.
 - T53 "open" is fixed at `f692d10`: the cover is `ENCLOSE` with its bottom face deleted (helper `open_box`, replacing `plane_obj`), and the render-invisible closed cover is its own case, `hidden`. The mutation "let open meshes cover" (`ent[2] = tree if closed else False` becomes `ent[2] = tree` in `_coplanar_detail`), on a scratch copy of `scripts/`, now fails `T53 open: want exposed, got buried` and nothing else. The unchanged scripts pass `bl_v112`.
