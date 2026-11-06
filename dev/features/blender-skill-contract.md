@@ -131,7 +131,7 @@ Suite after fixes: 31 passed, 0 failed.
 
 ## Revision 3 (2026-10-17, from the render projects' reviews)
 
-Sources: `../inputs/blender-skill-inputs.md`, reviews by render project B (items 10-1 to 10-11) and render project A (items A1 to A13).
+Sources: the render projects' inputs (removed from the repo on 2026-11-06), reviews by render project B (items 10-1 to 10-11) and render project A (items A1 to A13).
 
 Code changes (implementer):
 - R13 Feet defaults (10-2, 10-3, A2, A3). These defaults become `None` and resolve to the metric value divided by `U`: `planks(plank_w=0.18, plank_l=1.8)`, `stone_tile(tile=0.6, joint=0.01)`, `fix_walls(tol=0.06)`, `cut_openings(min_piece=0.05)`, `door_swings(z=0.06, width=0.04)`, `plan_camera(height=12.0)` (and `clip_end` = height + 6 m), `person(h=1.75)`, `dotted_square(dash=0.02, pitch=0.04, w=0.03)`, `dashed_path(dash=0.2, gap=0.12, w=0.03)`, `dotted_rect(dash=0.09, pitch=0.15, w=0.025)`. `tile_wall`'s sliver threshold becomes `0.004 / U`. Audit the rest of `bhelpers.py` and `mannequin.py` for metric literals applied to project-unit values; fix each the same way and list them in the report.
@@ -184,7 +184,7 @@ Docs (development session): views.md (clip renders cut objects as dark sections,
 
 ## Revision 5 (2026-10-19, extensions; proposed by render project B, taken on by the user's decision)
 
-Source: `../inputs/2026-10-19-extensions-proposal.md`. Verified in skill-developer on 2026-10-19: Blender 5.2.0 LTS ships numpy 2.3.4; bonsai, sun_position, and point_cloud_io are installed; with each enabled per run (`default_set=True`), IfcOpenShell 0.9.0.post1 imports, and every operator and property the draft names exists.
+Source: render project B's extensions proposal (removed from the repo on 2026-11-06). Verified in skill-developer on 2026-10-19: Blender 5.2.0 LTS ships numpy 2.3.4; bonsai, sun_position, and point_cloud_io are installed; with each enabled per run (`default_set=True`), IfcOpenShell 0.9.0.post1 imports, and every operator and property the draft names exists.
 
 Docs:
 - D1 SKILL.md Environment: Blender ships numpy; other packages come only with an extension. The helpers stay numpy-free.
@@ -219,7 +219,7 @@ Architect review (opus, read-only) and code review (opus; suite 41/41 on an expo
 
 ## Revision 5b (2026-10-21, remaining items)
 
-Source: "Revision 5 review findings" above (F1, F2, F11, F13 to F16, the DXF line), skill `docs/ISSUES.md` Planned, `../inputs/2026-10-19-wall-records.md`. Investigated against this repo at `ad71f03` and Blender 5.2.0 LTS (build hash `fbe6228777e7`, 2026-07-14), with scratch probes outside the repo. Nothing was installed. One probe changed shared extension state; see Verified, wheels, and question C2.
+Source: "Revision 5 review findings" above (F1, F2, F11, F13 to F16, the DXF line), skill `docs/ISSUES.md` Planned, render project B's answers on wall records (removed from the repo on 2026-11-06). Investigated against this repo at `ad71f03` and Blender 5.2.0 LTS (build hash `fbe6228777e7`, 2026-07-14), with scratch probes outside the repo. Nothing was installed. One probe changed shared extension state; see Verified, wheels, and question C2.
 
 Upstream versions read (extensions.blender.org API v1 index, fetched 2026-10-21; archives read, never run):
 
@@ -478,7 +478,7 @@ Suite 54 of 54 with all three extensions. All nine mutants killed (the missing-u
 
 ## Revision 6 (2026-10-20, phantom geometry defects; requested by render project B, approved by the user)
 
-Source: `../inputs/2026-10-20-phantom-defects.md`. Decision: skill `docs/ISSUES.md`, Decisions, 2026-10-20. Investigated against this repo at `6cf8009` and Blender 5.2.0 LTS, and against render project B's build script and README (read-only, the two files the user named).
+Source: render project B's defect report (removed from the repo on 2026-11-06). Decision: skill `docs/ISSUES.md`, Decisions, 2026-10-20. Investigated against this repo at `6cf8009` and Blender 5.2.0 LTS, and against render project B's build script and README (read-only, the two files the user named).
 
 Revised 2026-10-20 against `a5e5158`, after an architecture review (findings G1 to G13, "Review findings" below); the opening probe in R25 is the user's decision on G2.
 
@@ -763,11 +763,11 @@ Architecture review of the first Revision 6 text at `a5e5158` (opus, read-only; 
 - G10 Minor. The camera pixel box points into an image that a failing run never writes. Resolved: D5 says which image the box refers to and how to see the place.
 - G11 Minor, uncertain. The checks missed instances and saw objects that never render. Resolved: R32 reads `view_layer.objects`, which leaves out excluded collections and other scenes (verified); instances and collection-level render switches are documented limits in R32 and D5.
 - G12 Minor. Wording: D11 put two instructions in one sentence, D6 put a condition after its action, and D5 dropped the clash instruction for furniture. Resolved in D5, D6, and D11.
-- G13 Minor, uncertain. The design names the user. Kept, by decision (skill `docs/ISSUES.md`, Decisions).
+- G13 Minor, uncertain. The design named the user. Kept by the 2026-10-20 decision; the 2026-11-06 decision replaced the name with "the user" (skill `docs/ISSUES.md`, Decisions).
 
 ### Code review findings (2026-10-20, opus, at `352a14b`)
 
-Suite at review: 48 passed, 2 failed (the expected `test_api_doc` steps). Scratch probes are outside the repo. the user approved the fixes below on 2026-10-20 (M1, M2); the fixes amend R22, R24, R26, R27 wiring and R32.
+Suite at review: 48 passed, 2 failed (the expected `test_api_doc` steps). Scratch probes are outside the repo. The user approved the fixes below on 2026-10-20 (M1, M2); the fixes amend R22, R24, R26, R27 wiring and R32.
 
 - C1 Critical. A plan view fails `no-header` on every split-wall opening with a header. `plan_cut` hides objects above the cut from render, so the up ray finds nothing (`checks.py:286-297`, `bhelpers.py:977-1002`; verified in Blender). Fix: run the opening up-ray probe only when the scene camera is perspective; a plan run checks floors only. Test: the opening scene with a header under a plan camera gives `OK wall_gaps`.
 - I1 Important. `floor_fit` reports ceilings, beams, and pendants under an upper slab as sunk, because the probe starts above or inside that slab (`checks.py:337-343`; verified). Fix: start the probe at `min(lo.z + hang, hi.z - 1e-4)`. Test: a two-storey case.
@@ -787,7 +787,7 @@ Suite at review: 48 passed, 2 failed (the expected `test_api_doc` steps). Scratc
 
 ### Re-review findings (2026-10-20, opus, at `aaaa951`)
 
-the user approved the fixes below on 2026-10-21 (Q1). The 2.0 m rule now gates only the `no-header` probe, so `no-floor` still runs at half walls more than 1 m above the higher wall bottom; this amends m3.
+The user approved the fixes below on 2026-10-21 (Q1). The 2.0 m rule now gates only the `no-header` probe, so `no-floor` still runs at half walls more than 1 m above the higher wall bottom; this amends m3.
 
 - N1 Important. The m3 gate compares the wall top's absolute z with 2.0 m, not the wall height (`checks.py:296`, `top < 2.0`). Fix: gate on `top - max(bottoms) < 2.0`. Tests: walls on a storey at z 3.0 and at z -2.7.
 - N2 Important. The I1 probe start fails for a zero-thickness object on the floor top: the probe starts inside the floor and reports sunk more than 0.300 m (`checks.py:348`; verified at 0 and 5e-5 m). Fix: start at `min(lo.z + hang, max(hi.z - 1e-4, lo.z + 1e-4))`.
@@ -796,7 +796,7 @@ the user approved the fixes below on 2026-10-21 (Q1). The 2.0 m rule now gates o
 
 ### Open questions
 
-None open. the user answered A1 to A7 and B1 on 2026-10-20, accepting each recommendation (skill `docs/ISSUES.md`, Decisions): `exempt` takes exact names only (A1); fix `lathe` normals (A2); add the dark-sill QA item (A3); fold in the coplanar mirrored fix (A4); keep the 0.30 m hung limit (A5); approve the revised T16 to T20 (A6); send the wiring to the render project after v1.0.0 (A7); keep the floor-fit support test (B1).
+None open. The user answered A1 to A7 and B1 on 2026-10-20, accepting each recommendation (skill `docs/ISSUES.md`, Decisions): `exempt` takes exact names only (A1); fix `lathe` normals (A2); add the dark-sill QA item (A3); fold in the coplanar mirrored fix (A4); keep the 0.30 m hung limit (A5); approve the revised T16 to T20 (A6); send the wiring to the render project after v1.0.0 (A7); keep the floor-fit support test (B1).
 
 ### Order of work, and how to continue if interrupted
 
@@ -1098,7 +1098,7 @@ Applied provisionally with the recommended defaults, so work can start; the user
 
 ### Order of work, and how to continue if interrupted
 
-0. the user answers P1 to P3. Until then, the recommended defaults stand; a different answer changes R46 (P1), R57 (P2), or R42 and T37 (P3).
+0. The user answers P1 to P3. Until then, the recommended defaults stand; a different answer changes R46 (P1), R57 (P2), or R42 and T37 (P3).
 1. Done: the skill-developer F1 change (CHANGELOG in exports) is merged on its `main` at `364e44d`.
 2. The test author writes T30 to T41 and the E10 fixture on branch `v1.1.0`. The tests fail as stated, except T41, which skips.
 3. The implementer makes R40 to R44.
@@ -1140,7 +1140,7 @@ Pre-merge review (opus, high): no Critical; requirements R40 to R57 met. Evals E
 
 ## Revision 9 (2026-10-21, v1.1.1)
 
-Scope, approved by the user on 2026-10-21 (R1): three fixes from field reports of two render projects' check runs, and migration guidance from the same reports. (1) `floor_fit` false positives on supported objects; (2) a narrow coplanar opt-out for planes that overlap by design; (3) a full hit list written to a file. the user dropped the minor items (`look()` precision, dump tolerance, flicker notes); the E10 rerun's migration gaps stay in skill `docs/ISSUES.md` for later. Investigated against branch `release-1.1.1` at `842dd53` (v1.1.0 plus records). Files read; Blender not run. Revised the same day after an independent review (C1, C2, I3, I4, and minors) and the user's decisions V1 and W1; the floor_fit design below is the revised one.
+Scope, approved by the user on 2026-10-21 (R1): three fixes from field reports of two render projects' check runs, and migration guidance from the same reports. (1) `floor_fit` false positives on supported objects; (2) a narrow coplanar opt-out for planes that overlap by design; (3) a full hit list written to a file. The user dropped the minor items (`look()` precision, dump tolerance, flicker notes); the E10 rerun's migration gaps stay in skill `docs/ISSUES.md` for later. Investigated against branch `release-1.1.1` at `842dd53` (v1.1.0 plus records). Files read; Blender not run. Revised the same day after an independent review (C1, C2, I3, I4, and minors) and the user's decisions V1 and W1; the floor_fit design below is the revised one.
 
 ### Decisions (2026-10-21, the user)
 
@@ -1457,7 +1457,7 @@ Fresh sonnet subagents read `SKILL.md` by absolute path, not through the Skill t
 
 ### Open questions
 
-None open. the user decided X1 on 2026-10-21 (Decisions, the broad-face rule). The factor of two in R58 (Broad face) is the architect's reading of "largest face".
+None open. The user decided X1 on 2026-10-21 (Decisions, the broad-face rule). The factor of two in R58 (Broad face) is the architect's reading of "largest face".
 
 ### Order of work, and how to continue if interrupted
 
