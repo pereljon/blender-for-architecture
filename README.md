@@ -123,3 +123,7 @@ The rest of the skill:
 - [SKILL.md](SKILL.md): the instructions the agent follows.
 - [reference/](reference/): `api.md` (function signatures), `scripts.md` (how to run each script), `plan-input.md`, `views.md`, `studies.md`, `construction-sheets.md`, `extensions.md`, and `migration.md`.
 - [dev/features/blender-skill-contract.md](dev/features/blender-skill-contract.md): the design contract for `scripts/`.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).

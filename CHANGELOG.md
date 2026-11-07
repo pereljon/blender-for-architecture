@@ -7,6 +7,12 @@ Conventions, kept from v1.1.0 on:
 - Name each public function whose signature or behaviour changed, or that was added or removed, as `module.function()`. Put it under Changed, Fixed, Added, or Removed.
 - The skill reads the installed version from the first numbered heading.
 
+## Unreleased
+
+### Added
+
+- An MIT licence, in `LICENSE`. It ships with the skill.
+
 ## [1.1.2] - 2026-10-22
 
 This patch release adds an exemption key and new output, which Semantic Versioning counts as a minor release. Decided on 2026-10-21 as a deviation, as for 1.1.1.
